@@ -189,10 +189,10 @@ StockPulse/
 
 ### Phase 1 — Project Setup
 
-- [ ] Create the local Python project
-- [ ] Create a virtual environment
-- [ ] Add configuration and dependency files
-- [ ] Connect the local project to GitHub
+- [x] Create the local Python project
+- [x] Create a virtual environment
+- [x] Add configuration and dependency files
+- [x] Connect the local project to GitHub
 
 ### Phase 2 — Collection and Storage
 
@@ -237,9 +237,9 @@ StockPulse/
 > 🚧 **Currently in active development**
 
 ```text
-Completed: project planning and data-source proof of concept
-Current milestone: repository and Python project setup
-Next milestone: retrieve Apify data from Python
+Completed: project planning, data-source proof of concept, and Python project setup
+Current milestone: Apify data collection
+Next milestone: retrieve and validate TSLA messages from Python
 ```
 
 ## Future Ideas
@@ -389,8 +389,8 @@ Apify 的使用成本是项目的重要限制，因此第一版会主动保持�
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | Phase 0 | 明确目标、选择数据源、完成真实抓取测试 | ✅ 已完成 |
-| Phase 1 | 建立本地 Python 项目并连接 GitHub | ⏳ 下一步 |
-| Phase 2 | 使用 Python 采集、清洗、去重并保存数据 | ⏳ 待开始 |
+| Phase 1 | 建立本地 Python 项目并连接 GitHub | ✅ 已完成 |
+| Phase 2 | 使用 Python 采集、清洗、去重并保存数据 | ⏳ 下一步 |
 | Phase 3 | AI 情绪与话题分析 | ⏳ 待开始 |
 | Phase 4 | 建立历史基准并检测异常 | ⏳ 待开始 |
 | Phase 5 | 生成事件摘要和邮件提醒 | ⏳ 待开始 |
@@ -401,9 +401,9 @@ Apify 的使用成本是项目的重要限制，因此第一版会主动保持�
 > 🚧 **项目正在开发中**
 
 ```text
-已完成：项目规划与数据源可行性验证
-当前阶段：建立仓库和 Python 项目
-下一阶段：通过 Python 获取 Apify 数据
+已完成：项目规划、数据源可行性验证和 Python 项目搭建
+当前阶段：连接 Apify 数据采集
+下一阶段：通过 Python 获取并验证 TSLA 帖子
 ```
 
 ## 后续扩展
