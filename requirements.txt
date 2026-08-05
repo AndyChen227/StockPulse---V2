@@ -1,2 +1,2 @@
-# Runtime dependencies will be added in Phase 2 when Apify is connected.
-# Phase 1 intentionally uses only Python's standard library.
+apify-client==3.1.1
+python-dotenv==1.2.2
