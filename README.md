@@ -147,6 +147,32 @@ Apify usage is a real project constraint, so V1 intentionally stays small:
 | Gmail API | Planned anomaly email alerts |
 | GitHub | Version control and documentation |
 
+## Local Collection Commands
+
+StockPulse separates free local commands from the command that starts a paid Actor run.
+
+```powershell
+# Install the tested dependencies.
+python -m pip install -r requirements.txt
+
+# Make the src package available in the current PowerShell session.
+$env:PYTHONPATH = "src"
+
+# Preview configuration. This does not contact Apify.
+python -m stockpulse.main
+
+# Explicitly start one cost-capped Actor run.
+python -m stockpulse.main --collect
+
+# Read an existing successful run without starting another Actor.
+python -m stockpulse.main --resume-run YOUR_RUN_ID
+
+# Show daily statistics stored in local SQLite. This does not contact Apify.
+python -m stockpulse.main --stats
+```
+
+The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
+
 ## Planned Architecture
 
 ```text
@@ -158,8 +184,7 @@ StockPulse/
 │       ├── analyzer/
 │       │   ├── sentiment.py
 │       │   └── topics.py
-│       ├── database/
-│       │   └── storage.py
+│       ├── storage.py
 │       ├── detection/
 │       │   └── anomaly.py
 │       ├── notification/
@@ -196,11 +221,11 @@ StockPulse/
 
 ### Phase 2 — Collection and Storage
 
-- [ ] Connect Python to Apify
-- [ ] Retrieve and parse TSLA messages
-- [ ] Validate required fields and handle errors
-- [ ] Deduplicate messages by `messageId`
-- [ ] Store raw messages and daily statistics
+- [x] Connect Python to Apify
+- [x] Retrieve and parse TSLA messages
+- [x] Validate required fields and handle errors
+- [x] Deduplicate messages by `messageId`
+- [x] Store raw messages and daily statistics
 
 ### Phase 3 — AI Analysis
 
@@ -237,9 +262,9 @@ StockPulse/
 > 🚧 **Currently in active development**
 
 ```text
-Completed: project planning, data-source proof of concept, and Python project setup
-Current milestone: Apify data collection
-Next milestone: retrieve and validate TSLA messages from Python
+Completed: project planning, Python setup, and cost-capped Apify data collection
+Current milestone: AI sentiment analysis
+Next milestone: classify unlabeled messages as Bullish, Neutral, or Bearish
 ```
 
 ## Future Ideas
@@ -384,14 +409,40 @@ Apify 的使用成本是项目的重要限制，因此第一版会主动保持�
 | Gmail API | 计划中的异常邮件提醒 |
 | GitHub | 版本管理和项目文档 |
 
+## 本地采集命令
+
+StockPulse 会把免费的本地命令与真正启动付费 Actor 的命令分开。
+
+```powershell
+# 安装经过测试的依赖
+python -m pip install -r requirements.txt
+
+# 让当前 PowerShell 会话能够找到 src 中的项目代码
+$env:PYTHONPATH = "src"
+
+# 预览配置，不连接 Apify
+python -m stockpulse.main
+
+# 明确启动一次带费用保护的 Actor Run
+python -m stockpulse.main --collect
+
+# 读取已经成功的 Run，不重新启动 Actor
+python -m stockpulse.main --resume-run YOUR_RUN_ID
+
+# 查看 SQLite 中的每日统计，不连接 Apify
+python -m stockpulse.main --stats
+```
+
+真实 `.env`、原始 JSON 和 SQLite 数据库均不会上传到 Git。当前测试配置将单次运行限制为 **5 条消息**、**5 分钟**和 **最高 0.05 美元 Actor 费用**。
+
 ## 开发路线
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | Phase 0 | 明确目标、选择数据源、完成真实抓取测试 | ✅ 已完成 |
 | Phase 1 | 建立本地 Python 项目并连接 GitHub | ✅ 已完成 |
-| Phase 2 | 使用 Python 采集、清洗、去重并保存数据 | ⏳ 下一步 |
-| Phase 3 | AI 情绪与话题分析 | ⏳ 待开始 |
+| Phase 2 | 使用 Python 采集、清洗、去重并保存数据 | ✅ 已完成 |
+| Phase 3 | AI 情绪与话题分析 | ⏳ 下一步 |
 | Phase 4 | 建立历史基准并检测异常 | ⏳ 待开始 |
 | Phase 5 | 生成事件摘要和邮件提醒 | ⏳ 待开始 |
 | Phase 6 | 自动化、Docker 和云端部署 | ⏳ 待开始 |
@@ -401,9 +452,9 @@ Apify 的使用成本是项目的重要限制，因此第一版会主动保持�
 > 🚧 **项目正在开发中**
 
 ```text
-已完成：项目规划、数据源可行性验证和 Python 项目搭建
-当前阶段：连接 Apify 数据采集
-下一阶段：通过 Python 获取并验证 TSLA 帖子
+已完成：项目规划、Python 搭建和带费用保护的 Apify 数据采集
+当前阶段：AI 情绪分析
+下一阶段：将未标注帖子分类为看多、中性或看空
 ```
 
 ## 后续扩展
