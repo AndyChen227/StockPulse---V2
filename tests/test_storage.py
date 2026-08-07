@@ -13,8 +13,12 @@ SRC_PATH = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_PATH))
 
 from stockpulse.storage import (  # noqa: E402
+    MessageAnalysis,
+    get_ai_daily_stats,
     get_daily_stats,
+    get_unanalyzed_messages,
     save_raw_messages,
+    store_message_analyses,
     store_messages,
 )
 
@@ -81,6 +85,47 @@ class StorageTests(unittest.TestCase):
                 "updated_at": daily_stats[0]["updated_at"],
             },
         )
+
+    def test_phase_two_database_is_migrated_and_ai_results_are_idempotent(self) -> None:
+        messages = [
+            {
+                "messageId": 10,
+                "body": "$TSLA looks strong",
+                "createdAt": "2026-08-05T03:00:00Z",
+                "sentiment": "Bullish",
+                "symbols": ["TSLA"],
+                "username": "tester",
+                "userFollowers": 5,
+                "url": "https://example.com/10",
+            }
+        ]
+        analysis = MessageAnalysis(
+            message_id=10,
+            sentiment="Bullish",
+            confidence=0.92,
+            model_name="test-model",
+        )
+
+        with TemporaryDirectory() as directory:
+            database_path = Path(directory) / "stockpulse.db"
+            store_messages(messages, database_path=database_path)
+            pending_before = get_unanalyzed_messages(database_path=database_path)
+            first_updated = store_message_analyses(
+                [analysis], database_path=database_path
+            )
+            second_updated = store_message_analyses(
+                [analysis], database_path=database_path
+            )
+            pending_after = get_unanalyzed_messages(database_path=database_path)
+            ai_stats = get_ai_daily_stats(database_path=database_path)
+
+        self.assertEqual([message.message_id for message in pending_before], [10])
+        self.assertEqual(first_updated, 1)
+        self.assertEqual(second_updated, 0)
+        self.assertEqual(pending_after, [])
+        self.assertEqual(ai_stats[0]["analyzed_count"], 1)
+        self.assertEqual(ai_stats[0]["bullish_count"], 1)
+        self.assertEqual(ai_stats[0]["agreement_count"], 1)
 
 
 if __name__ == "__main__":

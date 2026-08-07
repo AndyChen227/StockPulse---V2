@@ -11,6 +11,8 @@ SRC_PATH = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_PATH))
 
 from stockpulse.main import build_startup_message, main  # noqa: E402
+from stockpulse.sentiment import SentimentResult  # noqa: E402
+from stockpulse.storage import PendingMessage  # noqa: E402
 
 
 class MainTests(unittest.TestCase):
@@ -56,6 +58,29 @@ class MainTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         collect_mock.assert_not_called()
+
+    @patch("stockpulse.main.store_message_analyses", return_value=1)
+    @patch("stockpulse.main.SentimentAnalyzer")
+    @patch("stockpulse.main.get_unanalyzed_messages")
+    def test_analyze_mode_uses_only_local_stored_messages(
+        self,
+        get_pending_mock,
+        analyzer_class_mock,
+        store_analyses_mock,
+    ) -> None:
+        get_pending_mock.return_value = [
+            PendingMessage(1, "$TSLA looks strong", "Bullish")
+        ]
+        analyzer_class_mock.return_value.analyze.return_value = [
+            SentimentResult("Bullish", 0.90, "test-model")
+        ]
+
+        with patch("stockpulse.main.collect_messages") as collect_mock:
+            exit_code = main(["--analyze"])
+
+        self.assertEqual(exit_code, 0)
+        collect_mock.assert_not_called()
+        store_analyses_mock.assert_called_once()
 
 
 if __name__ == "__main__":
