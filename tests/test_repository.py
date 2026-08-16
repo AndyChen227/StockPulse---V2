@@ -47,6 +47,67 @@ class RepositoryContractMixin:
         self.assertEqual(stats[0]["stat_date"], "2026-08-06")
         self.assertEqual(stats[0]["total_messages"], 1)
 
+    def test_message_explorer_filters_topics_and_uses_stable_cursor(self) -> None:
+        messages = [
+            {
+                **VALID_MESSAGE,
+                "messageId": 201,
+                "body": "Older robotaxi discussion",
+                "createdAt": "2026-08-01T00:00:00Z",
+                "url": "https://example.com/201",
+            },
+            {
+                **VALID_MESSAGE,
+                "messageId": 202,
+                "body": "Delivery update",
+                "createdAt": "2026-08-02T00:00:00Z",
+                "url": "https://example.com/202",
+            },
+            {
+                **VALID_MESSAGE,
+                "messageId": 203,
+                "body": "Robotaxi is 100% ready",
+                "createdAt": "2026-08-03T00:00:00Z",
+                "url": "https://example.com/203",
+            },
+        ]
+        self.repository.store_messages(messages)
+        self.repository.store_message_topics(
+            [
+                MessageTopic(
+                    message_id=203,
+                    topic="Robotaxi",
+                    score=1.0,
+                    matched_terms=("robotaxi",),
+                    rank=1,
+                    topic_version=TOPIC_ANALYSIS_VERSION,
+                )
+            ]
+        )
+
+        first_page = self.repository.get_messages(
+            limit=2, topic_version=TOPIC_ANALYSIS_VERSION
+        )
+        second_page = self.repository.get_messages(
+            limit=2,
+            before_created_at=first_page[-1]["created_at"],
+            before_message_id=first_page[-1]["message_id"],
+            topic_version=TOPIC_ANALYSIS_VERSION,
+        )
+        literal_wildcard = self.repository.get_messages(
+            query="%", topic_version=TOPIC_ANALYSIS_VERSION
+        )
+        topic_filtered = self.repository.get_messages(
+            topic="Robotaxi", topic_version=TOPIC_ANALYSIS_VERSION
+        )
+
+        self.assertEqual([row["message_id"] for row in first_page], [203, 202])
+        self.assertEqual([row["message_id"] for row in second_page], [201])
+        self.assertEqual([row["message_id"] for row in literal_wildcard], [203])
+        self.assertEqual([row["message_id"] for row in topic_filtered], [203])
+        self.assertEqual(topic_filtered[0]["topics"][0]["topic"], "Robotaxi")
+        self.assertNotIn("raw_json", topic_filtered[0])
+
     def test_run_lifecycle_preserves_operational_metadata(self) -> None:
         run_id = self.repository.start_run(
             "collect",

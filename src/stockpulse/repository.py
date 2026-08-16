@@ -15,6 +15,7 @@ from stockpulse.storage import (
     get_ai_daily_stats,
     get_anomaly_history,
     get_daily_stats,
+    get_messages,
     get_run_history,
     get_representative_candidates,
     get_topic_candidates,
@@ -37,6 +38,22 @@ class StockPulseRepository(Protocol):
     def store_messages(self, messages: list[dict[str, Any]]) -> StorageResult: ...
 
     def get_daily_stats(self) -> list[dict[str, Any]]: ...
+
+    def get_messages(
+        self,
+        *,
+        limit: int = 51,
+        before_created_at: str | None = None,
+        before_message_id: int | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        query: str | None = None,
+        stocktwits_sentiment: str | None = None,
+        ai_sentiment: str | None = None,
+        minimum_confidence: float | None = None,
+        topic: str | None = None,
+        topic_version: str | None = None,
+    ) -> list[dict[str, Any]]: ...
 
     def get_ai_daily_stats(
         self, *, analysis_version: str | None = None
@@ -116,6 +133,36 @@ class SQLiteRepository:
 
     def get_daily_stats(self) -> list[dict[str, Any]]:
         return get_daily_stats(database_path=self.database_path)
+
+    def get_messages(
+        self,
+        *,
+        limit: int = 51,
+        before_created_at: str | None = None,
+        before_message_id: int | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        query: str | None = None,
+        stocktwits_sentiment: str | None = None,
+        ai_sentiment: str | None = None,
+        minimum_confidence: float | None = None,
+        topic: str | None = None,
+        topic_version: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_messages(
+            database_path=self.database_path,
+            limit=limit,
+            before_created_at=before_created_at,
+            before_message_id=before_message_id,
+            start_date=start_date,
+            end_date=end_date,
+            query=query,
+            stocktwits_sentiment=stocktwits_sentiment,
+            ai_sentiment=ai_sentiment,
+            minimum_confidence=minimum_confidence,
+            topic=topic,
+            topic_version=topic_version,
+        )
 
     def get_ai_daily_stats(
         self, *, analysis_version: str | None = None
