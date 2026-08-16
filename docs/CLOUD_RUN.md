@@ -54,3 +54,8 @@ The first real Cloud Run deployment should happen only after the production
 repository can connect to durable storage and the user has approved the Google
 Cloud project, region, access policy, and expected cost. Until then, this image
 is a reproducible deployment artifact and CI smoke-test target.
+
+PostgreSQL configuration, bounded pooling, and ordered schema migrations are
+now implemented as a local foundation. See [PostgreSQL implementation](POSTGRESQL.md).
+The service is not switched to PostgreSQL until the full repository contract
+and SQLite migration verification pass.

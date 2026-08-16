@@ -29,6 +29,10 @@ class Settings:
     sentiment_model: str = DEFAULT_MODEL_NAME
     sentiment_model_revision: str = DEFAULT_MODEL_REVISION
     sentiment_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD
+    database_backend: str = "sqlite"
+    database_url: str | None = field(default=None, repr=False)
+    database_pool_min_size: int = 1
+    database_pool_max_size: int = 4
 
     @property
     def has_api_token(self) -> bool:
@@ -61,6 +65,10 @@ def load_settings(
     sentiment_threshold_text = os.getenv(
         "STOCKPULSE_SENTIMENT_THRESHOLD", str(DEFAULT_CONFIDENCE_THRESHOLD)
     ).strip()
+    database_backend = os.getenv("STOCKPULSE_DATABASE_BACKEND", "sqlite").strip().lower()
+    database_url = _clean_secret(os.getenv("STOCKPULSE_DATABASE_URL"))
+    pool_min_text = os.getenv("STOCKPULSE_DATABASE_POOL_MIN_SIZE", "1").strip()
+    pool_max_text = os.getenv("STOCKPULSE_DATABASE_POOL_MAX_SIZE", "4").strip()
 
     if require_token and not api_token:
         raise ValueError(
@@ -115,6 +123,30 @@ def load_settings(
             "STOCKPULSE_SENTIMENT_THRESHOLD must be between 0 and 1."
         )
 
+    if database_backend not in {"sqlite", "postgresql"}:
+        raise ValueError(
+            "STOCKPULSE_DATABASE_BACKEND must be 'sqlite' or 'postgresql'."
+        )
+    if database_backend == "postgresql":
+        if not database_url:
+            raise ValueError(
+                "STOCKPULSE_DATABASE_URL is required for the PostgreSQL backend."
+            )
+        if not database_url.startswith(("postgresql://", "postgres://")):
+            raise ValueError(
+                "STOCKPULSE_DATABASE_URL must use a PostgreSQL connection URL."
+            )
+
+    try:
+        database_pool_min_size = int(pool_min_text)
+        database_pool_max_size = int(pool_max_text)
+    except ValueError as error:
+        raise ValueError("Database pool sizes must be whole numbers.") from error
+    if not 1 <= database_pool_min_size <= database_pool_max_size <= 10:
+        raise ValueError(
+            "Database pool sizes must satisfy 1 <= minimum <= maximum <= 10."
+        )
+
     return Settings(
         api_token=api_token,
         actor_id=actor_id,
@@ -124,6 +156,10 @@ def load_settings(
         sentiment_model=sentiment_model,
         sentiment_model_revision=sentiment_model_revision,
         sentiment_threshold=sentiment_threshold,
+        database_backend=database_backend,
+        database_url=database_url,
+        database_pool_min_size=database_pool_min_size,
+        database_pool_max_size=database_pool_max_size,
     )
 
 

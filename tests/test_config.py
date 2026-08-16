@@ -33,6 +33,10 @@ class SettingsTests(unittest.TestCase):
             "3216a57f2a0d9c45a2e6c20157c20c49fb4bf9c7",
         )
         self.assertEqual(settings.sentiment_threshold, 0.60)
+        self.assertEqual(settings.database_backend, "sqlite")
+        self.assertIsNone(settings.database_url)
+        self.assertEqual(settings.database_pool_min_size, 1)
+        self.assertEqual(settings.database_pool_max_size, 4)
         self.assertFalse(settings.has_api_token)
 
     def test_symbol_is_normalized(self) -> None:
@@ -81,6 +85,41 @@ class SettingsTests(unittest.TestCase):
             clear=True,
         ):
             with self.assertRaisesRegex(ValueError, "must be between 0 and 1"):
+                load_settings(load_env_file=False)
+
+    def test_postgres_requires_a_secret_url_and_bounded_pool(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"STOCKPULSE_DATABASE_BACKEND": "postgresql"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(ValueError, "DATABASE_URL is required"):
+                load_settings(load_env_file=False)
+
+        with patch.dict(
+            os.environ,
+            {
+                "STOCKPULSE_DATABASE_BACKEND": "postgresql",
+                "STOCKPULSE_DATABASE_URL": "postgresql://user:secret@db/stockpulse",
+                "STOCKPULSE_DATABASE_POOL_MIN_SIZE": "2",
+                "STOCKPULSE_DATABASE_POOL_MAX_SIZE": "5",
+            },
+            clear=True,
+        ):
+            settings = load_settings(load_env_file=False)
+
+        self.assertEqual(settings.database_backend, "postgresql")
+        self.assertEqual(settings.database_pool_min_size, 2)
+        self.assertEqual(settings.database_pool_max_size, 5)
+        self.assertNotIn("secret", repr(settings))
+
+    def test_database_pool_rejects_unbounded_configuration(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"STOCKPULSE_DATABASE_POOL_MAX_SIZE": "11"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(ValueError, "maximum <= 10"):
                 load_settings(load_env_file=False)
 
 

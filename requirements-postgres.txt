@@ -1,0 +1,3 @@
+-r requirements.txt
+psycopg[binary]==3.3.4
+psycopg-pool==3.3.1
