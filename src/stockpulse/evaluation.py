@@ -7,7 +7,13 @@ import json
 from pathlib import Path
 from typing import Any, Sequence
 
-from stockpulse.sentiment import SentimentAnalyzer, SentimentResult
+from stockpulse.sentiment import (
+    DEFAULT_CONFIDENCE_THRESHOLD,
+    DEFAULT_MODEL_NAME,
+    DEFAULT_MODEL_REVISION,
+    SentimentAnalyzer,
+    SentimentResult,
+)
 
 
 LABELS = ("Bullish", "Neutral", "Bearish")
@@ -161,6 +167,13 @@ def report_as_dict(report: EvaluationReport) -> dict[str, Any]:
     return asdict(report)
 
 
+def canonical_dataset_hash(path: Path) -> str:
+    """Hash UTF-8 text with LF newlines for cross-platform reproducibility."""
+
+    canonical_text = "\n".join(path.read_text(encoding="utf-8").splitlines()) + "\n"
+    return sha256(canonical_text.encode("utf-8")).hexdigest()
+
+
 def build_parser() -> ArgumentParser:
     parser = ArgumentParser(description="Evaluate StockPulse financial direction.")
     parser.add_argument(
@@ -169,13 +182,24 @@ def build_parser() -> ArgumentParser:
         default=Path("evaluations/finance_sentiment_v1.jsonl"),
     )
     parser.add_argument("--json-output", type=Path)
+    parser.add_argument("--model", default=DEFAULT_MODEL_NAME)
+    parser.add_argument("--revision", default=DEFAULT_MODEL_REVISION)
+    parser.add_argument(
+        "--confidence-threshold",
+        type=float,
+        default=DEFAULT_CONFIDENCE_THRESHOLD,
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     examples = load_evaluation_set(args.dataset)
-    analyzer = SentimentAnalyzer()
+    analyzer = SentimentAnalyzer(
+        model_name=args.model,
+        model_revision=args.revision,
+        confidence_threshold=args.confidence_threshold,
+    )
     predictions = analyzer.analyze([example.text for example in examples])
     report = evaluate_predictions(examples, predictions)
     first_prediction = predictions[0]
@@ -183,7 +207,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "evaluation_schema_version": 1,
         "dataset": {
             "path": args.dataset.as_posix(),
-            "sha256": sha256(args.dataset.read_bytes()).hexdigest(),
+            "sha256": canonical_dataset_hash(args.dataset),
             "examples": len(examples),
         },
         "analysis": {

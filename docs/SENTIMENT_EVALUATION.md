@@ -67,6 +67,21 @@ Three of the four errors were above the current `0.60` confidence threshold. The
 
 The machine-readable baseline, including the exact dataset hash and every error, is stored in `evaluations/results/twitter-roberta-v1.json`.
 
+## Finance-model comparison
+
+The same 36 examples were evaluated with [ProsusAI FinBERT](https://huggingface.co/ProsusAI/finbert), pinned to revision `4556d13015211d73dccd3fdd39d39232506f3e43`. Its model card describes continued training on a financial corpus and fine-tuning with Financial PhraseBank. The associated [FinBERT paper](https://arxiv.org/abs/1908.10063) motivates domain-specific language modeling for financial sentiment.
+
+| Model | Accuracy | Macro F1 | Direction reversals | Errors |
+|---|---:|---:|---:|---:|
+| Twitter-RoBERTa baseline | **88.9%** | **89.2%** | **0** | **4** |
+| ProsusAI FinBERT | 69.4% | 69.5% | 2 | 11 |
+
+FinBERT performed worse on this social-investor benchmark. It classified five Neutral examples as Bearish and produced two severe direction reversals: one Bullish example became Bearish and one Bearish example became Bullish. Its average confidence was higher despite lower accuracy, so confidence alone did not make it safer.
+
+Decision: **do not replace the current adapter with ProsusAI FinBERT**. Keep Twitter-RoBERTa as the experimental baseline while expanding the evaluation set. This is a benchmark-specific decision, not a claim that FinBERT is generally inferior; its training domain is closer to formal financial text than Stocktwits-style language.
+
+The FinBERT model card does not currently declare a license in its metadata. Production use would require license clarification even if a later benchmark favored it. The complete comparison output is stored in `evaluations/results/prosus-finbert-v1.json`.
+
 ## Interpretation
 
 The pinned model is a useful experimental baseline. On this set, it did not reverse any Bullish example to Bearish or any Bearish example to Bullish. Its observed failure mode was under-detection: financially directional language was sometimes treated as Neutral.
@@ -88,7 +103,7 @@ Before sentiment drives anomaly alerts, StockPulse should:
 3. have a second human review ambiguous and mixed-direction labels
 4. separate a final held-out test set from development examples
 5. define minimum per-label recall and calibration targets
-6. compare the current adapter with at least one finance-oriented alternative
+6. compare additional finance-oriented or social-finance alternatives if their licensing and maintenance are acceptable
 7. document every rule or calibration change through a new analysis version
 
 Until that gate is met, Dashboard sentiment should be labeled experimental and should display model version and confidence context.

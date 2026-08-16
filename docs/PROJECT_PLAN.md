@@ -147,6 +147,7 @@ Completed:
 - Backend-neutral repository contract with a tested SQLite implementation
 - Partial run status, validation counts, limits, retry relationships, and Apify run/dataset identifiers
 - Reproducible 36-example finance-specific sentiment benchmark and pinned-model baseline
+- ProsusAI FinBERT comparison completed; current Twitter-RoBERTa adapter retained after outperforming it on the tracked benchmark
 - Local `--runs` history view for operational verification
 - Python 3.11 and 3.12 GitHub Actions tests
 
@@ -168,7 +169,7 @@ Planned work:
 
 1. Create a finance-specific labeled evaluation set with difficult and mixed-direction examples.
 2. Expand the initial 36-example benchmark to at least 150 reviewed examples with a held-out test split.
-3. Compare the current adapter with at least one finance-oriented alternative, then keep, calibrate, or replace it.
+3. Expand model comparison only with candidates that have acceptable licensing and Stocktwits-relevant behavior.
 4. Extract versioned discussion topics without overwriting sentiment history.
 5. Select representative messages with source links and documented ranking rules.
 6. Extend repository contracts and daily metrics for topic history.
