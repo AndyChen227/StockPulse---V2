@@ -210,6 +210,13 @@ python -m stockpulse.main --runs
 # Evaluate the pinned model on the tracked finance-specific benchmark.
 # This uses local AI dependencies and never contacts Apify.
 python -m stockpulse.evaluation
+
+# Extract versioned topics from messages that have current AI sentiment.
+python -m stockpulse.main --analyze-topics
+
+# Show stored topic counts or representative source-linked messages.
+python -m stockpulse.main --topic-stats
+python -m stockpulse.main --representatives "Deliveries & Demand"
 ```
 
 The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
@@ -510,6 +517,13 @@ python -m stockpulse.main --runs
 
 # 使用仓库内的金融语境基准评估固定版本模型；不会连接 Apify
 python -m stockpulse.evaluation
+
+# 从已完成当前情绪分析的消息中提取版本化话题
+python -m stockpulse.main --analyze-topics
+
+# 查看话题统计或带原帖链接的代表性消息
+python -m stockpulse.main --topic-stats
+python -m stockpulse.main --representatives "Deliveries & Demand"
 ```
 
 真实 `.env`、原始 JSON 和 SQLite 数据库均不会上传到 Git。当前测试配置将单次运行限制为 **5 条消息**、**5 分钟**和 **最高 0.05 美元 Actor 费用**。

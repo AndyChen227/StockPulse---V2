@@ -152,6 +152,7 @@ class StorageTests(unittest.TestCase):
                 (1, "foundation_and_sentiment"),
                 (2, "run_history_and_daily_metrics"),
                 (3, "run_limits_and_external_metadata"),
+                (4, "versioned_message_topics"),
             ],
         )
 

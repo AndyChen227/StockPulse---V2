@@ -19,8 +19,14 @@ from stockpulse.sentiment import (
 )
 from stockpulse.storage import (
     MessageAnalysis,
+    MessageTopic,
     RunResult,
     save_raw_messages,
+)
+from stockpulse.topics import (
+    TOPIC_ANALYSIS_VERSION,
+    extract_topics,
+    select_representative_messages,
 )
 
 
@@ -79,6 +85,26 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Show recent collection and analysis run history.",
     )
+    action_group.add_argument(
+        "--analyze-topics",
+        action="store_true",
+        help="Extract missing versioned topics from locally analyzed messages.",
+    )
+    action_group.add_argument(
+        "--reanalyze-topics",
+        action="store_true",
+        help="Force bounded topic reanalysis using the current topic version.",
+    )
+    action_group.add_argument(
+        "--topic-stats",
+        action="store_true",
+        help="Show locally stored topic counts without contacting Apify.",
+    )
+    action_group.add_argument(
+        "--representatives",
+        metavar="TOPIC",
+        help="Show representative locally stored messages for one exact topic.",
+    )
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -96,6 +122,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=100,
         help="Maximum stored messages to analyze in one run (default: 100).",
+    )
+    parser.add_argument(
+        "--topic-limit",
+        type=int,
+        default=100,
+        help="Maximum messages to process in one topic-analysis batch.",
     )
     return parser
 
@@ -174,6 +206,88 @@ def main(
                     f"{row['low_confidence_count']:>3} | "
                     f"{row['agreement_count']}/{row['author_labeled_count']}"
                 )
+            return 0
+
+        if args.topic_stats:
+            topic_stats = storage.get_topic_summary(
+                topic_version=TOPIC_ANALYSIS_VERSION
+            )
+            if not topic_stats:
+                print("No topic statistics are stored yet.")
+                return 0
+            print("Topic                      | Messages | Avg score")
+            print("---------------------------+----------+----------")
+            for item in topic_stats:
+                print(
+                    f"{item['topic']:<26} | {item['message_count']:>8} | "
+                    f"{item['average_score']:>9.1%}"
+                )
+            return 0
+
+        if args.representatives:
+            candidates = storage.get_representative_candidates(
+                topic=args.representatives,
+                topic_version=TOPIC_ANALYSIS_VERSION,
+            )
+            representatives = select_representative_messages(candidates)
+            if not representatives:
+                print(f"No messages are stored for topic: {args.representatives}")
+                return 0
+            for message in representatives:
+                print(
+                    f"{message.message_id}: {message.ai_sentiment} "
+                    f"({message.ai_confidence:.1%}) - {message.body}"
+                )
+                if message.url:
+                    print(f"  Source: {message.url}")
+            return 0
+
+        if args.analyze_topics or args.reanalyze_topics:
+            application_run_id = storage.start_run(
+                "topics",
+                symbol=settings.symbol,
+                analysis_version=TOPIC_ANALYSIS_VERSION,
+            )
+            candidates = storage.get_topic_candidates(
+                topic_version=TOPIC_ANALYSIS_VERSION,
+                analysis_version=analysis_version,
+                limit=args.topic_limit,
+                reanalyze=args.reanalyze_topics,
+            )
+            if not candidates:
+                storage.finish_run(
+                    application_run_id, RunResult(status="succeeded")
+                )
+                print("No eligible messages need topic analysis.")
+                return 0
+            assignments = [
+                MessageTopic(
+                    message_id=candidate.message_id,
+                    topic=prediction.topic,
+                    score=prediction.score,
+                    matched_terms=prediction.matched_terms,
+                    rank=prediction.rank,
+                    topic_version=prediction.topic_version,
+                )
+                for candidate in candidates
+                for prediction in extract_topics(candidate.body)
+            ]
+            updated = storage.store_message_topics(
+                assignments, overwrite=args.reanalyze_topics
+            )
+            storage.finish_run(
+                application_run_id,
+                RunResult(
+                    status="succeeded",
+                    message_count=len(candidates),
+                    analyzed_count=len(candidates),
+                ),
+            )
+            print(
+                f"Saved {updated} topic assignments for "
+                f"{len(candidates)} messages."
+            )
+            print("No Apify request was made and no Apify credits were used.")
             return 0
 
         if args.analyze or args.reanalyze:

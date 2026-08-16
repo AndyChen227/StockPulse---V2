@@ -148,13 +148,14 @@ Completed:
 - Partial run status, validation counts, limits, retry relationships, and Apify run/dataset identifiers
 - Reproducible 36-example finance-specific sentiment benchmark and pinned-model baseline
 - ProsusAI FinBERT comparison completed; current Twitter-RoBERTa adapter retained after outperforming it on the tracked benchmark
+- Explainable versioned TSLA topic taxonomy, multi-label storage, topic summaries, and source-linked representative-message ranking
 - Local `--runs` history view for operational verification
 - Python 3.11 and 3.12 GitHub Actions tests
 
 Current limitations:
 
 - Finance-direction evaluation is still provisional: the first balanced synthetic benchmark is too small for production acceptance
-- Topic extraction is not implemented
+- Topic taxonomy quality is not yet measured on a representative real-message sample
 - Baseline and anomaly detection are not implemented
 - Actual Apify spend is not yet retrieved; runs currently preserve the configured cost ceiling
 - SQLite is not suitable as persistent Cloud Run storage
@@ -170,9 +171,9 @@ Planned work:
 1. Create a finance-specific labeled evaluation set with difficult and mixed-direction examples.
 2. Expand the initial 36-example benchmark to at least 150 reviewed examples with a held-out test split.
 3. Expand model comparison only with candidates that have acceptable licensing and Stocktwits-relevant behavior.
-4. Extract versioned discussion topics without overwriting sentiment history.
-5. Select representative messages with source links and documented ranking rules.
-6. Extend repository contracts and daily metrics for topic history.
+4. Evaluate and expand the implemented topic taxonomy on a representative labeled sample.
+5. Validate representative-message ranking against manually reviewed examples.
+6. Add date-bucketed topic metrics for historical Dashboard charts.
 
 ## 8. Documentation system
 
@@ -189,6 +190,11 @@ Progress should be updated when a stage changes status or a product requirement 
 Current architecture decisions:
 
 - [ADR 0001: Use Cloud SQL for PostgreSQL as the production datastore](adr/0001-cloud-datastore.md)
+
+Current analysis references:
+
+- [Sentiment evaluation](SENTIMENT_EVALUATION.md)
+- [Topic analysis and representative messages](TOPIC_ANALYSIS.md)
 
 ---
 
