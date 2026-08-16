@@ -19,6 +19,7 @@ from stockpulse.storage import (  # noqa: E402
     RunResult,
     finish_run,
     get_ai_daily_stats,
+    get_anomaly_history,
     get_daily_stats,
     get_run_history,
     get_unanalyzed_messages,
@@ -30,6 +31,68 @@ from stockpulse.storage import (  # noqa: E402
 
 
 class StorageTests(unittest.TestCase):
+    def test_version_five_anomaly_table_adds_topic_shift_columns(self) -> None:
+        with TemporaryDirectory() as directory:
+            database_path = Path(directory) / "stockpulse.db"
+            with closing(sqlite3.connect(database_path)) as connection:
+                with connection:
+                    connection.executescript(
+                        """
+                        CREATE TABLE schema_migrations (
+                            version INTEGER PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            applied_at TEXT NOT NULL
+                        );
+                        INSERT INTO schema_migrations VALUES (
+                            5, 'versioned_anomaly_results',
+                            '2026-08-05T00:00:00+00:00'
+                        );
+                        CREATE TABLE anomaly_results (
+                            fingerprint TEXT PRIMARY KEY,
+                            stat_date TEXT NOT NULL,
+                            analysis_version TEXT NOT NULL,
+                            detector_version TEXT NOT NULL,
+                            status TEXT NOT NULL,
+                            severity TEXT NOT NULL,
+                            signals_json TEXT NOT NULL,
+                            explanation TEXT NOT NULL,
+                            history_days INTEGER NOT NULL,
+                            baseline_start_date TEXT,
+                            baseline_end_date TEXT,
+                            current_messages INTEGER NOT NULL,
+                            baseline_messages REAL,
+                            volume_ratio REAL,
+                            current_sentiment REAL NOT NULL,
+                            baseline_sentiment REAL,
+                            sentiment_shift REAL,
+                            created_at TEXT NOT NULL
+                        );
+                        """
+                    )
+
+            get_anomaly_history(database_path=database_path)
+            with closing(sqlite3.connect(database_path)) as connection:
+                columns = {
+                    row[1]
+                    for row in connection.execute(
+                        "PRAGMA table_info(anomaly_results)"
+                    )
+                }
+                latest = connection.execute(
+                    "SELECT MAX(version) FROM schema_migrations"
+                ).fetchone()[0]
+
+        self.assertEqual(latest, 6)
+        self.assertTrue(
+            {
+                "topic_version",
+                "shifted_topic",
+                "current_topic_share",
+                "baseline_topic_share",
+                "topic_share_shift",
+            }.issubset(columns)
+        )
+
     def test_messages_are_saved_as_utf8_json(self) -> None:
         messages = [{"messageId": 123, "body": "$TSLA 测试"}]
         collected_at = datetime(2026, 8, 5, 1, 2, 3, tzinfo=timezone.utc)
@@ -154,6 +217,7 @@ class StorageTests(unittest.TestCase):
                 (3, "run_limits_and_external_metadata"),
                 (4, "versioned_message_topics"),
                 (5, "versioned_anomaly_results"),
+                (6, "anomaly_topic_shift_metrics"),
             ],
         )
 

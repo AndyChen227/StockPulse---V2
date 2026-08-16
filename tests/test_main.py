@@ -232,6 +232,7 @@ class MainTests(unittest.TestCase):
             }
             for day in range(1, 9)
         ]
+        repository.get_topic_daily_stats.return_value = []
 
         with patch("stockpulse.main.collect_messages") as collect_mock:
             exit_code = main(["--detect-anomalies"], repository=repository)
@@ -239,6 +240,9 @@ class MainTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         collect_mock.assert_not_called()
         repository.start_run.assert_called_once()
+        repository.get_topic_daily_stats.assert_called_once_with(
+            topic_version=TOPIC_ANALYSIS_VERSION
+        )
         repository.store_anomaly_results.assert_called_once()
         repository.finish_run.assert_called_once_with(
             "anomaly-run-1",
