@@ -12,6 +12,7 @@ sys.path.insert(0, str(SRC_PATH))
 from stockpulse.sentiment import (  # noqa: E402
     SentimentAnalyzer,
     SentimentModelError,
+    build_analysis_version,
     normalize_prediction,
     normalize_social_text,
 )
@@ -32,13 +33,25 @@ class SentimentTests(unittest.TestCase):
         self.assertEqual(result.sentiment, "Bullish")
         self.assertEqual(result.confidence, 0.91)
 
-    def test_low_confidence_prediction_falls_back_to_neutral(self) -> None:
+    def test_low_confidence_prediction_keeps_original_direction(self) -> None:
         result = normalize_prediction(
             {"label": "Negative", "score": 0.55},
             confidence_threshold=0.60,
         )
 
-        self.assertEqual(result.sentiment, "Neutral")
+        self.assertEqual(result.sentiment, "Bearish")
+        self.assertTrue(result.low_confidence)
+        self.assertEqual(result.raw_label, "negative")
+
+    def test_analysis_version_changes_with_model_revision_or_threshold(self) -> None:
+        baseline = build_analysis_version("model", "revision-a", 0.60)
+
+        self.assertNotEqual(
+            baseline, build_analysis_version("model", "revision-b", 0.60)
+        )
+        self.assertNotEqual(
+            baseline, build_analysis_version("model", "revision-a", 0.70)
+        )
 
     def test_unknown_model_label_is_rejected(self) -> None:
         with self.assertRaisesRegex(SentimentModelError, "unknown label"):

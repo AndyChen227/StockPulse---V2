@@ -84,6 +84,9 @@ flowchart TD
 | `ai_sentiment` | Bullish, Neutral, or Bearish classification |
 | `ai_confidence` | Confidence score for the classification |
 | `ai_model` | Model used to create the classification |
+| `ai_model_revision` | Pinned model revision used for reproducibility |
+| `ai_low_confidence` | Whether confidence fell below the configured threshold |
+| `analysis_version` | Pipeline, model, revision, and threshold identifier |
 | `analyzed_at` | UTC time when analysis completed |
 
 Stocktwits sentiment and AI sentiment are kept separate. A Stocktwits label reflects what the author selected; the AI label is StockPulse's independent analysis, including posts whose original sentiment is missing.
@@ -152,8 +155,11 @@ Apify usage is a real project constraint, so V1 intentionally stays small:
 StockPulse separates free local commands from the command that starts a paid Actor run.
 
 ```powershell
-# Install the tested dependencies.
+# Install the lightweight collection and storage dependencies.
 python -m pip install -r requirements.txt
+
+# Install the optional local AI dependencies before using --analyze.
+python -m pip install -r requirements-ai.txt
 
 # Make the src package available in the current PowerShell session.
 $env:PYTHONPATH = "src"
@@ -174,13 +180,16 @@ python -m stockpulse.main --stats
 # The first run downloads the public model; it never contacts Apify.
 python -m stockpulse.main --analyze
 
+# Force one batch through the current version; use --analysis-limit to size it.
+python -m stockpulse.main --reanalyze
+
 # Show daily AI sentiment, confidence, and label-agreement statistics.
 python -m stockpulse.main --ai-stats
 ```
 
 The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
 
-Sentiment analysis runs locally with `cardiffnlp/twitter-roberta-base-sentiment-latest`. Positive, neutral, and negative model labels map to Bullish, Neutral, and Bearish. Predictions below the default **0.60 confidence threshold** fall back to Neutral. Stocktwits author labels remain stored separately and are never overwritten.
+Sentiment analysis is an **experimental adapter** built on `cardiffnlp/twitter-roberta-base-sentiment-latest`. The model revision is pinned for reproducibility. Positive, neutral, and negative model labels map to Bullish, Neutral, and Bearish, but this mapping still requires evaluation on a larger finance-specific sample. Predictions below the default **0.60 confidence threshold keep their original direction** and are marked as low-confidence instead of being rewritten as Neutral. The model revision, threshold, and analysis version are stored with each result. Stocktwits author labels remain separate and are never overwritten.
 
 ## Current Project Structure
 
@@ -198,6 +207,7 @@ StockPulse/
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
+├── requirements-ai.txt
 └── README.md
 ```
 
@@ -231,7 +241,7 @@ StockPulse/
 
 ### Phase 3 — AI Analysis
 
-- [x] Classify Bullish, Neutral, and Bearish sentiment
+- [x] Add an experimental Bullish, Neutral, and Bearish sentiment adapter
 - [x] Generate confidence scores
 - [ ] Extract major discussion topics
 - [x] Compare AI sentiment with author-selected labels
@@ -264,8 +274,8 @@ StockPulse/
 > 🚧 **Currently in active development**
 
 ```text
-Completed: planning, Python setup, cost-capped collection, and local AI sentiment
-Current milestone: topic extraction and broader sentiment evaluation
+Completed: planning, Python setup, cost-capped collection, and an experimental local sentiment adapter
+Current milestone: broader financial-direction evaluation and topic extraction
 Next milestone: collect enough daily data to evaluate and build a baseline
 ```
 
@@ -361,6 +371,9 @@ flowchart TD
 | `ai_sentiment` | 看多、中性或看空 |
 | `ai_confidence` | AI 情绪判断的置信度 |
 | `ai_model` | 生成分类结果所使用的模型 |
+| `ai_model_revision` | 用于保证结果可复现的固定模型 revision |
+| `ai_low_confidence` | 置信度是否低于配置阈值 |
+| `analysis_version` | 管线、模型、revision 与阈值的组合标识 |
 | `analyzed_at` | 完成分析时的 UTC 时间 |
 
 Stocktwits 用户标签与 AI 判断会分开保存。前者是作者自己的选择，后者是 StockPulse 对文字内容的独立分析，也可以处理原始情绪标签为空的帖子。
@@ -416,8 +429,11 @@ Apify 的使用成本是项目的重要限制，因此第一版会主动保持�
 StockPulse 会把免费的本地命令与真正启动付费 Actor 的命令分开。
 
 ```powershell
-# 安装经过测试的依赖
+# 安装轻量的数据采集与存储依赖
 python -m pip install -r requirements.txt
+
+# 使用 --analyze 前安装可选的本地 AI 依赖
+python -m pip install -r requirements-ai.txt
 
 # 让当前 PowerShell 会话能够找到 src 中的项目代码
 $env:PYTHONPATH = "src"
@@ -438,13 +454,16 @@ python -m stockpulse.main --stats
 # 该命令不会连接 Apify
 python -m stockpulse.main --analyze
 
+# 使用当前版本强制重跑一批帖子；可用 --analysis-limit 控制批量大小
+python -m stockpulse.main --reanalyze
+
 # 查看每日 AI 情绪、平均置信度和标签一致情况
 python -m stockpulse.main --ai-stats
 ```
 
 真实 `.env`、原始 JSON 和 SQLite 数据库均不会上传到 Git。当前测试配置将单次运行限制为 **5 条消息**、**5 分钟**和 **最高 0.05 美元 Actor 费用**。
 
-情绪分析在本地使用 `cardiffnlp/twitter-roberta-base-sentiment-latest`。模型的 Positive、Neutral 和 Negative 会分别映射为 Bullish、Neutral 和 Bearish。低于默认 **0.60 置信度阈值**的结果会降为 Neutral。Stocktwits 用户主动填写的情绪标签会独立保存，绝不会被 AI 标签覆盖。
+情绪分析目前是基于 `cardiffnlp/twitter-roberta-base-sentiment-latest` 的**实验性适配器**，并固定模型 revision 以保证结果可复现。模型的 Positive、Neutral 和 Negative 会分别映射为 Bullish、Neutral 和 Bearish，但该映射仍需使用更大的金融语境样本进行评估。低于默认 **0.60 置信度阈值**的结果会保留原始方向并标记为低置信度，而不会被改写成 Neutral。每条结果会保存模型 revision、阈值与分析版本；Stocktwits 用户标签始终独立保存。
 
 ## 开发路线
 
@@ -453,7 +472,7 @@ python -m stockpulse.main --ai-stats
 | Phase 0 | 明确目标、选择数据源、完成真实抓取测试 | ✅ 已完成 |
 | Phase 1 | 建立本地 Python 项目并连接 GitHub | ✅ 已完成 |
 | Phase 2 | 使用 Python 采集、清洗、去重并保存数据 | ✅ 已完成 |
-| Phase 3 | AI 情绪与话题分析 | 🔄 进行中：情绪已完成 |
+| Phase 3 | AI 情绪与话题分析 | 🔄 进行中：实验性情绪适配器已实现，质量评估待完成 |
 | Phase 4 | 建立历史基准并检测异常 | ⏳ 待开始 |
 | Phase 5 | 生成事件摘要和邮件提醒 | ⏳ 待开始 |
 | Phase 6 | 自动化、Docker 和云端部署 | ⏳ 待开始 |
@@ -463,8 +482,8 @@ python -m stockpulse.main --ai-stats
 > 🚧 **项目正在开发中**
 
 ```text
-已完成：项目规划、Python 搭建、带费用保护的数据采集和本地 AI 情绪分析
-当前阶段：话题提取与更大样本的情绪评估
+已完成：项目规划、Python 搭建、带费用保护的数据采集和实验性本地情绪适配器
+当前阶段：更大金融语境样本的方向评估与话题提取
 下一阶段：积累足够的每日数据，用于评估并建立历史基准
 ```
 

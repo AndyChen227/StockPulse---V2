@@ -35,6 +35,11 @@ class MessageAnalysis:
     sentiment: str
     confidence: float
     model_name: str
+    model_revision: str
+    raw_label: str
+    low_confidence: bool
+    confidence_threshold: float
+    analysis_version: str
 
 
 def save_raw_messages(
@@ -154,8 +159,10 @@ def get_unanalyzed_messages(
     *,
     database_path: Path = Path("data/stockpulse.db"),
     limit: int = 100,
+    analysis_version: str,
+    reanalyze: bool = False,
 ) -> list[PendingMessage]:
-    """Return the oldest stored messages that do not yet have AI sentiment."""
+    """Return messages missing the requested analysis version."""
 
     if limit <= 0:
         raise ValueError("Analysis limit must be greater than zero.")
@@ -166,15 +173,24 @@ def get_unanalyzed_messages(
         connection.row_factory = sqlite3.Row
         with connection:
             _create_schema(connection)
+        where_clause = "1 = 1" if reanalyze else (
+            "ai_sentiment IS NULL OR analysis_version IS NULL "
+            "OR analysis_version != ?"
+        )
+        parameters: tuple[Any, ...]
+        if reanalyze:
+            parameters = (limit,)
+        else:
+            parameters = (analysis_version, limit)
         rows = connection.execute(
-            """
+            f"""
             SELECT message_id, body, stocktwits_sentiment
             FROM messages
-            WHERE ai_sentiment IS NULL
+            WHERE {where_clause}
             ORDER BY created_at, message_id
             LIMIT ?
             """,
-            (limit,),
+            parameters,
         ).fetchall()
 
     return [
@@ -192,8 +208,9 @@ def store_message_analyses(
     *,
     database_path: Path = Path("data/stockpulse.db"),
     analyzed_at: datetime | None = None,
+    overwrite: bool = False,
 ) -> int:
-    """Save AI results without overwriting an analysis that already exists."""
+    """Save AI results, replacing only outdated versions unless requested."""
 
     if not analyses:
         return 0
@@ -206,30 +223,49 @@ def store_message_analyses(
         with connection:
             _create_schema(connection)
             for analysis in analyses:
+                update_guard = "" if overwrite else (
+                    "AND (ai_sentiment IS NULL OR analysis_version IS NULL "
+                    "OR analysis_version != ?)"
+                )
+                parameters: tuple[Any, ...] = (
+                    analysis.sentiment,
+                    analysis.confidence,
+                    analysis.model_name,
+                    analysis.model_revision,
+                    analysis.raw_label,
+                    int(analysis.low_confidence),
+                    analysis.confidence_threshold,
+                    analysis.analysis_version,
+                    timestamp.isoformat(),
+                    analysis.message_id,
+                )
+                if not overwrite:
+                    parameters += (analysis.analysis_version,)
                 cursor = connection.execute(
-                    """
+                    f"""
                     UPDATE messages
                     SET
                         ai_sentiment = ?,
                         ai_confidence = ?,
                         ai_model = ?,
+                        ai_model_revision = ?,
+                        ai_raw_label = ?,
+                        ai_low_confidence = ?,
+                        ai_confidence_threshold = ?,
+                        analysis_version = ?,
                         analyzed_at = ?
-                    WHERE message_id = ? AND ai_sentiment IS NULL
+                    WHERE message_id = ? {update_guard}
                     """,
-                    (
-                        analysis.sentiment,
-                        analysis.confidence,
-                        analysis.model_name,
-                        timestamp.isoformat(),
-                        analysis.message_id,
-                    ),
+                    parameters,
                 )
                 updated += max(cursor.rowcount, 0)
     return updated
 
 
 def get_ai_daily_stats(
-    *, database_path: Path = Path("data/stockpulse.db")
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    analysis_version: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return daily AI sentiment counts and author-label agreement."""
 
@@ -240,8 +276,12 @@ def get_ai_daily_stats(
         connection.row_factory = sqlite3.Row
         with connection:
             _create_schema(connection)
+        version_filter = "" if analysis_version is None else "AND analysis_version = ?"
+        parameters: tuple[Any, ...] = (
+            () if analysis_version is None else (analysis_version,)
+        )
         rows = connection.execute(
-            """
+            f"""
             SELECT
                 SUBSTR(created_at, 1, 10) AS stat_date,
                 COUNT(*) AS analyzed_count,
@@ -256,12 +296,16 @@ def get_ai_daily_stats(
                          AND stocktwits_sentiment != '' THEN 1 ELSE 0 END)
                     AS author_labeled_count,
                 SUM(CASE WHEN LOWER(stocktwits_sentiment) = LOWER(ai_sentiment)
-                         THEN 1 ELSE 0 END) AS agreement_count
+                         THEN 1 ELSE 0 END) AS agreement_count,
+                SUM(CASE WHEN ai_low_confidence = 1 THEN 1 ELSE 0 END)
+                    AS low_confidence_count
             FROM messages
             WHERE ai_sentiment IS NOT NULL
+                {version_filter}
             GROUP BY SUBSTR(created_at, 1, 10)
             ORDER BY stat_date
-            """
+            """,
+            parameters,
         ).fetchall()
 
     return [dict(row) for row in rows]
@@ -306,6 +350,11 @@ def _create_schema(connection: sqlite3.Connection) -> None:
         "ai_sentiment": "TEXT",
         "ai_confidence": "REAL",
         "ai_model": "TEXT",
+        "ai_model_revision": "TEXT",
+        "ai_raw_label": "TEXT",
+        "ai_low_confidence": "INTEGER",
+        "ai_confidence_threshold": "REAL",
+        "analysis_version": "TEXT",
         "analyzed_at": "TEXT",
     }
     for column_name, column_type in migrations.items():

@@ -7,7 +7,9 @@ from typing import Any
 
 
 DEFAULT_MODEL_NAME = "cardiffnlp/twitter-roberta-base-sentiment-latest"
+DEFAULT_MODEL_REVISION = "3216a57f2a0d9c45a2e6c20157c20c49fb4bf9c7"
 DEFAULT_CONFIDENCE_THRESHOLD = 0.60
+ANALYSIS_PIPELINE_VERSION = "2"
 
 
 class SentimentModelError(RuntimeError):
@@ -21,6 +23,22 @@ class SentimentResult:
     sentiment: str
     confidence: float
     model_name: str
+    model_revision: str
+    raw_label: str
+    low_confidence: bool
+    confidence_threshold: float
+    analysis_version: str
+
+
+def build_analysis_version(
+    model_name: str, model_revision: str, confidence_threshold: float
+) -> str:
+    """Return a stable identifier for one complete analysis configuration."""
+
+    return (
+        f"{ANALYSIS_PIPELINE_VERSION}:"
+        f"{model_name}@{model_revision}:threshold={confidence_threshold:.6g}"
+    )
 
 
 def normalize_social_text(text: str) -> str:
@@ -41,6 +59,7 @@ def normalize_prediction(
     prediction: dict[str, Any],
     *,
     model_name: str = DEFAULT_MODEL_NAME,
+    model_revision: str = DEFAULT_MODEL_REVISION,
     confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
 ) -> SentimentResult:
     """Map a Hugging Face label to StockPulse's Bullish/Neutral/Bearish labels."""
@@ -65,13 +84,18 @@ def normalize_prediction(
         raise SentimentModelError("The model confidence score must be between 0 and 1.")
 
     sentiment = label_map[label]
-    if score < confidence_threshold:
-        sentiment = "Neutral"
 
     return SentimentResult(
         sentiment=sentiment,
         confidence=score,
         model_name=model_name,
+        model_revision=model_revision,
+        raw_label=label,
+        low_confidence=score < confidence_threshold,
+        confidence_threshold=confidence_threshold,
+        analysis_version=build_analysis_version(
+            model_name, model_revision, confidence_threshold
+        ),
     )
 
 
@@ -82,12 +106,14 @@ class SentimentAnalyzer:
         self,
         *,
         model_name: str = DEFAULT_MODEL_NAME,
+        model_revision: str = DEFAULT_MODEL_REVISION,
         confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
         classifier: Callable[..., Any] | None = None,
     ) -> None:
         if not 0 <= confidence_threshold <= 1:
             raise ValueError("confidence_threshold must be between 0 and 1.")
         self.model_name = model_name
+        self.model_revision = model_revision
         self.confidence_threshold = confidence_threshold
         self._classifier = classifier
 
@@ -111,6 +137,7 @@ class SentimentAnalyzer:
             normalize_prediction(
                 prediction,
                 model_name=self.model_name,
+                model_revision=self.model_revision,
                 confidence_threshold=self.confidence_threshold,
             )
             for prediction in predictions
@@ -124,7 +151,7 @@ class SentimentAnalyzer:
             from transformers import pipeline
         except ImportError as error:
             raise SentimentModelError(
-                "AI dependencies are missing. Install the project requirements first."
+                "AI dependencies are missing. Install requirements-ai.txt first."
             ) from error
 
         try:
@@ -132,6 +159,7 @@ class SentimentAnalyzer:
                 "text-classification",
                 model=self.model_name,
                 tokenizer=self.model_name,
+                revision=self.model_revision,
             )
         except Exception as error:
             raise SentimentModelError(

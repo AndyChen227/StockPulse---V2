@@ -28,6 +28,10 @@ class SettingsTests(unittest.TestCase):
             settings.sentiment_model,
             "cardiffnlp/twitter-roberta-base-sentiment-latest",
         )
+        self.assertEqual(
+            settings.sentiment_model_revision,
+            "3216a57f2a0d9c45a2e6c20157c20c49fb4bf9c7",
+        )
         self.assertEqual(settings.sentiment_threshold, 0.60)
         self.assertFalse(settings.has_api_token)
 

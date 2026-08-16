@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from stockpulse.sentiment import (
     DEFAULT_CONFIDENCE_THRESHOLD,
     DEFAULT_MODEL_NAME,
+    DEFAULT_MODEL_REVISION,
 )
 
 
@@ -26,6 +27,7 @@ class Settings:
     max_messages: int = 5
     max_total_charge_usd: Decimal = DEFAULT_MAX_CHARGE_USD
     sentiment_model: str = DEFAULT_MODEL_NAME
+    sentiment_model_revision: str = DEFAULT_MODEL_REVISION
     sentiment_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD
 
     @property
@@ -52,6 +54,9 @@ def load_settings(
     ).strip()
     sentiment_model = os.getenv(
         "STOCKPULSE_SENTIMENT_MODEL", DEFAULT_MODEL_NAME
+    ).strip()
+    sentiment_model_revision = os.getenv(
+        "STOCKPULSE_SENTIMENT_MODEL_REVISION", DEFAULT_MODEL_REVISION
     ).strip()
     sentiment_threshold_text = os.getenv(
         "STOCKPULSE_SENTIMENT_THRESHOLD", str(DEFAULT_CONFIDENCE_THRESHOLD)
@@ -95,6 +100,8 @@ def load_settings(
 
     if not sentiment_model:
         raise ValueError("STOCKPULSE_SENTIMENT_MODEL cannot be empty.")
+    if not sentiment_model_revision:
+        raise ValueError("STOCKPULSE_SENTIMENT_MODEL_REVISION cannot be empty.")
 
     try:
         sentiment_threshold = float(sentiment_threshold_text)
@@ -115,6 +122,7 @@ def load_settings(
         max_messages=max_messages,
         max_total_charge_usd=max_total_charge_usd,
         sentiment_model=sentiment_model,
+        sentiment_model_revision=sentiment_model_revision,
         sentiment_threshold=sentiment_threshold,
     )
 

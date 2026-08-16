@@ -11,7 +11,11 @@ from stockpulse.collector.apify_client import (
     retrieve_run_messages,
 )
 from stockpulse.config import load_settings
-from stockpulse.sentiment import SentimentAnalyzer, SentimentModelError
+from stockpulse.sentiment import (
+    SentimentAnalyzer,
+    SentimentModelError,
+    build_analysis_version,
+)
 from stockpulse.storage import (
     MessageAnalysis,
     get_ai_daily_stats,
@@ -61,7 +65,12 @@ def build_parser() -> argparse.ArgumentParser:
     action_group.add_argument(
         "--analyze",
         action="store_true",
-        help="Analyze stored messages that do not yet have AI sentiment.",
+        help="Analyze stored messages missing the current analysis version.",
+    )
+    action_group.add_argument(
+        "--reanalyze",
+        action="store_true",
+        help="Force one batch of stored messages through the current version.",
     )
     action_group.add_argument(
         "--ai-stats",
@@ -97,6 +106,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         settings = load_settings(require_token=bool(args.collect or args.resume_run))
         print(build_startup_message())
+        analysis_version = build_analysis_version(
+            settings.sentiment_model,
+            settings.sentiment_model_revision,
+            settings.sentiment_threshold,
+        )
 
         if args.stats:
             daily_stats = get_daily_stats(database_path=args.database)
@@ -115,27 +129,37 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
 
         if args.ai_stats:
-            ai_stats = get_ai_daily_stats(database_path=args.database)
+            ai_stats = get_ai_daily_stats(
+                database_path=args.database,
+                analysis_version=analysis_version,
+            )
             if not ai_stats:
                 print("No AI sentiment statistics are stored yet.")
                 return 0
 
-            print("Date       | Total | Bullish | Neutral | Bearish | Avg conf. | Agree")
-            print("-----------+-------+---------+---------+---------+-----------+------")
+            print(
+                "Date       | Total | Bullish | Neutral | Bearish | Avg conf. | Low | Agree"
+            )
+            print(
+                "-----------+-------+---------+---------+---------+-----------+-----+------"
+            )
             for row in ai_stats:
                 print(
                     f"{row['stat_date']} | {row['analyzed_count']:>5} | "
                     f"{row['bullish_count']:>7} | {row['neutral_count']:>7} | "
                     f"{row['bearish_count']:>7} | "
                     f"{row['average_confidence']:>9.2%} | "
+                    f"{row['low_confidence_count']:>3} | "
                     f"{row['agreement_count']}/{row['author_labeled_count']}"
                 )
             return 0
 
-        if args.analyze:
+        if args.analyze or args.reanalyze:
             pending_messages = get_unanalyzed_messages(
                 database_path=args.database,
                 limit=args.analysis_limit,
+                analysis_version=analysis_version,
+                reanalyze=args.reanalyze,
             )
             if not pending_messages:
                 print("No unanalyzed messages are stored. Nothing changed.")
@@ -147,6 +171,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             analyzer = SentimentAnalyzer(
                 model_name=settings.sentiment_model,
+                model_revision=settings.sentiment_model_revision,
                 confidence_threshold=settings.sentiment_threshold,
             )
             predictions = analyzer.analyze(
@@ -158,6 +183,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     sentiment=prediction.sentiment,
                     confidence=prediction.confidence,
                     model_name=prediction.model_name,
+                    model_revision=prediction.model_revision,
+                    raw_label=prediction.raw_label,
+                    low_confidence=prediction.low_confidence,
+                    confidence_threshold=prediction.confidence_threshold,
+                    analysis_version=prediction.analysis_version,
                 )
                 for message, prediction in zip(
                     pending_messages, predictions, strict=True
@@ -166,6 +196,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             updated = store_message_analyses(
                 analyses,
                 database_path=args.database,
+                overwrite=args.reanalyze,
             )
             for message, prediction in zip(
                 pending_messages, predictions, strict=True
@@ -174,6 +205,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(
                     f"{message.message_id}: AI={prediction.sentiment} "
                     f"({prediction.confidence:.1%}), "
+                    f"low-confidence={'yes' if prediction.low_confidence else 'no'}, "
                     f"Stocktwits={author_label}"
                 )
             print(f"Saved AI sentiment for {updated} messages.")
