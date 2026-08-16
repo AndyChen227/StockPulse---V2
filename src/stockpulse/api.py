@@ -18,6 +18,8 @@ from pydantic import BaseModel
 from stockpulse import __version__
 from stockpulse.anomaly import DETECTOR_VERSION
 from stockpulse.config import load_settings
+from stockpulse.postgres import create_postgres_pool
+from stockpulse.postgres_repository import PostgresDashboardRepository
 from stockpulse.repository import SQLiteRepository, StockPulseRepository
 from stockpulse.sentiment import build_analysis_version
 from stockpulse.topics import TOPIC_ANALYSIS_VERSION
@@ -71,13 +73,30 @@ def create_app(
         settings.sentiment_model_revision,
         settings.sentiment_threshold,
     )
-    storage = repository or SQLiteRepository(database_path)
+    postgres_pool = None
+    if repository is not None:
+        storage = repository
+    elif settings.database_backend == "postgresql":
+        postgres_pool = create_postgres_pool(
+            settings.database_url or "",
+            min_size=settings.database_pool_min_size,
+            max_size=settings.database_pool_max_size,
+            open_pool=True,
+        )
+        storage = PostgresDashboardRepository(postgres_pool)
+    else:
+        storage = SQLiteRepository(database_path)
     app = FastAPI(
         title="StockPulse API",
         version=__version__,
         description="Read-only dashboard API for versioned TSLA sentiment history.",
     )
     app.mount("/assets", StaticFiles(directory=WEB_DIRECTORY), name="assets")
+
+    if postgres_pool is not None:
+        @app.on_event("shutdown")
+        def close_postgres_pool() -> None:
+            postgres_pool.close()
 
     @app.get("/", include_in_schema=False)
     def dashboard() -> FileResponse:

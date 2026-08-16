@@ -242,9 +242,10 @@ remains gated on durable PostgreSQL storage, authentication, and explicit cost
 approval; local SQLite is not treated as persistent cloud storage.
 
 The PostgreSQL foundation now includes secret-safe configuration, a bounded
-connection pool, and ordered schema migrations. The application still uses
-SQLite by default until the complete PostgreSQL repository and verified data
-migration are ready. See [PostgreSQL implementation](docs/POSTGRESQL.md).
+connection pool, ordered schema migrations, and the complete read path needed
+by the Dashboard. SQLite remains the default; collection and analysis stay on
+SQLite until PostgreSQL writes and verified migration are ready. See
+[PostgreSQL implementation](docs/POSTGRESQL.md).
 
 The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
 
