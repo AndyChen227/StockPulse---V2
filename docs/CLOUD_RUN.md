@@ -1,6 +1,6 @@
 # Cloud Run service preparation
 
-StockPulse now has a container image for the read-only Dashboard and API. This
+StockPulse now has a container image for the Dashboard and read API. This
 is the first part of Stage 7 cloud readiness; it does not provision or deploy
 Google Cloud resources.
 
@@ -9,7 +9,8 @@ Google Cloud resources.
 The root `Dockerfile`:
 
 - uses Python 3.12 on a slim Linux base
-- installs the base application without the optional local AI model stack
+- installs the base application and PostgreSQL runtime without the optional
+  local AI model stack
 - runs as a dedicated non-root user
 - listens on `0.0.0.0` using the `PORT` value supplied by Cloud Run
 - exposes the independent `/api/v1/health` liveness endpoint
@@ -36,13 +37,13 @@ start, while `/api/v1/ready` correctly reports that durable data is not ready.
 
 Do not deploy this image as the final production service with SQLite as its
 source of truth. A Cloud Run instance filesystem is disposable and cannot hold
-shared history. The approved production direction is Cloud SQL for PostgreSQL,
-which still requires:
+shared history. The image contains the complete PostgreSQL repository and
+driver needed for the approved Cloud SQL direction. Production still requires:
 
-1. a PostgreSQL repository implementation and migration tool
+1. verified SQLite export and PostgreSQL import
 2. Secret Manager integration and a dedicated service account
-3. bounded connection pooling and readiness checks
-4. authentication for the Dashboard and action endpoints
+3. authentication for the Dashboard and action endpoints
+4. backup, restore, logging, and rollback procedures
 5. explicit approval before provisioning resources with recurring cost
 
 Apify credentials, local `.env` files, raw snapshots, SQLite files, tests, and
@@ -50,12 +51,12 @@ development artifacts are excluded from the container build context.
 
 ## Deployment gate
 
-The first real Cloud Run deployment should happen only after the production
-repository can connect to durable storage and the user has approved the Google
-Cloud project, region, access policy, and expected cost. Until then, this image
-is a reproducible deployment artifact and CI smoke-test target.
+The first real Cloud Run deployment should happen only after migration and
+authentication are verified and the user has approved the Google Cloud project,
+region, access policy, and expected cost. Until then, this image is a
+reproducible deployment artifact and CI smoke-test target.
 
-PostgreSQL configuration, bounded pooling, and ordered schema migrations are
-now implemented as a local foundation. See [PostgreSQL implementation](POSTGRESQL.md).
-The service is not switched to PostgreSQL until the full repository contract
-and SQLite migration verification pass.
+PostgreSQL configuration, bounded pooling, ordered schema migrations, and the
+full shared read/write repository contract are implemented and tested against
+PostgreSQL 17 in CI. The service is not switched to PostgreSQL until historical
+data migration verification passes. See [PostgreSQL implementation](POSTGRESQL.md).

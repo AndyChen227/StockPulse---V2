@@ -23,8 +23,8 @@ to validate the configuration and schema foundation in this stage.
 - The Dashboard read repository supports readiness, overview metrics, stable
   message pagination and filters, topic summary/history, anomaly history, and
   run history/detail.
-- GitHub Actions applies the migrations to an ephemeral PostgreSQL 17 service,
-  inserts representative records, and verifies API-safe query results.
+- GitHub Actions applies the migrations to an ephemeral PostgreSQL 17 service
+  and runs the complete shared read/write repository contract.
 - PostgreSQL now implements the complete shared repository contract: message
   deduplication, daily statistics, versioned sentiment metrics, topic writes,
   anomaly writes, and durable run lifecycle in addition to Dashboard reads.
@@ -46,6 +46,10 @@ STOCKPULSE_DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/stockpulse
 STOCKPULSE_DATABASE_POOL_MIN_SIZE=1
 STOCKPULSE_DATABASE_POOL_MAX_SIZE=4
 ```
+
+The production service image installs the `postgres` dependency group, while
+ordinary local installation remains lightweight. The connection URL remains a
+runtime secret and is never baked into the image.
 
 The Dashboard service and command-line background workflows select PostgreSQL
 when the backend and secret URL are configured. They apply pending migrations

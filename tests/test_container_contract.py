@@ -13,6 +13,7 @@ class ContainerContractTests(unittest.TestCase):
 
         self.assertIn("PORT=8080", dockerfile)
         self.assertIn('CMD ["stockpulse-api"]', dockerfile)
+        self.assertIn('python -m pip install --no-cache-dir ".[postgres]"', dockerfile)
         self.assertIn("USER stockpulse", dockerfile)
         self.assertLess(
             dockerfile.index("USER stockpulse"),
@@ -30,6 +31,13 @@ class ContainerContractTests(unittest.TestCase):
         }
 
         self.assertTrue({".env", ".env.*", "data", "*.db", "raw*.json"} <= ignored)
+
+    def test_ci_verifies_postgres_runtime_inside_image(self) -> None:
+        workflow = (PROJECT_ROOT / ".github" / "workflows" / "tests.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("import psycopg, psycopg_pool", workflow)
 
 
 if __name__ == "__main__":

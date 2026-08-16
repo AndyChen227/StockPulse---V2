@@ -45,6 +45,9 @@ jobs:
       - name: Build Cloud Run service image
         run: docker build --tag stockpulse:ci .
 
+      - name: Verify production database runtime
+        run: docker run --rm --entrypoint python stockpulse:ci -c "import psycopg, psycopg_pool"
+
       - name: Start container
         run: docker run --detach --rm --name stockpulse-ci --publish 8080:8080 stockpulse:ci
 

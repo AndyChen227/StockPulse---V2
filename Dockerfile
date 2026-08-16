@@ -13,7 +13,7 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
-    && python -m pip install --no-cache-dir . \
+    && python -m pip install --no-cache-dir ".[postgres]" \
     && mkdir -p /app/data \
     && chown -R stockpulse:stockpulse /app
 
