@@ -11,11 +11,14 @@ from uuid import uuid4
 
 from stockpulse.validation import normalize_created_at, validate_messages
 from stockpulse.topics import RepresentativeMessage
+from stockpulse.anomaly import AnomalyResult
 
 
-RUN_ACTIONS = frozenset({"collect", "resume", "analyze", "reanalyze", "topics"})
+RUN_ACTIONS = frozenset(
+    {"collect", "resume", "analyze", "reanalyze", "topics", "anomalies"}
+)
 RUN_STATUSES = frozenset({"running", "succeeded", "partial", "failed"})
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 5
 
 
 @dataclass(frozen=True)
@@ -574,6 +577,103 @@ def get_topic_daily_stats(
     return [dict(row) for row in rows]
 
 
+def store_anomaly_results(
+    results: list[AnomalyResult],
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    created_at: datetime | None = None,
+) -> int:
+    """Persist anomaly evaluations once per date and version fingerprint."""
+
+    if not results:
+        return 0
+    timestamp = (created_at or datetime.now(timezone.utc)).isoformat()
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    inserted = 0
+    with closing(sqlite3.connect(database_path)) as connection:
+        with connection:
+            _create_schema(connection)
+            for result in results:
+                cursor = connection.execute(
+                    """
+                    INSERT OR IGNORE INTO anomaly_results (
+                        fingerprint, stat_date, analysis_version,
+                        detector_version, status, severity, signals_json,
+                        explanation, history_days, baseline_start_date,
+                        baseline_end_date, current_messages, baseline_messages,
+                        volume_ratio, current_sentiment, baseline_sentiment,
+                        sentiment_shift, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        result.fingerprint,
+                        result.stat_date,
+                        result.analysis_version,
+                        result.detector_version,
+                        result.status,
+                        result.severity,
+                        json.dumps(result.signals),
+                        result.explanation,
+                        result.history_days,
+                        result.baseline_start_date,
+                        result.baseline_end_date,
+                        result.current_messages,
+                        result.baseline_messages,
+                        result.volume_ratio,
+                        result.current_sentiment,
+                        result.baseline_sentiment,
+                        result.sentiment_shift,
+                        timestamp,
+                    ),
+                )
+                inserted += max(cursor.rowcount, 0)
+    return inserted
+
+
+def get_anomaly_history(
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    analysis_version: str | None = None,
+    detector_version: str | None = None,
+    anomalies_only: bool = False,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """Return bounded anomaly evaluation history for the future API."""
+
+    if limit <= 0 or limit > 500:
+        raise ValueError("Anomaly history limit must be between 1 and 500.")
+    if not database_path.exists():
+        return []
+    filters = ["1 = 1"]
+    parameters: list[Any] = []
+    if analysis_version:
+        filters.append("analysis_version = ?")
+        parameters.append(analysis_version)
+    if detector_version:
+        filters.append("detector_version = ?")
+        parameters.append(detector_version)
+    if anomalies_only:
+        filters.append("status = 'anomaly'")
+    parameters.append(limit)
+    with closing(sqlite3.connect(database_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        with connection:
+            _create_schema(connection)
+        rows = connection.execute(
+            f"""
+            SELECT * FROM anomaly_results
+            WHERE {' AND '.join(filters)}
+            ORDER BY stat_date DESC, created_at DESC
+            LIMIT ?
+            """,
+            parameters,
+        ).fetchall()
+    history = [dict(row) for row in rows]
+    for item in history:
+        item["signals"] = tuple(json.loads(item.pop("signals_json")))
+    return history
+
+
 def get_representative_candidates(
     *,
     database_path: Path = Path("data/stockpulse.db"),
@@ -863,6 +963,30 @@ def _create_schema(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_message_topics_version_topic
             ON message_topics(topic_version, topic, rank);
 
+        CREATE TABLE IF NOT EXISTS anomaly_results (
+            fingerprint TEXT PRIMARY KEY,
+            stat_date TEXT NOT NULL,
+            analysis_version TEXT NOT NULL,
+            detector_version TEXT NOT NULL,
+            status TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            signals_json TEXT NOT NULL,
+            explanation TEXT NOT NULL,
+            history_days INTEGER NOT NULL,
+            baseline_start_date TEXT,
+            baseline_end_date TEXT,
+            current_messages INTEGER NOT NULL,
+            baseline_messages REAL,
+            volume_ratio REAL,
+            current_sentiment REAL NOT NULL,
+            baseline_sentiment REAL,
+            sentiment_shift REAL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_anomaly_results_date
+            ON anomaly_results(stat_date DESC, status);
+
         """
     )
 
@@ -913,6 +1037,7 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             (2, "run_history_and_daily_metrics", applied_at),
             (3, "run_limits_and_external_metadata", applied_at),
             (4, "versioned_message_topics", applied_at),
+            (5, "versioned_anomaly_results", applied_at),
         ),
     )
 

@@ -11,6 +11,7 @@ SRC_PATH = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_PATH))
 
 from stockpulse.repository import SQLiteRepository, StockPulseRepository  # noqa: E402
+from stockpulse.anomaly import evaluate_anomaly  # noqa: E402
 from stockpulse.storage import MessageAnalysis, MessageTopic, RunResult  # noqa: E402
 from stockpulse.topics import (  # noqa: E402
     TOPIC_ANALYSIS_VERSION,
@@ -148,6 +149,40 @@ class RepositoryContractMixin:
             )
         self.assertEqual(representatives[0].message_id, 101)
         self.assertEqual(representatives[0].url, "https://example.com/101")
+
+    def test_anomaly_results_are_versioned_idempotent_and_queryable(self) -> None:
+        metrics = [
+            {
+                "stat_date": f"2026-08-{day:02d}",
+                "analysis_version": "analysis-v1",
+                "analyzed_count": 10,
+                "sentiment_score": 0.0,
+            }
+            for day in range(1, 8)
+        ]
+        metrics.append(
+            {
+                "stat_date": "2026-08-08",
+                "analysis_version": "analysis-v1",
+                "analyzed_count": 25,
+                "sentiment_score": -0.5,
+            }
+        )
+        result = evaluate_anomaly(metrics)
+
+        first = self.repository.store_anomaly_results([result])
+        second = self.repository.store_anomaly_results([result])
+        history = self.repository.get_anomaly_history(
+            analysis_version="analysis-v1",
+            detector_version=result.detector_version,
+            anomalies_only=True,
+        )
+
+        self.assertEqual(first, 1)
+        self.assertEqual(second, 0)
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["fingerprint"], result.fingerprint)
+        self.assertEqual(history[0]["signals"], result.signals)
 
 
 class SQLiteRepositoryContractTests(RepositoryContractMixin, unittest.TestCase):

@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from stockpulse import __version__
+from stockpulse.anomaly import DETECTOR_VERSION, evaluate_anomaly, replay_anomalies
 from stockpulse.collector.apify_client import (
     CollectionError,
     collect_messages,
@@ -109,6 +110,21 @@ def build_parser() -> argparse.ArgumentParser:
         "--representatives",
         metavar="TOPIC",
         help="Show representative locally stored messages for one exact topic.",
+    )
+    action_group.add_argument(
+        "--detect-anomalies",
+        action="store_true",
+        help="Evaluate and store the latest daily metric against local history.",
+    )
+    action_group.add_argument(
+        "--replay-anomalies",
+        action="store_true",
+        help="Replay the versioned anomaly detector across all local daily metrics.",
+    )
+    action_group.add_argument(
+        "--anomalies",
+        action="store_true",
+        help="Show stored anomaly evaluation history without contacting Apify.",
     )
     parser.add_argument(
         "--output-dir",
@@ -245,6 +261,62 @@ def main(
                     f"{item['neutral_count']:>4} | {item['bearish_count']:>4} | "
                     f"{item['sentiment_score']:>5.2f}"
                 )
+            return 0
+
+        if args.anomalies:
+            history = storage.get_anomaly_history(
+                analysis_version=analysis_version,
+                detector_version=DETECTOR_VERSION,
+            )
+            if not history:
+                print("No anomaly evaluations are stored yet.")
+                return 0
+            print("Date       | Status               | Severity | Signals")
+            print("-----------+----------------------+----------+--------------------------")
+            for item in history:
+                signals = ", ".join(item["signals"]) or "-"
+                print(
+                    f"{item['stat_date']} | {item['status']:<20} | "
+                    f"{item['severity']:<8} | {signals}"
+                )
+                print(f"  {item['explanation']}")
+            return 0
+
+        if args.detect_anomalies or args.replay_anomalies:
+            application_run_id = storage.start_run(
+                "anomalies",
+                symbol=settings.symbol,
+                analysis_version=analysis_version,
+            )
+            metrics = storage.get_ai_daily_stats(analysis_version=analysis_version)
+            if not metrics:
+                storage.finish_run(application_run_id, RunResult(status="succeeded"))
+                print("No AI daily metrics are available for anomaly detection.")
+                return 0
+            results = (
+                replay_anomalies(metrics)
+                if args.replay_anomalies
+                else [evaluate_anomaly(metrics)]
+            )
+            inserted = storage.store_anomaly_results(results)
+            storage.finish_run(
+                application_run_id,
+                RunResult(
+                    status="succeeded",
+                    message_count=len(results),
+                    analyzed_count=len(results),
+                ),
+            )
+            latest = results[-1]
+            print(
+                f"{latest.stat_date}: {latest.status} ({latest.severity}); "
+                f"{latest.explanation}"
+            )
+            print(
+                f"Stored {inserted} new evaluation(s); duplicate versioned "
+                "evaluations were skipped."
+            )
+            print("No Apify request was made and no Apify credits were used.")
             return 0
 
         if args.representatives:
