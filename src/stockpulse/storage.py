@@ -18,6 +18,30 @@ class StorageResult:
     affected_dates: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class PendingMessage:
+    """A stored message that has not received an AI sentiment label yet."""
+
+    message_id: int
+    body: str
+    stocktwits_sentiment: str | None
+
+
+@dataclass(frozen=True)
+class MessageAnalysis:
+    """AI sentiment fields ready to be written to one stored message."""
+
+    message_id: int
+    sentiment: str
+    confidence: float
+    model_name: str
+    model_revision: str
+    raw_label: str
+    low_confidence: bool
+    confidence_threshold: float
+    analysis_version: str
+
+
 def save_raw_messages(
     messages: list[dict[str, Any]],
     *,
@@ -131,8 +155,164 @@ def get_daily_stats(
     return [dict(row) for row in rows]
 
 
+def get_unanalyzed_messages(
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    limit: int = 100,
+    analysis_version: str,
+    reanalyze: bool = False,
+) -> list[PendingMessage]:
+    """Return messages missing the requested analysis version."""
+
+    if limit <= 0:
+        raise ValueError("Analysis limit must be greater than zero.")
+    if not database_path.exists():
+        return []
+
+    with closing(sqlite3.connect(database_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        with connection:
+            _create_schema(connection)
+        where_clause = "1 = 1" if reanalyze else (
+            "ai_sentiment IS NULL OR analysis_version IS NULL "
+            "OR analysis_version != ?"
+        )
+        parameters: tuple[Any, ...]
+        if reanalyze:
+            parameters = (limit,)
+        else:
+            parameters = (analysis_version, limit)
+        rows = connection.execute(
+            f"""
+            SELECT message_id, body, stocktwits_sentiment
+            FROM messages
+            WHERE {where_clause}
+            ORDER BY created_at, message_id
+            LIMIT ?
+            """,
+            parameters,
+        ).fetchall()
+
+    return [
+        PendingMessage(
+            message_id=int(row["message_id"]),
+            body=str(row["body"]),
+            stocktwits_sentiment=row["stocktwits_sentiment"],
+        )
+        for row in rows
+    ]
+
+
+def store_message_analyses(
+    analyses: list[MessageAnalysis],
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    analyzed_at: datetime | None = None,
+    overwrite: bool = False,
+) -> int:
+    """Save AI results, replacing only outdated versions unless requested."""
+
+    if not analyses:
+        return 0
+    if not database_path.exists():
+        raise ValueError(f"Database does not exist: {database_path}")
+
+    timestamp = analyzed_at or datetime.now(timezone.utc)
+    updated = 0
+    with closing(sqlite3.connect(database_path)) as connection:
+        with connection:
+            _create_schema(connection)
+            for analysis in analyses:
+                update_guard = "" if overwrite else (
+                    "AND (ai_sentiment IS NULL OR analysis_version IS NULL "
+                    "OR analysis_version != ?)"
+                )
+                parameters: tuple[Any, ...] = (
+                    analysis.sentiment,
+                    analysis.confidence,
+                    analysis.model_name,
+                    analysis.model_revision,
+                    analysis.raw_label,
+                    int(analysis.low_confidence),
+                    analysis.confidence_threshold,
+                    analysis.analysis_version,
+                    timestamp.isoformat(),
+                    analysis.message_id,
+                )
+                if not overwrite:
+                    parameters += (analysis.analysis_version,)
+                cursor = connection.execute(
+                    f"""
+                    UPDATE messages
+                    SET
+                        ai_sentiment = ?,
+                        ai_confidence = ?,
+                        ai_model = ?,
+                        ai_model_revision = ?,
+                        ai_raw_label = ?,
+                        ai_low_confidence = ?,
+                        ai_confidence_threshold = ?,
+                        analysis_version = ?,
+                        analyzed_at = ?
+                    WHERE message_id = ? {update_guard}
+                    """,
+                    parameters,
+                )
+                updated += max(cursor.rowcount, 0)
+    return updated
+
+
+def get_ai_daily_stats(
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    analysis_version: str | None = None,
+) -> list[dict[str, Any]]:
+    """Return daily AI sentiment counts and author-label agreement."""
+
+    if not database_path.exists():
+        return []
+
+    with closing(sqlite3.connect(database_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        with connection:
+            _create_schema(connection)
+        version_filter = "" if analysis_version is None else "AND analysis_version = ?"
+        parameters: tuple[Any, ...] = (
+            () if analysis_version is None else (analysis_version,)
+        )
+        rows = connection.execute(
+            f"""
+            SELECT
+                SUBSTR(created_at, 1, 10) AS stat_date,
+                COUNT(*) AS analyzed_count,
+                SUM(CASE WHEN ai_sentiment = 'Bullish' THEN 1 ELSE 0 END)
+                    AS bullish_count,
+                SUM(CASE WHEN ai_sentiment = 'Neutral' THEN 1 ELSE 0 END)
+                    AS neutral_count,
+                SUM(CASE WHEN ai_sentiment = 'Bearish' THEN 1 ELSE 0 END)
+                    AS bearish_count,
+                ROUND(AVG(ai_confidence), 4) AS average_confidence,
+                SUM(CASE WHEN stocktwits_sentiment IS NOT NULL
+                         AND stocktwits_sentiment != '' THEN 1 ELSE 0 END)
+                    AS author_labeled_count,
+                SUM(CASE WHEN LOWER(stocktwits_sentiment) = LOWER(ai_sentiment)
+                         THEN 1 ELSE 0 END) AS agreement_count,
+                SUM(CASE WHEN ai_low_confidence = 1 THEN 1 ELSE 0 END)
+                    AS low_confidence_count
+            FROM messages
+            WHERE ai_sentiment IS NOT NULL
+                {version_filter}
+            GROUP BY SUBSTR(created_at, 1, 10)
+            ORDER BY stat_date
+            """,
+            parameters,
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
 def _create_schema(connection: sqlite3.Connection) -> None:
-    """Create the small V1 database schema when it does not yet exist."""
+    """Create the schema and migrate older Phase 2 databases in place."""
 
     connection.executescript(
         """
@@ -162,6 +342,26 @@ def _create_schema(connection: sqlite3.Connection) -> None:
         );
         """
     )
+
+    existing_columns = {
+        str(row[1]) for row in connection.execute("PRAGMA table_info(messages)")
+    }
+    migrations = {
+        "ai_sentiment": "TEXT",
+        "ai_confidence": "REAL",
+        "ai_model": "TEXT",
+        "ai_model_revision": "TEXT",
+        "ai_raw_label": "TEXT",
+        "ai_low_confidence": "INTEGER",
+        "ai_confidence_threshold": "REAL",
+        "analysis_version": "TEXT",
+        "analyzed_at": "TEXT",
+    }
+    for column_name, column_type in migrations.items():
+        if column_name not in existing_columns:
+            connection.execute(
+                f"ALTER TABLE messages ADD COLUMN {column_name} {column_type}"
+            )
 
 
 def _refresh_daily_stats(

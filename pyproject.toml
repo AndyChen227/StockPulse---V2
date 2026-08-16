@@ -17,6 +17,12 @@ dependencies = [
     "python-dotenv==1.2.2",
 ]
 
+[project.optional-dependencies]
+ai = [
+    "torch==2.13.0",
+    "transformers==5.14.1",
+]
+
 [project.scripts]
 stockpulse = "stockpulse.main:main"
 

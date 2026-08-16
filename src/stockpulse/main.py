@@ -11,7 +11,20 @@ from stockpulse.collector.apify_client import (
     retrieve_run_messages,
 )
 from stockpulse.config import load_settings
-from stockpulse.storage import get_daily_stats, save_raw_messages, store_messages
+from stockpulse.sentiment import (
+    SentimentAnalyzer,
+    SentimentModelError,
+    build_analysis_version,
+)
+from stockpulse.storage import (
+    MessageAnalysis,
+    get_ai_daily_stats,
+    get_daily_stats,
+    get_unanalyzed_messages,
+    save_raw_messages,
+    store_message_analyses,
+    store_messages,
+)
 
 
 def build_startup_message() -> str:
@@ -24,6 +37,7 @@ def build_startup_message() -> str:
         f"Actor: {settings.actor_id}. "
         f"Maximum messages: {settings.max_messages}. "
         f"Maximum Actor charge: ${settings.max_total_charge_usd}. "
+        f"Sentiment confidence threshold: {settings.sentiment_threshold:.2f}. "
         f"API token configured: {'yes' if settings.has_api_token else 'no'}."
     )
 
@@ -48,6 +62,21 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Show local daily statistics without contacting Apify.",
     )
+    action_group.add_argument(
+        "--analyze",
+        action="store_true",
+        help="Analyze stored messages missing the current analysis version.",
+    )
+    action_group.add_argument(
+        "--reanalyze",
+        action="store_true",
+        help="Force one batch of stored messages through the current version.",
+    )
+    action_group.add_argument(
+        "--ai-stats",
+        action="store_true",
+        help="Show local AI sentiment statistics without contacting Apify.",
+    )
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -60,6 +89,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("data/stockpulse.db"),
         help="SQLite database path (default: data/stockpulse.db).",
     )
+    parser.add_argument(
+        "--analysis-limit",
+        type=int,
+        default=100,
+        help="Maximum stored messages to analyze in one run (default: 100).",
+    )
     return parser
 
 
@@ -71,6 +106,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         settings = load_settings(require_token=bool(args.collect or args.resume_run))
         print(build_startup_message())
+        analysis_version = build_analysis_version(
+            settings.sentiment_model,
+            settings.sentiment_model_revision,
+            settings.sentiment_threshold,
+        )
 
         if args.stats:
             daily_stats = get_daily_stats(database_path=args.database)
@@ -86,6 +126,90 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"{row['bullish_count']:>7} | {row['bearish_count']:>7} | "
                     f"{row['unlabeled_count']:>9}"
                 )
+            return 0
+
+        if args.ai_stats:
+            ai_stats = get_ai_daily_stats(
+                database_path=args.database,
+                analysis_version=analysis_version,
+            )
+            if not ai_stats:
+                print("No AI sentiment statistics are stored yet.")
+                return 0
+
+            print(
+                "Date       | Total | Bullish | Neutral | Bearish | Avg conf. | Low | Agree"
+            )
+            print(
+                "-----------+-------+---------+---------+---------+-----------+-----+------"
+            )
+            for row in ai_stats:
+                print(
+                    f"{row['stat_date']} | {row['analyzed_count']:>5} | "
+                    f"{row['bullish_count']:>7} | {row['neutral_count']:>7} | "
+                    f"{row['bearish_count']:>7} | "
+                    f"{row['average_confidence']:>9.2%} | "
+                    f"{row['low_confidence_count']:>3} | "
+                    f"{row['agreement_count']}/{row['author_labeled_count']}"
+                )
+            return 0
+
+        if args.analyze or args.reanalyze:
+            pending_messages = get_unanalyzed_messages(
+                database_path=args.database,
+                limit=args.analysis_limit,
+                analysis_version=analysis_version,
+                reanalyze=args.reanalyze,
+            )
+            if not pending_messages:
+                print("No unanalyzed messages are stored. Nothing changed.")
+                return 0
+
+            print(
+                f"Analyzing {len(pending_messages)} stored messages locally with "
+                f"{settings.sentiment_model}..."
+            )
+            analyzer = SentimentAnalyzer(
+                model_name=settings.sentiment_model,
+                model_revision=settings.sentiment_model_revision,
+                confidence_threshold=settings.sentiment_threshold,
+            )
+            predictions = analyzer.analyze(
+                [message.body for message in pending_messages]
+            )
+            analyses = [
+                MessageAnalysis(
+                    message_id=message.message_id,
+                    sentiment=prediction.sentiment,
+                    confidence=prediction.confidence,
+                    model_name=prediction.model_name,
+                    model_revision=prediction.model_revision,
+                    raw_label=prediction.raw_label,
+                    low_confidence=prediction.low_confidence,
+                    confidence_threshold=prediction.confidence_threshold,
+                    analysis_version=prediction.analysis_version,
+                )
+                for message, prediction in zip(
+                    pending_messages, predictions, strict=True
+                )
+            ]
+            updated = store_message_analyses(
+                analyses,
+                database_path=args.database,
+                overwrite=args.reanalyze,
+            )
+            for message, prediction in zip(
+                pending_messages, predictions, strict=True
+            ):
+                author_label = message.stocktwits_sentiment or "Unlabeled"
+                print(
+                    f"{message.message_id}: AI={prediction.sentiment} "
+                    f"({prediction.confidence:.1%}), "
+                    f"low-confidence={'yes' if prediction.low_confidence else 'no'}, "
+                    f"Stocktwits={author_label}"
+                )
+            print(f"Saved AI sentiment for {updated} messages.")
+            print("No Apify request was made and no Apify credits were used.")
             return 0
 
         if not args.collect and not args.resume_run:
@@ -120,7 +244,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if messages:
             print(f"Returned fields: {', '.join(sorted(messages[0]))}")
         return 0
-    except (CollectionError, ValueError) as error:
+    except (CollectionError, SentimentModelError, ValueError) as error:
         print(f"StockPulse stopped safely: {error}")
         return 1
 

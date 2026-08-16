@@ -24,6 +24,15 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.actor_id, "automation-lab/stocktwits-scraper")
         self.assertEqual(settings.max_messages, 5)
         self.assertEqual(settings.max_total_charge_usd, Decimal("0.05"))
+        self.assertEqual(
+            settings.sentiment_model,
+            "cardiffnlp/twitter-roberta-base-sentiment-latest",
+        )
+        self.assertEqual(
+            settings.sentiment_model_revision,
+            "3216a57f2a0d9c45a2e6c20157c20c49fb4bf9c7",
+        )
+        self.assertEqual(settings.sentiment_threshold, 0.60)
         self.assertFalse(settings.has_api_token)
 
     def test_symbol_is_normalized(self) -> None:
@@ -64,6 +73,15 @@ class SettingsTests(unittest.TestCase):
             settings = load_settings(require_token=True, load_env_file=False)
 
         self.assertNotIn("secret-test-token", repr(settings))
+
+    def test_invalid_sentiment_threshold_is_rejected(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"STOCKPULSE_SENTIMENT_THRESHOLD": "1.5"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(ValueError, "must be between 0 and 1"):
+                load_settings(load_env_file=False)
 
 
 if __name__ == "__main__":
