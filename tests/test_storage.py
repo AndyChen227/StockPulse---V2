@@ -16,10 +16,14 @@ sys.path.insert(0, str(SRC_PATH))
 
 from stockpulse.storage import (  # noqa: E402
     MessageAnalysis,
+    RunResult,
+    finish_run,
     get_ai_daily_stats,
     get_daily_stats,
+    get_run_history,
     get_unanalyzed_messages,
     save_raw_messages,
+    start_run,
     store_message_analyses,
     store_messages,
 )
@@ -135,6 +139,7 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(ai_stats[0]["analyzed_count"], 1)
         self.assertEqual(ai_stats[0]["bullish_count"], 1)
         self.assertEqual(ai_stats[0]["agreement_count"], 1)
+        self.assertEqual(ai_stats[0]["sentiment_score"], 1.0)
         self.assertIn("analysis_version", columns)
         self.assertIn("ai_model_revision", columns)
 
@@ -162,6 +167,92 @@ class StorageTests(unittest.TestCase):
             )
 
         self.assertEqual(stats[0]["bearish_count"], 1)
+
+    def test_existing_ai_results_are_backfilled_into_daily_metrics(self) -> None:
+        with TemporaryDirectory() as directory:
+            database_path = Path(directory) / "stockpulse.db"
+            self._create_phase_two_database(database_path)
+            get_unanalyzed_messages(
+                database_path=database_path,
+                analysis_version="version-a",
+            )
+            with closing(sqlite3.connect(database_path)) as connection:
+                with connection:
+                    connection.execute(
+                        """
+                        UPDATE messages
+                        SET ai_sentiment = 'Bearish', ai_confidence = 0.75,
+                            ai_low_confidence = 0, analysis_version = 'version-a'
+                        WHERE message_id = 10
+                        """
+                    )
+
+            stats = get_ai_daily_stats(
+                database_path=database_path,
+                analysis_version="version-a",
+            )
+
+        self.assertEqual(stats[0]["bearish_count"], 1)
+        self.assertEqual(stats[0]["sentiment_score"], -1.0)
+
+    def test_run_history_records_success_and_rejects_second_finish(self) -> None:
+        started_at = datetime(2026, 8, 5, 1, 0, tzinfo=timezone.utc)
+        finished_at = datetime(2026, 8, 5, 1, 2, tzinfo=timezone.utc)
+
+        with TemporaryDirectory() as directory:
+            database_path = Path(directory) / "stockpulse.db"
+            run_id = start_run(
+                "collect",
+                database_path=database_path,
+                symbol="TSLA",
+                started_at=started_at,
+            )
+            finish_run(
+                run_id,
+                RunResult(
+                    status="succeeded",
+                    message_count=5,
+                    inserted_count=4,
+                    duplicate_count=1,
+                ),
+                database_path=database_path,
+                finished_at=finished_at,
+            )
+            history = get_run_history(database_path=database_path)
+            with self.assertRaises(ValueError):
+                finish_run(
+                    run_id,
+                    RunResult(status="failed"),
+                    database_path=database_path,
+                )
+
+        self.assertEqual(history[0]["status"], "succeeded")
+        self.assertEqual(history[0]["message_count"], 5)
+        self.assertEqual(history[0]["inserted_count"], 4)
+        self.assertEqual(history[0]["duplicate_count"], 1)
+        self.assertEqual(history[0]["started_at"], started_at.isoformat())
+        self.assertEqual(history[0]["finished_at"], finished_at.isoformat())
+
+    def test_failed_run_stores_a_bounded_one_line_error(self) -> None:
+        with TemporaryDirectory() as directory:
+            database_path = Path(directory) / "stockpulse.db"
+            run_id = start_run(
+                "analyze", database_path=database_path, symbol="TSLA"
+            )
+            finish_run(
+                run_id,
+                RunResult(
+                    status="failed",
+                    error_type="ExampleError",
+                    error_message="first line\n" + ("x" * 600),
+                ),
+                database_path=database_path,
+            )
+            history = get_run_history(database_path=database_path)
+
+        self.assertEqual(history[0]["error_type"], "ExampleError")
+        self.assertNotIn("\n", history[0]["error_message"])
+        self.assertEqual(len(history[0]["error_message"]), 500)
 
     def test_explicit_overwrite_reanalyzes_current_version(self) -> None:
         first = MessageAnalysis(

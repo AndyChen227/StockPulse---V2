@@ -7,6 +7,11 @@ import json
 from pathlib import Path
 import sqlite3
 from typing import Any
+from uuid import uuid4
+
+
+RUN_ACTIONS = frozenset({"collect", "resume", "analyze", "reanalyze"})
+RUN_STATUSES = frozenset({"running", "succeeded", "failed"})
 
 
 @dataclass(frozen=True)
@@ -40,6 +45,19 @@ class MessageAnalysis:
     low_confidence: bool
     confidence_threshold: float
     analysis_version: str
+
+
+@dataclass(frozen=True)
+class RunResult:
+    """Counts and safe outcome details for a completed application run."""
+
+    status: str
+    message_count: int = 0
+    inserted_count: int = 0
+    duplicate_count: int = 0
+    analyzed_count: int = 0
+    error_type: str | None = None
+    error_message: str | None = None
 
 
 def save_raw_messages(
@@ -222,6 +240,7 @@ def store_message_analyses(
     with closing(sqlite3.connect(database_path)) as connection:
         with connection:
             _create_schema(connection)
+            affected_versions: set[str] = set()
             for analysis in analyses:
                 update_guard = "" if overwrite else (
                     "AND (ai_sentiment IS NULL OR analysis_version IS NULL "
@@ -259,6 +278,25 @@ def store_message_analyses(
                     parameters,
                 )
                 updated += max(cursor.rowcount, 0)
+                if cursor.rowcount > 0:
+                    affected_versions.add(analysis.analysis_version)
+
+            for analysis_version in affected_versions:
+                stat_dates = connection.execute(
+                    """
+                    SELECT DISTINCT SUBSTR(created_at, 1, 10)
+                    FROM messages
+                    WHERE analysis_version = ?
+                    """,
+                    (analysis_version,),
+                ).fetchall()
+                for row in stat_dates:
+                    _refresh_ai_daily_metrics(
+                        connection,
+                        str(row[0]),
+                        analysis_version,
+                        timestamp.isoformat(),
+                    )
     return updated
 
 
@@ -276,6 +314,11 @@ def get_ai_daily_stats(
         connection.row_factory = sqlite3.Row
         with connection:
             _create_schema(connection)
+            _backfill_ai_daily_metrics(
+                connection,
+                analysis_version=analysis_version,
+                updated_at=datetime.now(timezone.utc).isoformat(),
+            )
         version_filter = "" if analysis_version is None else "AND analysis_version = ?"
         parameters: tuple[Any, ...] = (
             () if analysis_version is None else (analysis_version,)
@@ -283,31 +326,148 @@ def get_ai_daily_stats(
         rows = connection.execute(
             f"""
             SELECT
-                SUBSTR(created_at, 1, 10) AS stat_date,
-                COUNT(*) AS analyzed_count,
-                SUM(CASE WHEN ai_sentiment = 'Bullish' THEN 1 ELSE 0 END)
-                    AS bullish_count,
-                SUM(CASE WHEN ai_sentiment = 'Neutral' THEN 1 ELSE 0 END)
-                    AS neutral_count,
-                SUM(CASE WHEN ai_sentiment = 'Bearish' THEN 1 ELSE 0 END)
-                    AS bearish_count,
-                ROUND(AVG(ai_confidence), 4) AS average_confidence,
-                SUM(CASE WHEN stocktwits_sentiment IS NOT NULL
-                         AND stocktwits_sentiment != '' THEN 1 ELSE 0 END)
-                    AS author_labeled_count,
-                SUM(CASE WHEN LOWER(stocktwits_sentiment) = LOWER(ai_sentiment)
-                         THEN 1 ELSE 0 END) AS agreement_count,
-                SUM(CASE WHEN ai_low_confidence = 1 THEN 1 ELSE 0 END)
-                    AS low_confidence_count
-            FROM messages
-            WHERE ai_sentiment IS NOT NULL
-                {version_filter}
-            GROUP BY SUBSTR(created_at, 1, 10)
+                stat_date,
+                analyzed_count,
+                bullish_count,
+                neutral_count,
+                bearish_count,
+                average_confidence,
+                low_confidence_count,
+                author_labeled_count,
+                agreement_count,
+                sentiment_score,
+                analysis_version,
+                updated_at
+            FROM daily_metrics
+            WHERE 1 = 1 {version_filter}
             ORDER BY stat_date
             """,
             parameters,
         ).fetchall()
 
+    return [dict(row) for row in rows]
+
+
+def start_run(
+    action: str,
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    symbol: str,
+    analysis_version: str | None = None,
+    external_run_id: str | None = None,
+    started_at: datetime | None = None,
+) -> str:
+    """Create a durable running record and return its application run ID."""
+
+    if action not in RUN_ACTIONS:
+        raise ValueError(f"Unsupported run action: {action}")
+
+    timestamp = started_at or datetime.now(timezone.utc)
+    run_id = uuid4().hex
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    with closing(sqlite3.connect(database_path)) as connection:
+        with connection:
+            _create_schema(connection)
+            connection.execute(
+                """
+                INSERT INTO runs (
+                    run_id, action, status, symbol, analysis_version,
+                    external_run_id, started_at
+                ) VALUES (?, ?, 'running', ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    action,
+                    symbol,
+                    analysis_version,
+                    external_run_id,
+                    timestamp.isoformat(),
+                ),
+            )
+    return run_id
+
+
+def finish_run(
+    run_id: str,
+    result: RunResult,
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    finished_at: datetime | None = None,
+) -> None:
+    """Finish one running record without allowing a second terminal update."""
+
+    if result.status not in RUN_STATUSES - {"running"}:
+        raise ValueError("Run result status must be succeeded or failed.")
+    counts = (
+        result.message_count,
+        result.inserted_count,
+        result.duplicate_count,
+        result.analyzed_count,
+    )
+    if any(count < 0 for count in counts):
+        raise ValueError("Run result counts cannot be negative.")
+    if not database_path.exists():
+        raise ValueError(f"Database does not exist: {database_path}")
+
+    timestamp = finished_at or datetime.now(timezone.utc)
+    error_message = _clean_error_message(result.error_message)
+    with closing(sqlite3.connect(database_path)) as connection:
+        with connection:
+            _create_schema(connection)
+            cursor = connection.execute(
+                """
+                UPDATE runs
+                SET
+                    status = ?,
+                    finished_at = ?,
+                    message_count = ?,
+                    inserted_count = ?,
+                    duplicate_count = ?,
+                    analyzed_count = ?,
+                    error_type = ?,
+                    error_message = ?
+                WHERE run_id = ? AND status = 'running'
+                """,
+                (
+                    result.status,
+                    timestamp.isoformat(),
+                    *counts,
+                    result.error_type,
+                    error_message,
+                    run_id,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError(f"Run is missing or already finished: {run_id}")
+
+
+def get_run_history(
+    *, database_path: Path = Path("data/stockpulse.db"), limit: int = 20
+) -> list[dict[str, Any]]:
+    """Return recent durable run records newest first."""
+
+    if limit <= 0 or limit > 500:
+        raise ValueError("Run history limit must be between 1 and 500.")
+    if not database_path.exists():
+        return []
+
+    with closing(sqlite3.connect(database_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        with connection:
+            _create_schema(connection)
+        rows = connection.execute(
+            """
+            SELECT
+                run_id, action, status, symbol, analysis_version,
+                external_run_id, started_at, finished_at,
+                message_count, inserted_count, duplicate_count,
+                analyzed_count, error_type, error_message
+            FROM runs
+            ORDER BY started_at DESC, run_id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
     return [dict(row) for row in rows]
 
 
@@ -340,6 +500,42 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             unlabeled_count INTEGER NOT NULL,
             updated_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS daily_metrics (
+            stat_date TEXT NOT NULL,
+            analysis_version TEXT NOT NULL,
+            analyzed_count INTEGER NOT NULL,
+            bullish_count INTEGER NOT NULL,
+            neutral_count INTEGER NOT NULL,
+            bearish_count INTEGER NOT NULL,
+            average_confidence REAL NOT NULL,
+            low_confidence_count INTEGER NOT NULL,
+            author_labeled_count INTEGER NOT NULL,
+            agreement_count INTEGER NOT NULL,
+            sentiment_score REAL NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (stat_date, analysis_version)
+        );
+
+        CREATE TABLE IF NOT EXISTS runs (
+            run_id TEXT PRIMARY KEY,
+            action TEXT NOT NULL,
+            status TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            analysis_version TEXT,
+            external_run_id TEXT,
+            started_at TEXT NOT NULL,
+            finished_at TEXT,
+            message_count INTEGER NOT NULL DEFAULT 0,
+            inserted_count INTEGER NOT NULL DEFAULT 0,
+            duplicate_count INTEGER NOT NULL DEFAULT 0,
+            analyzed_count INTEGER NOT NULL DEFAULT 0,
+            error_type TEXT,
+            error_message TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_runs_started_at
+            ON runs(started_at DESC);
         """
     )
 
@@ -397,3 +593,109 @@ def _refresh_daily_stats(
         """,
         (stat_date, updated_at, stat_date),
     )
+
+
+def _refresh_ai_daily_metrics(
+    connection: sqlite3.Connection,
+    stat_date: str,
+    analysis_version: str,
+    updated_at: str,
+) -> None:
+    """Materialize one day's dashboard-ready AI metrics for one version."""
+
+    connection.execute(
+        """
+        INSERT INTO daily_metrics (
+            stat_date, analysis_version, analyzed_count,
+            bullish_count, neutral_count, bearish_count,
+            average_confidence, low_confidence_count,
+            author_labeled_count, agreement_count,
+            sentiment_score, updated_at
+        )
+        SELECT
+            ?,
+            ?,
+            COUNT(*),
+            SUM(CASE WHEN ai_sentiment = 'Bullish' THEN 1 ELSE 0 END),
+            SUM(CASE WHEN ai_sentiment = 'Neutral' THEN 1 ELSE 0 END),
+            SUM(CASE WHEN ai_sentiment = 'Bearish' THEN 1 ELSE 0 END),
+            ROUND(AVG(ai_confidence), 4),
+            SUM(CASE WHEN ai_low_confidence = 1 THEN 1 ELSE 0 END),
+            SUM(CASE WHEN stocktwits_sentiment IS NOT NULL
+                     AND stocktwits_sentiment != '' THEN 1 ELSE 0 END),
+            SUM(CASE WHEN LOWER(stocktwits_sentiment) = LOWER(ai_sentiment)
+                     THEN 1 ELSE 0 END),
+            ROUND(
+                CAST(SUM(CASE WHEN ai_sentiment = 'Bullish' THEN 1 ELSE 0 END)
+                    - SUM(CASE WHEN ai_sentiment = 'Bearish' THEN 1 ELSE 0 END)
+                    AS REAL) / COUNT(*),
+                4
+            ),
+            ?
+        FROM messages
+        WHERE SUBSTR(created_at, 1, 10) = ?
+            AND analysis_version = ?
+        ON CONFLICT(stat_date, analysis_version) DO UPDATE SET
+            analyzed_count = excluded.analyzed_count,
+            bullish_count = excluded.bullish_count,
+            neutral_count = excluded.neutral_count,
+            bearish_count = excluded.bearish_count,
+            average_confidence = excluded.average_confidence,
+            low_confidence_count = excluded.low_confidence_count,
+            author_labeled_count = excluded.author_labeled_count,
+            agreement_count = excluded.agreement_count,
+            sentiment_score = excluded.sentiment_score,
+            updated_at = excluded.updated_at
+        """,
+        (stat_date, analysis_version, updated_at, stat_date, analysis_version),
+    )
+
+
+def _backfill_ai_daily_metrics(
+    connection: sqlite3.Connection,
+    *,
+    analysis_version: str | None,
+    updated_at: str,
+) -> None:
+    """Populate missing dashboard metrics from already-analyzed messages."""
+
+    parameters: tuple[str, ...] = ()
+    version_filter = ""
+    if analysis_version is not None:
+        version_filter = "AND analysis_version = ?"
+        parameters = (analysis_version,)
+
+    missing = connection.execute(
+        f"""
+        SELECT DISTINCT
+            SUBSTR(created_at, 1, 10) AS stat_date,
+            analysis_version
+        FROM messages
+        WHERE ai_sentiment IS NOT NULL
+            AND analysis_version IS NOT NULL
+            {version_filter}
+            AND NOT EXISTS (
+                SELECT 1
+                FROM daily_metrics
+                WHERE daily_metrics.stat_date = SUBSTR(messages.created_at, 1, 10)
+                    AND daily_metrics.analysis_version = messages.analysis_version
+            )
+        """,
+        parameters,
+    ).fetchall()
+    for stat_date, version in missing:
+        _refresh_ai_daily_metrics(
+            connection,
+            str(stat_date),
+            str(version),
+            updated_at,
+        )
+
+
+def _clean_error_message(value: str | None) -> str | None:
+    """Store a bounded one-line error summary suitable for future UI display."""
+
+    if value is None:
+        return None
+    cleaned = " ".join(value.split())
+    return cleaned[:500] or None

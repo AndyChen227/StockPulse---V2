@@ -17,7 +17,7 @@ from stockpulse.sentiment import (  # noqa: E402
     SentimentResult,
     build_analysis_version,
 )
-from stockpulse.storage import PendingMessage  # noqa: E402
+from stockpulse.storage import PendingMessage, RunResult  # noqa: E402
 
 
 class MainTests(unittest.TestCase):
@@ -65,12 +65,16 @@ class MainTests(unittest.TestCase):
         collect_mock.assert_not_called()
 
     @patch("stockpulse.main.store_message_analyses", return_value=1)
+    @patch("stockpulse.main.finish_run")
+    @patch("stockpulse.main.start_run", return_value="run-1")
     @patch("stockpulse.main.SentimentAnalyzer")
     @patch("stockpulse.main.get_unanalyzed_messages")
     def test_analyze_mode_uses_only_local_stored_messages(
         self,
         get_pending_mock,
         analyzer_class_mock,
+        start_run_mock,
+        finish_run_mock,
         store_analyses_mock,
     ) -> None:
         get_pending_mock.return_value = [
@@ -97,6 +101,32 @@ class MainTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         collect_mock.assert_not_called()
         store_analyses_mock.assert_called_once()
+        start_run_mock.assert_called_once()
+        finish_run_mock.assert_called_once_with(
+            "run-1",
+            RunResult(status="succeeded", message_count=1, analyzed_count=1),
+            database_path=Path("data/stockpulse.db"),
+        )
+
+    def test_runs_mode_displays_history_without_collecting(self) -> None:
+        history = [
+            {
+                "started_at": "2026-08-05T01:00:00+00:00",
+                "action": "collect",
+                "status": "succeeded",
+                "message_count": 5,
+                "inserted_count": 4,
+                "duplicate_count": 1,
+                "analyzed_count": 0,
+            }
+        ]
+        with patch(
+            "stockpulse.main.get_run_history", return_value=history
+        ), patch("stockpulse.main.collect_messages") as collect_mock:
+            exit_code = main(["--runs"])
+
+        self.assertEqual(exit_code, 0)
+        collect_mock.assert_not_called()
 
 
 if __name__ == "__main__":
