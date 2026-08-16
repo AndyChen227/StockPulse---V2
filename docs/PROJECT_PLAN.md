@@ -102,7 +102,7 @@ Cloud Run containers have disposable local filesystems. SQLite is therefore a lo
 | 2. Durable data contract | Run history, daily metrics, schema versioning, stricter validation, storage abstraction, cloud migration plan | Complete |
 | 3. Analysis quality | Finance-specific evaluation set, quality metrics, topic extraction, representative messages | In progress: engineering baseline complete; larger reviewed samples remain |
 | 4. Baseline and anomaly detection | Historical baseline, explainable anomaly rules, replay tests, duplicate-alert prevention | In progress |
-| 5. Product API | Read APIs, guarded action APIs, pagination, filters, run-status endpoints | Pending |
+| 5. Product API | Read APIs, guarded action APIs, pagination, filters, run-status endpoints | In progress: first read-only endpoints implemented |
 | 6. Dashboard UI | Polished responsive dashboard, charts, tables, controls, history, empty/error/loading states | Pending |
 | 7. Cloud readiness | Docker images, production configuration, authentication, durable datastore, secrets, logs, backups, cost controls | Pending |
 | 8. Google Cloud launch | Deploy service and job, schedule daily runs, migrate data, verify operations, document rollback and maintenance | Pending |
@@ -159,7 +159,8 @@ Current limitations:
 - Experimental baseline and anomaly detection are implemented; thresholds still require calibration on representative history
 - Actual Apify spend is not yet retrieved; runs currently preserve the configured cost ceiling
 - SQLite is not suitable as persistent Cloud Run storage
-- No product API or dashboard exists yet
+- Initial read-only product API exists; message explorer, cursor pagination,
+  guarded actions, and the Dashboard UI remain
 - No container or Google Cloud resources exist yet
 
 ## 7. Immediate work
@@ -204,6 +205,7 @@ Current analysis references:
 - [Sentiment evaluation](SENTIMENT_EVALUATION.md)
 - [Topic analysis and representative messages](TOPIC_ANALYSIS.md)
 - [Anomaly detection and replay](ANOMALY_DETECTION.md)
+- [Product API](API.md)
 
 ---
 

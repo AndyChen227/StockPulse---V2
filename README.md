@@ -159,7 +159,8 @@ Apify usage is a real project constraint, so V1 intentionally stays small:
 | Stocktwits | Investor-discussion data source |
 | Twitter-RoBERTa + Transformers | Local sentiment classification |
 | SQLite | Historical storage for V1 |
-| Web API and dashboard | Planned interactive product interface |
+| Web API | Read-only V1 endpoints in progress |
+| Dashboard | Planned interactive product interface |
 | Docker | Reproducible application packaging |
 | Google Cloud Run service | Planned dashboard and API hosting |
 | Google Cloud Run job | Planned batch collection and analysis |
@@ -223,6 +224,9 @@ python -m stockpulse.main --representatives "Deliveries & Demand"
 python -m stockpulse.main --detect-anomalies
 python -m stockpulse.main --replay-anomalies
 python -m stockpulse.main --anomalies
+
+# Start the local read-only Dashboard API on http://localhost:8080.
+stockpulse-api
 ```
 
 The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
@@ -536,6 +540,9 @@ python -m stockpulse.main --representatives "Deliveries & Demand"
 python -m stockpulse.main --detect-anomalies
 python -m stockpulse.main --replay-anomalies
 python -m stockpulse.main --anomalies
+
+# Start the local read-only Dashboard API on http://localhost:8080.
+stockpulse-api
 ```
 
 真实 `.env`、原始 JSON 和 SQLite 数据库均不会上传到 Git。当前测试配置将单次运行限制为 **5 条消息**、**5 分钟**和 **最高 0.05 美元 Actor 费用**。
