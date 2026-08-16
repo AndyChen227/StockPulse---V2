@@ -209,6 +209,134 @@ def get_daily_stats(
     return [dict(row) for row in rows]
 
 
+def get_messages(
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    limit: int = 51,
+    before_created_at: str | None = None,
+    before_message_id: int | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    query: str | None = None,
+    stocktwits_sentiment: str | None = None,
+    ai_sentiment: str | None = None,
+    minimum_confidence: float | None = None,
+    topic: str | None = None,
+    topic_version: str | None = None,
+) -> list[dict[str, Any]]:
+    """Return a stable newest-first message page with Dashboard filters."""
+
+    if limit <= 0 or limit > 101:
+        raise ValueError("Message query limit must be between 1 and 101.")
+    if (before_created_at is None) != (before_message_id is None):
+        raise ValueError("Message cursor time and ID must be provided together.")
+    if before_created_at is not None:
+        try:
+            cursor_time = datetime.fromisoformat(before_created_at)
+        except ValueError as error:
+            raise ValueError("Message cursor time must be an ISO timestamp.") from error
+        if cursor_time.tzinfo is None or before_message_id is None or before_message_id <= 0:
+            raise ValueError("Message cursor must contain an aware time and positive ID.")
+    if minimum_confidence is not None and not 0 <= minimum_confidence <= 1:
+        raise ValueError("Minimum confidence must be between zero and one.")
+    if topic and not topic_version:
+        raise ValueError("Topic filtering requires a topic version.")
+    try:
+        parsed_start = date.fromisoformat(start_date) if start_date else None
+        parsed_end = date.fromisoformat(end_date) if end_date else None
+    except ValueError as error:
+        raise ValueError("Message dates must use YYYY-MM-DD.") from error
+    if parsed_start and parsed_end and parsed_start > parsed_end:
+        raise ValueError("Message start date cannot be after end date.")
+    if not database_path.exists():
+        return []
+
+    filters = ["1 = 1"]
+    parameters: list[Any] = []
+    if before_created_at is not None and before_message_id is not None:
+        filters.append("(m.created_at < ? OR (m.created_at = ? AND m.message_id < ?))")
+        parameters.extend([before_created_at, before_created_at, before_message_id])
+    if start_date:
+        filters.append("date(m.created_at) >= date(?)")
+        parameters.append(start_date)
+    if end_date:
+        filters.append("date(m.created_at) <= date(?)")
+        parameters.append(end_date)
+    if query:
+        escaped = _escape_like(query.strip().lower())
+        filters.append(
+            "(LOWER(m.body) LIKE ? ESCAPE '\\' "
+            "OR LOWER(COALESCE(m.username, '')) LIKE ? ESCAPE '\\')"
+        )
+        parameters.extend([f"%{escaped}%", f"%{escaped}%"])
+    if stocktwits_sentiment:
+        filters.append("LOWER(m.stocktwits_sentiment) = LOWER(?)")
+        parameters.append(stocktwits_sentiment)
+    if ai_sentiment:
+        filters.append("LOWER(m.ai_sentiment) = LOWER(?)")
+        parameters.append(ai_sentiment)
+    if minimum_confidence is not None:
+        filters.append("m.ai_confidence >= ?")
+        parameters.append(minimum_confidence)
+    if topic:
+        filters.append(
+            "EXISTS (SELECT 1 FROM message_topics selected_topic "
+            "WHERE selected_topic.message_id = m.message_id "
+            "AND selected_topic.topic = ? AND selected_topic.topic_version = ?)"
+        )
+        parameters.extend([topic, topic_version])
+    parameters.append(limit)
+
+    with closing(sqlite3.connect(database_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        with connection:
+            _create_schema(connection)
+        rows = connection.execute(
+            f"""
+            SELECT m.message_id, m.body, m.created_at,
+                   m.stocktwits_sentiment, m.username, m.user_followers, m.url,
+                   m.ai_sentiment, m.ai_confidence, m.ai_low_confidence,
+                   m.ai_model, m.ai_model_revision, m.analysis_version,
+                   m.analyzed_at
+            FROM messages m
+            WHERE {' AND '.join(filters)}
+            ORDER BY m.created_at DESC, m.message_id DESC
+            LIMIT ?
+            """,
+            parameters,
+        ).fetchall()
+        messages = [dict(row) for row in rows]
+        if messages and topic_version:
+            message_ids = [int(item["message_id"]) for item in messages]
+            placeholders = ",".join("?" for _ in message_ids)
+            topic_rows = connection.execute(
+                f"""
+                SELECT message_id, topic, score, rank
+                FROM message_topics
+                WHERE topic_version = ? AND message_id IN ({placeholders})
+                ORDER BY message_id, rank, topic
+                """,
+                [topic_version, *message_ids],
+            ).fetchall()
+            topics_by_message: dict[int, list[dict[str, Any]]] = {}
+            for row in topic_rows:
+                topics_by_message.setdefault(int(row["message_id"]), []).append(
+                    {
+                        "topic": row["topic"],
+                        "score": row["score"],
+                        "rank": row["rank"],
+                    }
+                )
+            for message in messages:
+                message["topics"] = topics_by_message.get(
+                    int(message["message_id"]), []
+                )
+        else:
+            for message in messages:
+                message["topics"] = []
+    return messages
+
+
 def get_unanalyzed_messages(
     *,
     database_path: Path = Path("data/stockpulse.db"),
@@ -1210,3 +1338,9 @@ def _clean_error_message(value: str | None) -> str | None:
         return None
     cleaned = " ".join(value.split())
     return cleaned[:500] or None
+
+
+def _escape_like(value: str) -> str:
+    """Escape SQLite LIKE wildcards so user search remains literal."""
+
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

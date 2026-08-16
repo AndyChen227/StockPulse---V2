@@ -33,6 +33,7 @@ class ApiTests(unittest.TestCase):
         self.repository.get_run_history.return_value = []
         self.repository.get_topic_summary.return_value = []
         self.repository.get_topic_daily_stats.return_value = []
+        self.repository.get_messages.return_value = []
         self.client = TestClient(
             create_app(
                 repository=self.repository,
@@ -98,6 +99,46 @@ class ApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 422)
         self.repository.get_run_history.assert_not_called()
+
+    def test_message_explorer_returns_stable_next_cursor(self) -> None:
+        self.repository.get_messages.return_value = [
+            {
+                "message_id": message_id,
+                "created_at": f"2026-08-0{message_id}T00:00:00+00:00",
+                "body": f"message {message_id}",
+                "topics": [],
+            }
+            for message_id in (3, 2, 1)
+        ]
+
+        first = self.client.get("/api/v1/messages", params={"limit": 2})
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual([row["message_id"] for row in first.json()["data"]], [3, 2])
+        self.assertTrue(first.json()["meta"]["has_more"])
+        cursor = first.json()["meta"]["next_cursor"]
+        self.repository.get_messages.return_value = []
+
+        second = self.client.get(
+            "/api/v1/messages", params={"limit": 2, "cursor": cursor}
+        )
+
+        self.assertEqual(second.status_code, 200)
+        call = self.repository.get_messages.call_args
+        self.assertEqual(call.kwargs["before_message_id"], 2)
+        self.assertEqual(call.kwargs["before_created_at"], "2026-08-02T00:00:00+00:00")
+
+    def test_message_filters_are_validated_before_query(self) -> None:
+        invalid_cursor = self.client.get(
+            "/api/v1/messages", params={"cursor": "not-a-cursor"}
+        )
+        invalid_confidence = self.client.get(
+            "/api/v1/messages", params={"minimum_confidence": 1.5}
+        )
+
+        self.assertEqual(invalid_cursor.status_code, 422)
+        self.assertEqual(invalid_confidence.status_code, 422)
+        self.repository.get_messages.assert_not_called()
 
 
 if __name__ == "__main__":

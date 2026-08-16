@@ -32,12 +32,32 @@ environment variable.
 | GET | `/api/v1/metrics/sentiment` | Daily AI sentiment and volume history with inclusive date filters |
 | GET | `/api/v1/topics` | Current versioned topic summary |
 | GET | `/api/v1/topics/history` | Date-bucketed topic history with inclusive date filters |
+| GET | `/api/v1/messages` | Cursor-paginated message explorer with search and filters |
 | GET | `/api/v1/anomalies` | Complete or anomaly-only evaluation history with a bounded limit |
 | GET | `/api/v1/runs` | Bounded operational run history |
 
 Collection endpoints return a `data` list and `meta` object. Date filters use
-`YYYY-MM-DD`; an inverted range returns HTTP 422. Run limits are 1–100 and
-anomaly limits are 1–500.
+`YYYY-MM-DD`; an inverted range returns HTTP 422. Run limits are 1-100 and
+anomaly limits are 1-500.
+
+### Message explorer
+
+`GET /api/v1/messages` returns newest messages first and accepts:
+
+- `cursor`: opaque continuation value returned by the previous page
+- `limit`: 1-100, default 50
+- `start_date` and `end_date`: inclusive UTC calendar-date filters
+- `query`: literal case-insensitive body or username search, 2-100 characters
+- `stocktwits_sentiment`: `Bullish`, `Neutral`, or `Bearish`
+- `ai_sentiment`: `Bullish`, `Neutral`, or `Bearish`
+- `minimum_confidence`: 0-1
+- `topic`: exact current-taxonomy topic name
+
+The cursor is based on both `created_at` and `message_id`, so equal timestamps
+remain deterministic and newly inserted messages do not shift later pages. The
+response includes `has_more` and `next_cursor`. Each message exposes its source
+link, author label, AI label and confidence, analysis version, and current topic
+assignments. Raw source JSON is not exposed.
 
 ## Version behavior
 
@@ -48,7 +68,6 @@ so the Dashboard can display exactly which analysis produced the current data.
 ## Remaining Stage 5 work
 
 - define typed response models for the public OpenAPI contract
-- add a cursor-paginated message explorer with search and filters
 - add run-detail access and date/status filters
 - add explicit authentication and authorization before any write endpoint
 - design confirmation tokens and audit behavior for bounded manual actions

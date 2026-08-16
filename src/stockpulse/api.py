@@ -1,9 +1,12 @@
 """Read-only HTTP API for the StockPulse dashboard."""
 
-from datetime import date
+import base64
+import binascii
+from datetime import date, datetime
+import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 
@@ -93,6 +96,51 @@ def create_app(
             "meta": {"count": len(rows), "topic_version": TOPIC_ANALYSIS_VERSION},
         }
 
+    @app.get("/api/v1/messages")
+    def messages(
+        cursor: str | None = Query(default=None, max_length=500),
+        limit: int = Query(default=50, ge=1, le=100),
+        start_date: date | None = None,
+        end_date: date | None = None,
+        query: str | None = Query(default=None, min_length=2, max_length=100),
+        stocktwits_sentiment: Literal["Bullish", "Neutral", "Bearish"] | None = None,
+        ai_sentiment: Literal["Bullish", "Neutral", "Bearish"] | None = None,
+        minimum_confidence: float | None = Query(default=None, ge=0, le=1),
+        topic: str | None = Query(default=None, min_length=1, max_length=100),
+    ) -> dict[str, Any]:
+        _validate_date_range(start_date, end_date)
+        before_created_at, before_message_id = _decode_message_cursor(cursor)
+        rows = storage.get_messages(
+            limit=limit + 1,
+            before_created_at=before_created_at,
+            before_message_id=before_message_id,
+            start_date=start_date.isoformat() if start_date else None,
+            end_date=end_date.isoformat() if end_date else None,
+            query=query,
+            stocktwits_sentiment=stocktwits_sentiment,
+            ai_sentiment=ai_sentiment,
+            minimum_confidence=minimum_confidence,
+            topic=topic,
+            topic_version=TOPIC_ANALYSIS_VERSION,
+        )
+        has_more = len(rows) > limit
+        page = rows[:limit]
+        next_cursor = (
+            _encode_message_cursor(page[-1]["created_at"], page[-1]["message_id"])
+            if has_more and page
+            else None
+        )
+        return {
+            "data": page,
+            "meta": {
+                "count": len(page),
+                "limit": limit,
+                "has_more": has_more,
+                "next_cursor": next_cursor,
+                "topic_version": TOPIC_ANALYSIS_VERSION,
+            },
+        }
+
     @app.get("/api/v1/topics/history")
     def topic_history(
         start_date: date | None = None,
@@ -174,6 +222,32 @@ def _collection_response(
             "end_date": end_date.isoformat() if end_date else None,
         },
     }
+
+
+def _encode_message_cursor(created_at: str, message_id: int) -> str:
+    payload = json.dumps(
+        {"created_at": created_at, "message_id": int(message_id)},
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return base64.urlsafe_b64encode(payload).decode("ascii").rstrip("=")
+
+
+def _decode_message_cursor(cursor: str | None) -> tuple[str | None, int | None]:
+    if cursor is None:
+        return None, None
+    try:
+        padding = "=" * (-len(cursor) % 4)
+        payload = json.loads(
+            base64.urlsafe_b64decode((cursor + padding).encode("ascii"))
+        )
+        created_at = str(payload["created_at"])
+        message_id = int(payload["message_id"])
+        parsed = datetime.fromisoformat(created_at)
+        if parsed.tzinfo is None or message_id <= 0:
+            raise ValueError
+    except (ValueError, TypeError, KeyError, json.JSONDecodeError, binascii.Error):
+        raise HTTPException(status_code=422, detail="Invalid message cursor") from None
+    return created_at, message_id
 
 
 app = create_app()
