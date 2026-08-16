@@ -216,6 +216,7 @@ python -m stockpulse.main --analyze-topics
 
 # Show stored topic counts or representative source-linked messages.
 python -m stockpulse.main --topic-stats
+python -m stockpulse.main --topic-history
 python -m stockpulse.main --representatives "Deliveries & Demand"
 ```
 
@@ -523,6 +524,7 @@ python -m stockpulse.main --analyze-topics
 
 # 查看话题统计或带原帖链接的代表性消息
 python -m stockpulse.main --topic-stats
+python -m stockpulse.main --topic-history
 python -m stockpulse.main --representatives "Deliveries & Demand"
 ```
 

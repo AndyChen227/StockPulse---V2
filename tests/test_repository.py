@@ -116,6 +116,13 @@ class RepositoryContractMixin:
         summary = self.repository.get_topic_summary(
             topic_version=TOPIC_ANALYSIS_VERSION
         )
+        history = self.repository.get_topic_daily_stats(
+            topic_version=TOPIC_ANALYSIS_VERSION
+        )
+        excluded_history = self.repository.get_topic_daily_stats(
+            topic_version=TOPIC_ANALYSIS_VERSION,
+            start_date="2026-08-07",
+        )
         representative_candidates = self.repository.get_representative_candidates(
             topic="Deliveries & Demand",
             topic_version=TOPIC_ANALYSIS_VERSION,
@@ -128,6 +135,17 @@ class RepositoryContractMixin:
         self.assertEqual(pending_after, [])
         self.assertEqual(summary[0]["topic"], "Deliveries & Demand")
         self.assertEqual(summary[0]["message_count"], 1)
+        self.assertEqual(history[0]["stat_date"], "2026-08-06")
+        self.assertEqual(history[0]["topic"], "Deliveries & Demand")
+        self.assertEqual(history[0]["bullish_count"], 1)
+        self.assertEqual(history[0]["sentiment_score"], 1.0)
+        self.assertEqual(excluded_history, [])
+        with self.assertRaisesRegex(ValueError, "cannot be after"):
+            self.repository.get_topic_daily_stats(
+                topic_version=TOPIC_ANALYSIS_VERSION,
+                start_date="2026-08-07",
+                end_date="2026-08-06",
+            )
         self.assertEqual(representatives[0].message_id, 101)
         self.assertEqual(representatives[0].url, "https://example.com/101")
 

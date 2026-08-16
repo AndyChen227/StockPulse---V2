@@ -101,6 +101,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show locally stored topic counts without contacting Apify.",
     )
     action_group.add_argument(
+        "--topic-history",
+        action="store_true",
+        help="Show UTC date-bucketed topic metrics for historical charts.",
+    )
+    action_group.add_argument(
         "--representatives",
         metavar="TOPIC",
         help="Show representative locally stored messages for one exact topic.",
@@ -221,6 +226,24 @@ def main(
                 print(
                     f"{item['topic']:<26} | {item['message_count']:>8} | "
                     f"{item['average_score']:>9.1%}"
+                )
+            return 0
+
+        if args.topic_history:
+            topic_history = storage.get_topic_daily_stats(
+                topic_version=TOPIC_ANALYSIS_VERSION
+            )
+            if not topic_history:
+                print("No topic history is stored yet.")
+                return 0
+            print("Date       | Topic                      | Msgs | Bull | Neut | Bear | Score")
+            print("-----------+----------------------------+------+------+------+------+------")
+            for item in topic_history:
+                print(
+                    f"{item['stat_date']} | {item['topic']:<26} | "
+                    f"{item['message_count']:>4} | {item['bullish_count']:>4} | "
+                    f"{item['neutral_count']:>4} | {item['bearish_count']:>4} | "
+                    f"{item['sentiment_score']:>5.2f}"
                 )
             return 0
 

@@ -173,7 +173,9 @@ Planned work:
 3. Expand model comparison only with candidates that have acceptable licensing and Stocktwits-relevant behavior.
 4. Evaluate and expand the implemented topic taxonomy on a representative labeled sample.
 5. Validate representative-message ranking against manually reviewed examples.
-6. Add date-bucketed topic metrics for historical Dashboard charts.
+6. Add date-bucketed topic metrics for historical Dashboard charts. **Implemented:**
+   the repository now returns UTC daily topic counts, sentiment breakdowns,
+   confidence, topic strength, sentiment score, and optional date bounds.
 
 ## 8. Documentation system
 

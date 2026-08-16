@@ -2,7 +2,7 @@
 
 from contextlib import closing
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
@@ -511,6 +511,65 @@ def get_topic_summary(
             ORDER BY message_count DESC, average_score DESC, topic
             """,
             (topic_version,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_topic_daily_stats(
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    topic_version: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> list[dict[str, Any]]:
+    """Return UTC date-bucketed topic and sentiment metrics for charts."""
+
+    try:
+        parsed_start = date.fromisoformat(start_date) if start_date else None
+        parsed_end = date.fromisoformat(end_date) if end_date else None
+    except ValueError as error:
+        raise ValueError("Topic history dates must use YYYY-MM-DD.") from error
+    if parsed_start and parsed_end and parsed_start > parsed_end:
+        raise ValueError("Topic history start date cannot be after end date.")
+    if not database_path.exists():
+        return []
+
+    filters = ["mt.topic_version = ?"]
+    parameters: list[Any] = [topic_version]
+    if start_date:
+        filters.append("date(m.created_at) >= date(?)")
+        parameters.append(start_date)
+    if end_date:
+        filters.append("date(m.created_at) <= date(?)")
+        parameters.append(end_date)
+
+    with closing(sqlite3.connect(database_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        with connection:
+            _create_schema(connection)
+        rows = connection.execute(
+            f"""
+            SELECT date(m.created_at) AS stat_date, mt.topic,
+                   COUNT(DISTINCT m.message_id) AS message_count,
+                   SUM(CASE WHEN m.ai_sentiment = 'Bullish' THEN 1 ELSE 0 END)
+                       AS bullish_count,
+                   SUM(CASE WHEN m.ai_sentiment = 'Neutral' THEN 1 ELSE 0 END)
+                       AS neutral_count,
+                   SUM(CASE WHEN m.ai_sentiment = 'Bearish' THEN 1 ELSE 0 END)
+                       AS bearish_count,
+                   ROUND(AVG(m.ai_confidence), 4) AS average_confidence,
+                   ROUND(AVG(mt.score), 4) AS average_topic_score,
+                   ROUND(AVG(CASE m.ai_sentiment
+                       WHEN 'Bullish' THEN 1.0
+                       WHEN 'Bearish' THEN -1.0
+                       ELSE 0.0 END), 4) AS sentiment_score
+            FROM message_topics mt
+            JOIN messages m ON m.message_id = mt.message_id
+            WHERE {' AND '.join(filters)}
+            GROUP BY date(m.created_at), mt.topic
+            ORDER BY stat_date, mt.topic
+            """,
+            parameters,
         ).fetchall()
     return [dict(row) for row in rows]
 
