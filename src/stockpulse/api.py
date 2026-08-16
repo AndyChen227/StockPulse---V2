@@ -11,7 +11,8 @@ from typing import Any, Literal
 from fastapi import FastAPI, HTTPException, Path as PathParam, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from stockpulse import __version__
@@ -23,6 +24,7 @@ from stockpulse.topics import TOPIC_ANALYSIS_VERSION
 
 
 API_VERSION = "v1"
+WEB_DIRECTORY = Path(__file__).resolve().parent / "web"
 
 
 class HealthResponse(BaseModel):
@@ -75,6 +77,11 @@ def create_app(
         version=__version__,
         description="Read-only dashboard API for versioned TSLA sentiment history.",
     )
+    app.mount("/assets", StaticFiles(directory=WEB_DIRECTORY), name="assets")
+
+    @app.get("/", include_in_schema=False)
+    def dashboard() -> FileResponse:
+        return FileResponse(WEB_DIRECTORY / "index.html")
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(

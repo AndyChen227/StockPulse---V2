@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="StockPulse TSLA sentiment and discussion intelligence dashboard">
+  <title>StockPulse · TSLA Intelligence</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to dashboard</a>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">SP</span>
+        <div><strong>StockPulse</strong><small>Market intelligence</small></div>
+      </div>
+      <nav>
+        <a class="nav-link active" href="#overview"><span>01</span> Overview</a>
+        <a class="nav-link" href="#trends"><span>02</span> Trends</a>
+        <a class="nav-link" href="#messages"><span>03</span> Messages</a>
+        <a class="nav-link" href="#runs"><span>04</span> Run history</a>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="system-state"><i id="nav-status-dot"></i><span id="nav-status">Checking system</span></div>
+        <small>TSLA · Experimental analysis</small>
+      </div>
+    </aside>
+
+    <main id="main-content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">TSLA / SOCIAL SENTIMENT</p>
+          <h1>Market pulse, explained.</h1>
+          <p class="subtitle">Signal, context, and operating history in one view.</p>
+        </div>
+        <div class="toolbar" aria-label="Dashboard controls">
+          <label class="field compact"><span>Range</span>
+            <select id="range-select">
+              <option value="7">Last 7 days</option>
+              <option value="30" selected>Last 30 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="all">All history</option>
+            </select>
+          </label>
+          <button class="button secondary" id="refresh-button" type="button">Refresh data</button>
+          <button class="button primary locked" type="button" disabled title="Available after authentication and confirmation controls">Run collection <span>Locked</span></button>
+        </div>
+      </header>
+
+      <div id="global-error" class="alert error" role="alert" hidden></div>
+
+      <section id="overview" aria-labelledby="overview-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">LIVE SNAPSHOT</p><h2 id="overview-title">Overview</h2></div>
+          <p id="freshness" class="freshness">Loading latest data…</p>
+        </div>
+        <div class="metric-grid">
+          <article class="metric-card hero-metric"><span>Sentiment score</span><strong id="sentiment-score">—</strong><small id="sentiment-label">Awaiting data</small></article>
+          <article class="metric-card"><span>Discussion volume</span><strong id="message-volume">—</strong><small>Analyzed messages</small></article>
+          <article class="metric-card"><span>Average confidence</span><strong id="confidence">—</strong><small id="low-confidence">— low-confidence</small></article>
+          <article class="metric-card anomaly-card"><span>Anomaly status</span><strong id="anomaly-status">—</strong><small id="anomaly-summary">Awaiting evaluation</small></article>
+        </div>
+        <div class="sentiment-strip" aria-label="Current sentiment distribution">
+          <div class="strip-label"><span>Bullish</span><strong id="bullish-count">—</strong></div>
+          <div class="distribution"><i id="bullish-bar"></i><i id="neutral-bar"></i><i id="bearish-bar"></i></div>
+          <div class="strip-label right"><strong id="bearish-count">—</strong><span>Bearish</span></div>
+        </div>
+      </section>
+
+      <section id="trends" aria-labelledby="trends-title">
+        <div class="section-heading"><div><p class="eyebrow">HISTORICAL CONTEXT</p><h2 id="trends-title">Trends & drivers</h2></div></div>
+        <div class="dashboard-grid">
+          <article class="panel chart-panel">
+            <div class="panel-head"><div><h3>Sentiment & volume</h3><p>Daily score and analyzed discussion</p></div><div class="legend"><span><i class="line-key"></i>Sentiment</span><span><i class="bar-key"></i>Volume</span></div></div>
+            <div id="chart-empty" class="empty-state" hidden>No historical metrics in this range.</div>
+            <canvas id="trend-chart" role="img" aria-label="Daily sentiment and message volume chart"></canvas>
+          </article>
+          <article class="panel topics-panel">
+            <div class="panel-head"><div><h3>Discussion drivers</h3><p>Most active topics in the current taxonomy</p></div></div>
+            <div id="topics-list" class="topic-list"><div class="skeleton tall"></div></div>
+          </article>
+          <article class="panel anomaly-panel">
+            <div class="panel-head"><div><h3>Latest anomaly</h3><p>Versioned and replayable explanation</p></div><span id="anomaly-badge" class="badge muted">Checking</span></div>
+            <p id="anomaly-explanation" class="anomaly-copy">Loading the latest evaluation…</p>
+            <dl id="anomaly-details" class="detail-grid"></dl>
+          </article>
+        </div>
+      </section>
+
+      <section id="messages" aria-labelledby="messages-title">
+        <div class="section-heading"><div><p class="eyebrow">SOURCE EXPLORER</p><h2 id="messages-title">Messages</h2></div><span id="message-count-label" class="count-label">Loading…</span></div>
+        <article class="panel table-panel">
+          <form id="message-filters" class="filter-row">
+            <label class="field search-field"><span>Search</span><input id="message-query" type="search" minlength="2" maxlength="100" placeholder="Search message or author"></label>
+            <label class="field"><span>AI sentiment</span><select id="message-sentiment"><option value="">All sentiment</option><option>Bullish</option><option>Neutral</option><option>Bearish</option></select></label>
+            <label class="field"><span>Topic</span><select id="message-topic"><option value="">All topics</option></select></label>
+            <button class="button secondary filter-button" type="submit">Apply filters</button>
+            <button class="text-button" id="clear-filters" type="button">Clear</button>
+          </form>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Message</th><th>AI signal</th><th>Author label</th><th>Topics</th><th>Date</th><th><span class="sr-only">Source</span></th></tr></thead>
+              <tbody id="messages-body"><tr><td colspan="6"><div class="skeleton rows"></div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="table-footer"><p id="messages-state">Loading messages…</p><button id="load-more" class="button secondary" type="button" hidden>Load more</button></div>
+        </article>
+      </section>
+
+      <section id="runs" aria-labelledby="runs-title">
+        <div class="section-heading"><div><p class="eyebrow">OPERATIONS</p><h2 id="runs-title">Run history</h2></div><button class="text-button" id="show-failed-runs" type="button">Show failed only</button></div>
+        <article class="panel table-panel">
+          <div class="table-wrap"><table><thead><tr><th>Started</th><th>Action</th><th>Status</th><th>Messages</th><th>New / duplicate</th><th>Duration</th></tr></thead><tbody id="runs-body"><tr><td colspan="6"><div class="skeleton rows"></div></td></tr></tbody></table></div>
+        </article>
+      </section>
+
+      <footer><span>StockPulse v0.1</span><span>Experimental signals, not investment advice.</span></footer>
+    </main>
+  </div>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>

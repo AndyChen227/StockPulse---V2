@@ -50,6 +50,26 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.json()["status"], "ok")
         self.assertEqual(response.json()["api_version"], "v1")
 
+    def test_dashboard_shell_is_served_at_the_root(self) -> None:
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers["content-type"])
+        self.assertIn("StockPulse", response.text)
+        self.assertIn("Run collection", response.text)
+        self.assertIn("disabled", response.text)
+
+    def test_dashboard_assets_are_served_locally(self) -> None:
+        stylesheet = self.client.get("/assets/styles.css")
+        script = self.client.get("/assets/app.js")
+
+        self.assertEqual(stylesheet.status_code, 200)
+        self.assertIn("text/css", stylesheet.headers["content-type"])
+        self.assertIn("--green", stylesheet.text)
+        self.assertEqual(script.status_code, 200)
+        self.assertIn("javascript", script.headers["content-type"])
+        self.assertIn("/api/v1/overview", script.text)
+
     def test_readiness_checks_database_separately_from_liveness(self) -> None:
         ready = self.client.get("/api/v1/ready")
         self.repository.check_ready.return_value = False

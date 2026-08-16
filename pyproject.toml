@@ -33,5 +33,8 @@ stockpulse-api = "stockpulse.api:run"
 [tool.setuptools]
 package-dir = { "" = "src" }
 
+[tool.setuptools.package-data]
+stockpulse = ["web/*.html", "web/*.css", "web/*.js"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
