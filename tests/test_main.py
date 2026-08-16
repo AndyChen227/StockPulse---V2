@@ -20,7 +20,8 @@ from stockpulse.sentiment import (  # noqa: E402
     SentimentResult,
     build_analysis_version,
 )
-from stockpulse.storage import PendingMessage, RunResult  # noqa: E402
+from stockpulse.storage import PendingMessage, RunResult, TopicCandidate  # noqa: E402
+from stockpulse.topics import TOPIC_ANALYSIS_VERSION  # noqa: E402
 
 
 class MainTests(unittest.TestCase):
@@ -158,6 +159,38 @@ class MainTests(unittest.TestCase):
                 external_run_id="apify-run-1",
                 external_dataset_id="dataset-1",
             ),
+        )
+
+    def test_topic_analysis_uses_only_local_messages(self) -> None:
+        repository = MagicMock()
+        repository.start_run.return_value = "topic-run-1"
+        repository.get_topic_candidates.return_value = [
+            TopicCandidate(
+                message_id=1,
+                body="Delivery demand is rising.",
+                created_at="2026-08-05T00:00:00+00:00",
+                ai_sentiment="Bullish",
+                ai_confidence=0.9,
+                user_followers=10,
+                url="https://example.com/1",
+            )
+        ]
+        repository.store_message_topics.return_value = 1
+
+        with patch("stockpulse.main.collect_messages") as collect_mock:
+            exit_code = main(["--analyze-topics"], repository=repository)
+
+        self.assertEqual(exit_code, 0)
+        collect_mock.assert_not_called()
+        repository.start_run.assert_called_once_with(
+            "topics",
+            symbol="TSLA",
+            analysis_version=TOPIC_ANALYSIS_VERSION,
+        )
+        repository.store_message_topics.assert_called_once()
+        repository.finish_run.assert_called_once_with(
+            "topic-run-1",
+            RunResult(status="succeeded", message_count=1, analyzed_count=1),
         )
 
 

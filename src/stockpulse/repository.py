@@ -6,18 +6,25 @@ from typing import Any, Protocol
 
 from stockpulse.storage import (
     MessageAnalysis,
+    MessageTopic,
     PendingMessage,
     RunResult,
     StorageResult,
+    TopicCandidate,
     finish_run,
     get_ai_daily_stats,
     get_daily_stats,
     get_run_history,
+    get_representative_candidates,
+    get_topic_candidates,
+    get_topic_summary,
     get_unanalyzed_messages,
     start_run,
     store_message_analyses,
     store_messages,
+    store_message_topics,
 )
+from stockpulse.topics import RepresentativeMessage
 
 
 class StockPulseRepository(Protocol):
@@ -54,6 +61,25 @@ class StockPulseRepository(Protocol):
     def finish_run(self, run_id: str, result: RunResult) -> None: ...
 
     def get_run_history(self, *, limit: int = 20) -> list[dict[str, Any]]: ...
+
+    def get_topic_candidates(
+        self,
+        *,
+        topic_version: str,
+        analysis_version: str,
+        limit: int,
+        reanalyze: bool = False,
+    ) -> list[TopicCandidate]: ...
+
+    def store_message_topics(
+        self, topics: list[MessageTopic], *, overwrite: bool = False
+    ) -> int: ...
+
+    def get_topic_summary(self, *, topic_version: str) -> list[dict[str, Any]]: ...
+
+    def get_representative_candidates(
+        self, *, topic: str, topic_version: str, limit: int = 100
+    ) -> list[RepresentativeMessage]: ...
 
 
 @dataclass(frozen=True)
@@ -122,3 +148,41 @@ class SQLiteRepository:
 
     def get_run_history(self, *, limit: int = 20) -> list[dict[str, Any]]:
         return get_run_history(database_path=self.database_path, limit=limit)
+
+    def get_topic_candidates(
+        self,
+        *,
+        topic_version: str,
+        analysis_version: str,
+        limit: int,
+        reanalyze: bool = False,
+    ) -> list[TopicCandidate]:
+        return get_topic_candidates(
+            database_path=self.database_path,
+            topic_version=topic_version,
+            analysis_version=analysis_version,
+            limit=limit,
+            reanalyze=reanalyze,
+        )
+
+    def store_message_topics(
+        self, topics: list[MessageTopic], *, overwrite: bool = False
+    ) -> int:
+        return store_message_topics(
+            topics, database_path=self.database_path, overwrite=overwrite
+        )
+
+    def get_topic_summary(self, *, topic_version: str) -> list[dict[str, Any]]:
+        return get_topic_summary(
+            database_path=self.database_path, topic_version=topic_version
+        )
+
+    def get_representative_candidates(
+        self, *, topic: str, topic_version: str, limit: int = 100
+    ) -> list[RepresentativeMessage]:
+        return get_representative_candidates(
+            database_path=self.database_path,
+            topic=topic,
+            topic_version=topic_version,
+            limit=limit,
+        )

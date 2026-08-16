@@ -10,11 +10,12 @@ from typing import Any
 from uuid import uuid4
 
 from stockpulse.validation import normalize_created_at, validate_messages
+from stockpulse.topics import RepresentativeMessage
 
 
-RUN_ACTIONS = frozenset({"collect", "resume", "analyze", "reanalyze"})
+RUN_ACTIONS = frozenset({"collect", "resume", "analyze", "reanalyze", "topics"})
 RUN_STATUSES = frozenset({"running", "succeeded", "partial", "failed"})
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,31 @@ class MessageAnalysis:
     low_confidence: bool
     confidence_threshold: float
     analysis_version: str
+
+
+@dataclass(frozen=True)
+class TopicCandidate:
+    """Analyzed message ready for versioned topic extraction."""
+
+    message_id: int
+    body: str
+    created_at: str
+    ai_sentiment: str
+    ai_confidence: float
+    user_followers: int | None
+    url: str | None
+
+
+@dataclass(frozen=True)
+class MessageTopic:
+    """One versioned topic assignment ready for persistence."""
+
+    message_id: int
+    topic: str
+    score: float
+    matched_terms: tuple[str, ...]
+    rank: int
+    topic_version: str
 
 
 @dataclass(frozen=True)
@@ -355,6 +381,186 @@ def get_ai_daily_stats(
     return [dict(row) for row in rows]
 
 
+def get_topic_candidates(
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    topic_version: str,
+    analysis_version: str,
+    limit: int = 100,
+    reanalyze: bool = False,
+) -> list[TopicCandidate]:
+    """Return sentiment-analyzed messages missing the requested topic version."""
+
+    if limit <= 0:
+        raise ValueError("Topic analysis limit must be greater than zero.")
+    if not database_path.exists():
+        return []
+    version_clause = "" if reanalyze else (
+        "AND NOT EXISTS (SELECT 1 FROM message_topics mt "
+        "WHERE mt.message_id = messages.message_id AND mt.topic_version = ?)"
+    )
+    parameters: tuple[Any, ...]
+    if reanalyze:
+        parameters = (analysis_version, limit)
+    else:
+        parameters = (analysis_version, topic_version, limit)
+
+    with closing(sqlite3.connect(database_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        with connection:
+            _create_schema(connection)
+        rows = connection.execute(
+            f"""
+            SELECT message_id, body, created_at, ai_sentiment, ai_confidence,
+                   user_followers, url
+            FROM messages
+            WHERE ai_sentiment IS NOT NULL
+                AND analysis_version = ?
+                {version_clause}
+            ORDER BY created_at, message_id
+            LIMIT ?
+            """,
+            parameters,
+        ).fetchall()
+    return [
+        TopicCandidate(
+            message_id=int(row["message_id"]),
+            body=str(row["body"]),
+            created_at=str(row["created_at"]),
+            ai_sentiment=str(row["ai_sentiment"]),
+            ai_confidence=float(row["ai_confidence"]),
+            user_followers=row["user_followers"],
+            url=row["url"],
+        )
+        for row in rows
+    ]
+
+
+def store_message_topics(
+    topics: list[MessageTopic],
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    analyzed_at: datetime | None = None,
+    overwrite: bool = False,
+) -> int:
+    """Persist versioned multi-label topic assignments idempotently."""
+
+    if not topics:
+        return 0
+    if not database_path.exists():
+        raise ValueError(f"Database does not exist: {database_path}")
+    for topic in topics:
+        if not topic.topic.strip() or not topic.topic_version.strip():
+            raise ValueError("Topic and topic version cannot be empty.")
+        if not 0 <= topic.score <= 1 or topic.rank <= 0:
+            raise ValueError("Topic score or rank is invalid.")
+
+    timestamp = analyzed_at or datetime.now(timezone.utc)
+    updated = 0
+    with closing(sqlite3.connect(database_path)) as connection:
+        with connection:
+            _create_schema(connection)
+            if overwrite:
+                keys = {(topic.message_id, topic.topic_version) for topic in topics}
+                connection.executemany(
+                    "DELETE FROM message_topics WHERE message_id = ? AND topic_version = ?",
+                    sorted(keys),
+                )
+            for topic in topics:
+                cursor = connection.execute(
+                    """
+                    INSERT OR IGNORE INTO message_topics (
+                        message_id, topic, score, matched_terms_json,
+                        rank, topic_version, analyzed_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        topic.message_id,
+                        topic.topic,
+                        topic.score,
+                        json.dumps(topic.matched_terms, ensure_ascii=False),
+                        topic.rank,
+                        topic.topic_version,
+                        timestamp.isoformat(),
+                    ),
+                )
+                updated += max(cursor.rowcount, 0)
+    return updated
+
+
+def get_topic_summary(
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    topic_version: str,
+) -> list[dict[str, Any]]:
+    """Return topic counts and average scores for Dashboard summaries."""
+
+    if not database_path.exists():
+        return []
+    with closing(sqlite3.connect(database_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        with connection:
+            _create_schema(connection)
+        rows = connection.execute(
+            """
+            SELECT topic, COUNT(DISTINCT message_id) AS message_count,
+                   ROUND(AVG(score), 4) AS average_score
+            FROM message_topics
+            WHERE topic_version = ?
+            GROUP BY topic
+            ORDER BY message_count DESC, average_score DESC, topic
+            """,
+            (topic_version,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_representative_candidates(
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    topic: str,
+    topic_version: str,
+    limit: int = 100,
+) -> list[RepresentativeMessage]:
+    """Return bounded source-linked candidates for deterministic ranking."""
+
+    if limit <= 0 or limit > 500:
+        raise ValueError("Representative candidate limit must be between 1 and 500.")
+    if not database_path.exists():
+        return []
+    with closing(sqlite3.connect(database_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        with connection:
+            _create_schema(connection)
+        rows = connection.execute(
+            """
+            SELECT m.message_id, m.body, mt.topic, mt.score AS topic_score,
+                   m.ai_sentiment, m.ai_confidence, m.user_followers,
+                   m.created_at, m.url
+            FROM message_topics mt
+            JOIN messages m ON m.message_id = mt.message_id
+            WHERE mt.topic = ? AND mt.topic_version = ?
+            ORDER BY m.created_at DESC, m.message_id DESC
+            LIMIT ?
+            """,
+            (topic, topic_version, limit),
+        ).fetchall()
+    return [
+        RepresentativeMessage(
+            message_id=int(row["message_id"]),
+            body=str(row["body"]),
+            topic=str(row["topic"]),
+            topic_score=float(row["topic_score"]),
+            ai_sentiment=str(row["ai_sentiment"]),
+            ai_confidence=float(row["ai_confidence"]),
+            user_followers=row["user_followers"],
+            created_at=str(row["created_at"]),
+            url=row["url"],
+        )
+        for row in rows
+    ]
+
+
 def start_run(
     action: str,
     *,
@@ -583,6 +789,21 @@ def _create_schema(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_runs_started_at
             ON runs(started_at DESC);
 
+        CREATE TABLE IF NOT EXISTS message_topics (
+            message_id INTEGER NOT NULL,
+            topic TEXT NOT NULL,
+            score REAL NOT NULL,
+            matched_terms_json TEXT NOT NULL,
+            rank INTEGER NOT NULL,
+            topic_version TEXT NOT NULL,
+            analyzed_at TEXT NOT NULL,
+            PRIMARY KEY (message_id, topic_version, topic),
+            FOREIGN KEY (message_id) REFERENCES messages(message_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_message_topics_version_topic
+            ON message_topics(topic_version, topic, rank);
+
         """
     )
 
@@ -632,6 +853,7 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             (1, "foundation_and_sentiment", applied_at),
             (2, "run_history_and_daily_metrics", applied_at),
             (3, "run_limits_and_external_metadata", applied_at),
+            (4, "versioned_message_topics", applied_at),
         ),
     )
 
