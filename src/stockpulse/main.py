@@ -293,10 +293,23 @@ def main(
                 storage.finish_run(application_run_id, RunResult(status="succeeded"))
                 print("No AI daily metrics are available for anomaly detection.")
                 return 0
+            topic_metrics = storage.get_topic_daily_stats(
+                topic_version=TOPIC_ANALYSIS_VERSION
+            )
             results = (
-                replay_anomalies(metrics)
+                replay_anomalies(
+                    metrics,
+                    topic_metrics=topic_metrics,
+                    topic_version=TOPIC_ANALYSIS_VERSION,
+                )
                 if args.replay_anomalies
-                else [evaluate_anomaly(metrics)]
+                else [
+                    evaluate_anomaly(
+                        metrics,
+                        topic_metrics=topic_metrics,
+                        topic_version=TOPIC_ANALYSIS_VERSION,
+                    )
+                ]
             )
             inserted = storage.store_anomaly_results(results)
             storage.finish_run(

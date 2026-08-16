@@ -19,6 +19,9 @@ The default detector uses:
 - at least 5 current messages before emitting an anomaly
 - a volume signal when current volume is at least 2.0 times baseline
 - a bullish or bearish signal when sentiment moves by at least 0.35
+- a topic-shift signal when a topic has at least 3 current assignments and its
+  share of all assignments rises by at least 25 percentage points versus its
+  median prior daily share
 
 The median is used to reduce the influence of an earlier spike. Every threshold
 is encoded into `detector_version`; changing behavior therefore creates a new
@@ -32,7 +35,7 @@ version and a new replay identity.
 | `normal` | Enough history exists, but no threshold was crossed |
 | `anomaly` | One or more versioned thresholds were crossed |
 
-One signal produces medium severity and two simultaneous signals produce high
+One signal produces medium severity and two or more simultaneous signals produce high
 severity. Severity is a display and routing aid, not a statement about investment
 risk or factual truth.
 
@@ -40,7 +43,7 @@ risk or factual truth.
 
 Replay evaluates each date using only earlier dates, preventing future data from
 leaking into its baseline. A SHA-256 fingerprint identifies the date, sentiment
-analysis version, and full detector version. SQLite stores each fingerprint once,
+analysis version, topic version, and full detector version. SQLite stores each fingerprint once,
 so retrying a job cannot create duplicate evaluations or future duplicate alerts.
 
 ```powershell
@@ -61,7 +64,7 @@ python -m stockpulse.main --anomalies
 - thresholds are engineering defaults and need calibration on representative history
 - missing collection days are not imputed
 - the current rule detects volume spikes, not unusually low volume
-- topic shifts do not yet contribute to anomaly decisions
+- topic-share counts are multi-label assignments, not unique-message market share
 - message duplication and coordinated low-quality content need a separate signal
 - no email is sent in this stage
 

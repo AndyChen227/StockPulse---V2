@@ -18,7 +18,7 @@ RUN_ACTIONS = frozenset(
     {"collect", "resume", "analyze", "reanalyze", "topics", "anomalies"}
 )
 RUN_STATUSES = frozenset({"running", "succeeded", "partial", "failed"})
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 
 
 @dataclass(frozen=True)
@@ -598,18 +598,20 @@ def store_anomaly_results(
                     """
                     INSERT OR IGNORE INTO anomaly_results (
                         fingerprint, stat_date, analysis_version,
-                        detector_version, status, severity, signals_json,
+                        detector_version, topic_version, status, severity, signals_json,
                         explanation, history_days, baseline_start_date,
                         baseline_end_date, current_messages, baseline_messages,
                         volume_ratio, current_sentiment, baseline_sentiment,
-                        sentiment_shift, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        sentiment_shift, shifted_topic, current_topic_share,
+                        baseline_topic_share, topic_share_shift, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         result.fingerprint,
                         result.stat_date,
                         result.analysis_version,
                         result.detector_version,
+                        result.topic_version,
                         result.status,
                         result.severity,
                         json.dumps(result.signals),
@@ -623,6 +625,10 @@ def store_anomaly_results(
                         result.current_sentiment,
                         result.baseline_sentiment,
                         result.sentiment_shift,
+                        result.shifted_topic,
+                        result.current_topic_share,
+                        result.baseline_topic_share,
+                        result.topic_share_shift,
                         timestamp,
                     ),
                 )
@@ -968,6 +974,7 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             stat_date TEXT NOT NULL,
             analysis_version TEXT NOT NULL,
             detector_version TEXT NOT NULL,
+            topic_version TEXT,
             status TEXT NOT NULL,
             severity TEXT NOT NULL,
             signals_json TEXT NOT NULL,
@@ -981,6 +988,10 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             current_sentiment REAL NOT NULL,
             baseline_sentiment REAL,
             sentiment_shift REAL,
+            shifted_topic TEXT,
+            current_topic_share REAL,
+            baseline_topic_share REAL,
+            topic_share_shift REAL,
             created_at TEXT NOT NULL
         );
 
@@ -1026,6 +1037,23 @@ def _create_schema(connection: sqlite3.Connection) -> None:
                 f"ALTER TABLE runs ADD COLUMN {column_name} {column_type}"
             )
 
+    existing_anomaly_columns = {
+        str(row[1])
+        for row in connection.execute("PRAGMA table_info(anomaly_results)")
+    }
+    anomaly_migrations = {
+        "topic_version": "TEXT",
+        "shifted_topic": "TEXT",
+        "current_topic_share": "REAL",
+        "baseline_topic_share": "REAL",
+        "topic_share_shift": "REAL",
+    }
+    for column_name, column_type in anomaly_migrations.items():
+        if column_name not in existing_anomaly_columns:
+            connection.execute(
+                f"ALTER TABLE anomaly_results ADD COLUMN {column_name} {column_type}"
+            )
+
     applied_at = datetime.now(timezone.utc).isoformat()
     connection.executemany(
         """
@@ -1038,6 +1066,7 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             (3, "run_limits_and_external_metadata", applied_at),
             (4, "versioned_message_topics", applied_at),
             (5, "versioned_anomaly_results", applied_at),
+            (6, "anomaly_topic_shift_metrics", applied_at),
         ),
     )
 

@@ -46,6 +46,34 @@ class AnomalyTests(unittest.TestCase):
         self.assertEqual(result.status, "normal")
         self.assertEqual(result.signals, ())
 
+    def test_detects_newly_prominent_topic_share(self) -> None:
+        metrics = [self._metric(day, 10, 0.0) for day in range(1, 9)]
+        topic_metrics = []
+        for day in range(1, 8):
+            topic_metrics.extend(
+                [
+                    self._topic_metric(day, "Robotaxi", 1),
+                    self._topic_metric(day, "Deliveries & Demand", 9),
+                ]
+            )
+        topic_metrics.extend(
+            [
+                self._topic_metric(8, "Robotaxi", 6),
+                self._topic_metric(8, "Deliveries & Demand", 4),
+            ]
+        )
+
+        result = evaluate_anomaly(metrics, topic_metrics=topic_metrics)
+
+        self.assertEqual(result.status, "anomaly")
+        self.assertEqual(result.severity, "medium")
+        self.assertEqual(result.signals, ("topic_shift",))
+        self.assertEqual(result.shifted_topic, "Robotaxi")
+        self.assertEqual(result.current_topic_share, 0.6)
+        self.assertEqual(result.baseline_topic_share, 0.1)
+        self.assertEqual(result.topic_share_shift, 0.5)
+        self.assertIn("Robotaxi share rose", result.explanation)
+
     def test_replay_uses_only_prior_data_and_has_stable_fingerprints(self) -> None:
         metrics = [self._metric(day, 10, 0.0) for day in range(1, 8)]
         metrics.append(self._metric(8, 20, 0.5))
@@ -59,6 +87,14 @@ class AnomalyTests(unittest.TestCase):
             [item.fingerprint for item in first],
             [item.fingerprint for item in second],
         )
+
+    def test_topic_version_changes_evaluation_fingerprint(self) -> None:
+        metrics = [self._metric(day, 10, 0.0) for day in range(1, 9)]
+
+        first = evaluate_anomaly(metrics, topic_version="topics-v1")
+        second = evaluate_anomaly(metrics, topic_version="topics-v2")
+
+        self.assertNotEqual(first.fingerprint, second.fingerprint)
 
     def test_rejects_mixed_analysis_versions(self) -> None:
         metrics = [self._metric(1, 10, 0.0), self._metric(2, 10, 0.0)]
@@ -85,6 +121,14 @@ class AnomalyTests(unittest.TestCase):
             "analysis_version": "analysis-v1",
             "analyzed_count": messages,
             "sentiment_score": sentiment,
+        }
+
+    @staticmethod
+    def _topic_metric(day: int, topic: str, messages: int) -> dict[str, object]:
+        return {
+            "stat_date": f"2026-08-{day:02d}",
+            "topic": topic,
+            "message_count": messages,
         }
 
 
