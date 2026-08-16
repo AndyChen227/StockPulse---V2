@@ -164,8 +164,9 @@ Current limitations:
   loading, empty, and error states
 - Cost-spending and data-changing controls remain locked until authenticated,
   bounded action APIs are implemented
-- Cloud Run service container exists and is smoke-tested in CI; production
-  datastore, authentication, secrets, and operational configuration remain
+- Cloud Run service container includes the PostgreSQL runtime and is
+  smoke-tested in CI; authentication, secrets, data migration, and operational
+  configuration remain
 - PostgreSQL secret configuration, bounded pool construction, and six ordered
   schema migrations exist; the shared read/write repository contract runs
   against ephemeral PostgreSQL, while data migration remains

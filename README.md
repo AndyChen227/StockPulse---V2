@@ -238,8 +238,9 @@ locked until authenticated, bounded action APIs are available. See
 The repository also includes a non-root Cloud Run service image. It packages
 the same Dashboard and API and is built and smoke-tested by GitHub Actions.
 See [Cloud Run service preparation](docs/CLOUD_RUN.md). Production deployment
-remains gated on durable PostgreSQL storage, authentication, and explicit cost
-approval; local SQLite is not treated as persistent cloud storage.
+remains gated on verified data migration, authentication, and explicit cost
+approval. The production image includes PostgreSQL support; local SQLite is not
+treated as persistent cloud storage.
 
 The PostgreSQL foundation now includes secret-safe configuration, a bounded
 connection pool, ordered schema migrations, and the complete read/write
