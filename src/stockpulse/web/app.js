@@ -2,6 +2,7 @@ const state = { days: 30, messageCursor: null, messageHasMore: false, failedRuns
 const $ = (id) => document.getElementById(id);
 
 document.addEventListener("DOMContentLoaded", () => {
+  setupMotion();
   $("range-select").addEventListener("change", (event) => {
     state.days = event.target.value === "all" ? null : Number(event.target.value);
     loadDashboard();
@@ -24,6 +25,20 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("resize", debounce(() => drawTrendChart(state.metrics), 120));
   loadDashboard();
 });
+
+function setupMotion() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const sections = [...document.querySelectorAll("main > section")];
+  sections.forEach((section) => section.classList.add("reveal"));
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add("is-visible");
+      observer.unobserve(entry.target);
+    });
+  }, { threshold: .08, rootMargin: "0px 0px -40px" });
+  sections.forEach((section) => observer.observe(section));
+}
 
 async function loadDashboard() {
   setBusy(true);
@@ -219,7 +234,7 @@ function drawTrendChart(rows) {
   ctx.clearRect(0, 0, width, height); ctx.font = "10px system-ui"; ctx.fillStyle = "#6f837c";
   for (let i = 0; i <= 4; i++) {
     const y = pad.top + chartH * i / 4;
-    ctx.strokeStyle = "rgba(220,239,232,.08)"; ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(width - pad.right, y); ctx.stroke();
+    ctx.strokeStyle = "rgba(221,228,242,.08)"; ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(width - pad.right, y); ctx.stroke();
     ctx.fillText((1 - i * .5).toFixed(1), 7, y + 3);
   }
   const step = chartW / Math.max(rows.length, 1);
@@ -228,7 +243,7 @@ function drawTrendChart(rows) {
     ctx.fillStyle = "rgba(127,151,143,.18)";
     ctx.fillRect(pad.left + index * step + step * .18, pad.top + chartH - barH, Math.max(2, step * .64), barH);
   });
-  ctx.strokeStyle = "#65e3ad"; ctx.lineWidth = 2; ctx.beginPath();
+  ctx.strokeStyle = "#6ea8fe"; ctx.lineWidth = 2; ctx.beginPath();
   rows.forEach((row, index) => {
     const x = pad.left + step * (index + .5);
     const y = pad.top + (1 - (Number(row.sentiment_score || 0) + 1) / 2) * chartH;
