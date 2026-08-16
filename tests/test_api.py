@@ -34,6 +34,8 @@ class ApiTests(unittest.TestCase):
         self.repository.get_topic_summary.return_value = []
         self.repository.get_topic_daily_stats.return_value = []
         self.repository.get_messages.return_value = []
+        self.repository.get_run.return_value = None
+        self.repository.check_ready.return_value = True
         self.client = TestClient(
             create_app(
                 repository=self.repository,
@@ -47,6 +49,16 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "ok")
         self.assertEqual(response.json()["api_version"], "v1")
+
+    def test_readiness_checks_database_separately_from_liveness(self) -> None:
+        ready = self.client.get("/api/v1/ready")
+        self.repository.check_ready.return_value = False
+        unavailable = self.client.get("/api/v1/ready")
+
+        self.assertEqual(ready.status_code, 200)
+        self.assertEqual(ready.json()["status"], "ready")
+        self.assertEqual(unavailable.status_code, 503)
+        self.assertEqual(unavailable.json()["error"]["code"], "request_error")
 
     def test_overview_combines_latest_dashboard_data(self) -> None:
         self.repository.get_topic_summary.return_value = [
@@ -98,7 +110,46 @@ class ApiTests(unittest.TestCase):
         response = self.client.get("/api/v1/runs", params={"limit": 101})
 
         self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["error"]["code"], "validation_error")
         self.repository.get_run_history.assert_not_called()
+
+    def test_run_history_filters_and_detail_not_found(self) -> None:
+        history = self.client.get(
+            "/api/v1/runs",
+            params={
+                "status": "failed",
+                "action": "collect",
+                "start_date": "2026-08-01",
+                "end_date": "2026-08-05",
+                "limit": 10,
+            },
+        )
+        missing = self.client.get("/api/v1/runs/missing-run")
+
+        self.assertEqual(history.status_code, 200)
+        self.repository.get_run_history.assert_called_with(
+            limit=10,
+            status="failed",
+            action="collect",
+            start_date="2026-08-01",
+            end_date="2026-08-05",
+        )
+        self.assertEqual(missing.status_code, 404)
+        self.assertEqual(missing.json()["error"]["code"], "not_found")
+        self.assertEqual(missing.json()["error"]["message"], "Run not found")
+
+    def test_run_detail_returns_complete_record(self) -> None:
+        self.repository.get_run.return_value = {
+            "run_id": "run-1",
+            "status": "failed",
+            "error_type": "ExampleError",
+            "error_message": "bounded error",
+        }
+
+        response = self.client.get("/api/v1/runs/run-1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["error_message"], "bounded error")
 
     def test_message_explorer_returns_stable_next_cursor(self) -> None:
         self.repository.get_messages.return_value = [
