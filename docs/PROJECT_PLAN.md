@@ -143,6 +143,7 @@ Completed:
 - Versioned daily AI metrics and automatic backfill for existing analysis history
 - Explicit schema migration records with protection against opening newer databases
 - Shared message-contract validation and canonical UTC timestamps
+- Cloud SQL for PostgreSQL selected for production history, with explicit cost approval required before provisioning
 - Local `--runs` history view for operational verification
 - Python 3.11 and 3.12 GitHub Actions tests
 
@@ -165,8 +166,7 @@ Planned work:
 1. Extend the implemented run status records with partial-success, validation, limit, cost, and retry details.
 2. Capture Apify dataset identifiers in addition to resumable external run identifiers.
 3. Separate storage interfaces from SQLite-specific implementation.
-4. Document candidate managed datastores and make a cost-aware production choice.
-5. Add repository contract tests before building API or UI layers.
+4. Add repository contract tests before building API or UI layers.
 
 ## 8. Documentation system
 
@@ -179,6 +179,10 @@ The project should keep the following records:
 - Future deployment runbook: provisioning, deployment, rollback, backup, and incident steps
 
 Progress should be updated when a stage changes status or a product requirement changes. Routine code details belong in pull requests rather than being duplicated here.
+
+Current architecture decisions:
+
+- [ADR 0001: Use Cloud SQL for PostgreSQL as the production datastore](adr/0001-cloud-datastore.md)
 
 ---
 
