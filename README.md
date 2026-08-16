@@ -161,7 +161,7 @@ Apify usage is a real project constraint, so V1 intentionally stays small:
 | SQLite | Historical storage for V1 |
 | Web API | Dashboard read contract implemented; authenticated actions pending |
 | Dashboard | Initial responsive read-only interface implemented; guarded actions pending |
-| Docker | Reproducible application packaging |
+| Docker | Cloud Run service image implemented and smoke-tested in CI |
 | Google Cloud Run service | Planned dashboard and API hosting |
 | Google Cloud Run job | Planned batch collection and analysis |
 | Google Cloud Scheduler | Planned daily scheduling |
@@ -235,6 +235,12 @@ and run history. Collection and other data-changing controls stay visibly
 locked until authenticated, bounded action APIs are available. See
 [Dashboard](docs/DASHBOARD.md) for behavior and current limitations.
 
+The repository also includes a non-root Cloud Run service image. It packages
+the same Dashboard and API and is built and smoke-tested by GitHub Actions.
+See [Cloud Run service preparation](docs/CLOUD_RUN.md). Production deployment
+remains gated on durable PostgreSQL storage, authentication, and explicit cost
+approval; local SQLite is not treated as persistent cloud storage.
+
 The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
 
 Sentiment analysis is an **experimental adapter** built on `cardiffnlp/twitter-roberta-base-sentiment-latest`. The model revision is pinned for reproducibility. Positive, neutral, and negative model labels map to Bullish, Neutral, and Bearish, but this mapping still requires evaluation on a larger finance-specific sample. Predictions below the default **0.60 confidence threshold keep their original direction** and are marked as low-confidence instead of being rewritten as Neutral. The model revision, threshold, and analysis version are stored with each result. Stocktwits author labels remain separate and are never overwritten.
@@ -261,7 +267,9 @@ StockPulse/
 └── README.md
 ```
 
-> Anomaly detection, notifications, and Docker files will be added in later phases.
+> Anomaly detection and the Cloud Run service container are implemented.
+> Notifications, production storage, authentication, and cloud provisioning
+> remain later-stage work.
 
 ## Roadmap
 
@@ -314,7 +322,7 @@ StockPulse/
 ### Phase 6 — Automation and Deployment
 
 - [ ] Add logging, retry logic, and usage monitoring
-- [ ] Package the application with Docker
+- [x] Package the Dashboard/API service with Docker
 - [ ] Deploy to Google Cloud Run
 - [ ] Schedule one daily run
 - [ ] Configure secrets and cost alerts
