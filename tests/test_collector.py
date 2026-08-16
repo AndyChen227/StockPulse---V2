@@ -12,6 +12,7 @@ SRC_PATH = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_PATH))
 
 from stockpulse.collector.apify_client import (  # noqa: E402
+    CollectionBatch,
     CollectionError,
     collect_messages,
     retrieve_run_messages,
@@ -38,7 +39,7 @@ class FakeActor:
 
     def call(self, **kwargs: object) -> SimpleNamespace:
         self.call_kwargs = kwargs
-        return SimpleNamespace(default_dataset_id="test-dataset")
+        return SimpleNamespace(id="new-run", default_dataset_id="test-dataset")
 
 
 class FakeDataset:
@@ -76,9 +77,12 @@ class CollectorTests(unittest.TestCase):
         settings = Settings(api_token="test-token")
         client = FakeClient()
 
-        messages = collect_messages(settings, client=client)  # type: ignore[arg-type]
+        batch = collect_messages(settings, client=client)  # type: ignore[arg-type]
 
-        self.assertEqual(messages, [VALID_MESSAGE])
+        self.assertEqual(
+            batch,
+            CollectionBatch([VALID_MESSAGE], "new-run", "test-dataset"),
+        )
         self.assertEqual(client.actor_id, "automation-lab/stocktwits-scraper")
         self.assertEqual(client.dataset_id, "test-dataset")
         self.assertIsNotNone(client.actor_client.call_kwargs)
@@ -132,13 +136,16 @@ class CollectorTests(unittest.TestCase):
         settings = Settings(api_token="test-token")
         client = FakeClient()
 
-        messages = retrieve_run_messages(
+        batch = retrieve_run_messages(
             settings,
             "existing-run",
             client=client,  # type: ignore[arg-type]
         )
 
-        self.assertEqual(messages, [VALID_MESSAGE])
+        self.assertEqual(
+            batch,
+            CollectionBatch([VALID_MESSAGE], "existing-run", "existing-dataset"),
+        )
         self.assertEqual(client.run_id, "existing-run")
         self.assertEqual(client.dataset_id, "existing-dataset")
         self.assertIsNone(client.actor_client.call_kwargs)

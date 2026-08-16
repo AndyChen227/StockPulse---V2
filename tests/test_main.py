@@ -3,7 +3,8 @@
 from pathlib import Path
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -11,6 +12,8 @@ SRC_PATH = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_PATH))
 
 from stockpulse.main import build_startup_message, main  # noqa: E402
+from stockpulse.collector.apify_client import CollectionBatch  # noqa: E402
+from stockpulse.config import Settings  # noqa: E402
 from stockpulse.sentiment import (  # noqa: E402
     DEFAULT_MODEL_NAME,
     DEFAULT_MODEL_REVISION,
@@ -56,30 +59,25 @@ class MainTests(unittest.TestCase):
             }
         ]
 
-        with patch(
-            "stockpulse.main.get_daily_stats", return_value=daily_stats
-        ), patch("stockpulse.main.collect_messages") as collect_mock:
-            exit_code = main(["--stats"])
+        repository = MagicMock()
+        repository.get_daily_stats.return_value = daily_stats
+        with patch("stockpulse.main.collect_messages") as collect_mock:
+            exit_code = main(["--stats"], repository=repository)
 
         self.assertEqual(exit_code, 0)
         collect_mock.assert_not_called()
 
-    @patch("stockpulse.main.store_message_analyses", return_value=1)
-    @patch("stockpulse.main.finish_run")
-    @patch("stockpulse.main.start_run", return_value="run-1")
     @patch("stockpulse.main.SentimentAnalyzer")
-    @patch("stockpulse.main.get_unanalyzed_messages")
     def test_analyze_mode_uses_only_local_stored_messages(
         self,
-        get_pending_mock,
         analyzer_class_mock,
-        start_run_mock,
-        finish_run_mock,
-        store_analyses_mock,
     ) -> None:
-        get_pending_mock.return_value = [
+        repository = MagicMock()
+        repository.start_run.return_value = "run-1"
+        repository.get_unanalyzed_messages.return_value = [
             PendingMessage(1, "$TSLA looks strong", "Bullish")
         ]
+        repository.store_message_analyses.return_value = 1
         analyzer_class_mock.return_value.analyze.return_value = [
             SentimentResult(
                 sentiment="Bullish",
@@ -96,16 +94,15 @@ class MainTests(unittest.TestCase):
         ]
 
         with patch("stockpulse.main.collect_messages") as collect_mock:
-            exit_code = main(["--analyze"])
+            exit_code = main(["--analyze"], repository=repository)
 
         self.assertEqual(exit_code, 0)
         collect_mock.assert_not_called()
-        store_analyses_mock.assert_called_once()
-        start_run_mock.assert_called_once()
-        finish_run_mock.assert_called_once_with(
+        repository.store_message_analyses.assert_called_once()
+        repository.start_run.assert_called_once()
+        repository.finish_run.assert_called_once_with(
             "run-1",
             RunResult(status="succeeded", message_count=1, analyzed_count=1),
-            database_path=Path("data/stockpulse.db"),
         )
 
     def test_runs_mode_displays_history_without_collecting(self) -> None:
@@ -120,13 +117,48 @@ class MainTests(unittest.TestCase):
                 "analyzed_count": 0,
             }
         ]
-        with patch(
-            "stockpulse.main.get_run_history", return_value=history
-        ), patch("stockpulse.main.collect_messages") as collect_mock:
-            exit_code = main(["--runs"])
+        repository = MagicMock()
+        repository.get_run_history.return_value = history
+        with patch("stockpulse.main.collect_messages") as collect_mock:
+            exit_code = main(["--runs"], repository=repository)
 
         self.assertEqual(exit_code, 0)
         collect_mock.assert_not_called()
+
+    def test_collect_mode_records_limits_and_apify_identifiers(self) -> None:
+        settings = Settings(api_token="test-token")
+        repository = MagicMock()
+        repository.start_run.return_value = "app-run-1"
+        batch = CollectionBatch(
+            messages=[],
+            external_run_id="apify-run-1",
+            external_dataset_id="dataset-1",
+        )
+        storage_result = SimpleNamespace(inserted=0, duplicates=0)
+
+        repository.store_messages.return_value = storage_result
+        with patch("stockpulse.main.load_settings", return_value=settings), patch(
+            "stockpulse.main.collect_messages", return_value=batch
+        ), patch(
+            "stockpulse.main.save_raw_messages", return_value=Path("raw.json")
+        ):
+            exit_code = main(["--collect"], repository=repository)
+
+        self.assertEqual(exit_code, 0)
+        repository.start_run.assert_called_once_with(
+            "collect",
+            symbol="TSLA",
+            max_messages=5,
+            max_total_charge_usd="0.05",
+        )
+        repository.finish_run.assert_called_once_with(
+            "app-run-1",
+            RunResult(
+                status="succeeded",
+                external_run_id="apify-run-1",
+                external_dataset_id="dataset-1",
+            ),
+        )
 
 
 if __name__ == "__main__":

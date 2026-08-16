@@ -13,8 +13,8 @@ from stockpulse.validation import normalize_created_at, validate_messages
 
 
 RUN_ACTIONS = frozenset({"collect", "resume", "analyze", "reanalyze"})
-RUN_STATUSES = frozenset({"running", "succeeded", "failed"})
-CURRENT_SCHEMA_VERSION = 2
+RUN_STATUSES = frozenset({"running", "succeeded", "partial", "failed"})
+CURRENT_SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -59,6 +59,9 @@ class RunResult:
     inserted_count: int = 0
     duplicate_count: int = 0
     analyzed_count: int = 0
+    invalid_count: int = 0
+    external_run_id: str | None = None
+    external_dataset_id: str | None = None
     error_type: str | None = None
     error_message: str | None = None
 
@@ -359,12 +362,17 @@ def start_run(
     symbol: str,
     analysis_version: str | None = None,
     external_run_id: str | None = None,
+    max_messages: int | None = None,
+    max_total_charge_usd: str | None = None,
+    retry_of_run_id: str | None = None,
     started_at: datetime | None = None,
 ) -> str:
     """Create a durable running record and return its application run ID."""
 
     if action not in RUN_ACTIONS:
         raise ValueError(f"Unsupported run action: {action}")
+    if max_messages is not None and max_messages <= 0:
+        raise ValueError("Run message limit must be greater than zero.")
 
     timestamp = started_at or datetime.now(timezone.utc)
     run_id = uuid4().hex
@@ -376,8 +384,9 @@ def start_run(
                 """
                 INSERT INTO runs (
                     run_id, action, status, symbol, analysis_version,
-                    external_run_id, started_at
-                ) VALUES (?, ?, 'running', ?, ?, ?, ?)
+                    external_run_id, started_at, max_messages,
+                    max_total_charge_usd, retry_of_run_id
+                ) VALUES (?, ?, 'running', ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run_id,
@@ -386,6 +395,9 @@ def start_run(
                     analysis_version,
                     external_run_id,
                     timestamp.isoformat(),
+                    max_messages,
+                    max_total_charge_usd,
+                    retry_of_run_id,
                 ),
             )
     return run_id
@@ -401,12 +413,13 @@ def finish_run(
     """Finish one running record without allowing a second terminal update."""
 
     if result.status not in RUN_STATUSES - {"running"}:
-        raise ValueError("Run result status must be succeeded or failed.")
+        raise ValueError("Run result status must be succeeded, partial, or failed.")
     counts = (
         result.message_count,
         result.inserted_count,
         result.duplicate_count,
         result.analyzed_count,
+        result.invalid_count,
     )
     if any(count < 0 for count in counts):
         raise ValueError("Run result counts cannot be negative.")
@@ -428,6 +441,9 @@ def finish_run(
                     inserted_count = ?,
                     duplicate_count = ?,
                     analyzed_count = ?,
+                    invalid_count = ?,
+                    external_run_id = COALESCE(?, external_run_id),
+                    external_dataset_id = COALESCE(?, external_dataset_id),
                     error_type = ?,
                     error_message = ?
                 WHERE run_id = ? AND status = 'running'
@@ -436,6 +452,8 @@ def finish_run(
                     result.status,
                     timestamp.isoformat(),
                     *counts,
+                    result.external_run_id,
+                    result.external_dataset_id,
                     result.error_type,
                     error_message,
                     run_id,
@@ -465,7 +483,9 @@ def get_run_history(
                 run_id, action, status, symbol, analysis_version,
                 external_run_id, started_at, finished_at,
                 message_count, inserted_count, duplicate_count,
-                analyzed_count, error_type, error_message
+                analyzed_count, invalid_count, external_dataset_id,
+                max_messages, max_total_charge_usd, retry_of_run_id,
+                error_type, error_message
             FROM runs
             ORDER BY started_at DESC, run_id DESC
             LIMIT ?
@@ -551,6 +571,11 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             inserted_count INTEGER NOT NULL DEFAULT 0,
             duplicate_count INTEGER NOT NULL DEFAULT 0,
             analyzed_count INTEGER NOT NULL DEFAULT 0,
+            invalid_count INTEGER NOT NULL DEFAULT 0,
+            external_dataset_id TEXT,
+            max_messages INTEGER,
+            max_total_charge_usd TEXT,
+            retry_of_run_id TEXT,
             error_type TEXT,
             error_message TEXT
         );
@@ -581,6 +606,22 @@ def _create_schema(connection: sqlite3.Connection) -> None:
                 f"ALTER TABLE messages ADD COLUMN {column_name} {column_type}"
             )
 
+    existing_run_columns = {
+        str(row[1]) for row in connection.execute("PRAGMA table_info(runs)")
+    }
+    run_migrations = {
+        "invalid_count": "INTEGER NOT NULL DEFAULT 0",
+        "external_dataset_id": "TEXT",
+        "max_messages": "INTEGER",
+        "max_total_charge_usd": "TEXT",
+        "retry_of_run_id": "TEXT",
+    }
+    for column_name, column_type in run_migrations.items():
+        if column_name not in existing_run_columns:
+            connection.execute(
+                f"ALTER TABLE runs ADD COLUMN {column_name} {column_type}"
+            )
+
     applied_at = datetime.now(timezone.utc).isoformat()
     connection.executemany(
         """
@@ -590,6 +631,7 @@ def _create_schema(connection: sqlite3.Connection) -> None:
         (
             (1, "foundation_and_sentiment", applied_at),
             (2, "run_history_and_daily_metrics", applied_at),
+            (3, "run_limits_and_external_metadata", applied_at),
         ),
     )
 
