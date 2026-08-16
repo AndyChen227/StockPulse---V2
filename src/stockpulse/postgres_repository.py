@@ -231,7 +231,7 @@ class PostgresRepository:
             filters.append("m.created_at::date <= %s::date")
             params.append(end_date)
         if query:
-            filters.append("(m.body ILIKE %s ESCAPE '\\\\' OR COALESCE(m.username, '') ILIKE %s ESCAPE '\\\\')")
+            filters.append("(m.body ILIKE %s ESCAPE '!' OR COALESCE(m.username, '') ILIKE %s ESCAPE '!')")
             pattern = f"%{_escape_like(query.strip())}%"
             params.extend((pattern, pattern))
         if stocktwits_sentiment:
@@ -557,7 +557,7 @@ def _validate_dates(start: str | None, end: str | None, label: str) -> None:
 
 
 def _escape_like(value: str) -> str:
-    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return value.replace("!", "!!").replace("%", "!%").replace("_", "!_")
 
 
 def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
