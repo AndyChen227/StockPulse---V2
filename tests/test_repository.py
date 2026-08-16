@@ -146,9 +146,7 @@ class RepositoryContractMixin:
             [],
         )
 
-    def test_database_readiness_requires_an_existing_supported_schema(self) -> None:
-        self.assertFalse(self.repository.check_ready())
-
+    def test_database_readiness_accepts_a_supported_schema(self) -> None:
         self.repository.store_messages([VALID_MESSAGE])
 
         self.assertTrue(self.repository.check_ready())

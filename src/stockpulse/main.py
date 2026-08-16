@@ -12,6 +12,8 @@ from stockpulse.collector.apify_client import (
     retrieve_run_messages,
 )
 from stockpulse.config import load_settings
+from stockpulse.postgres import apply_postgres_migrations, create_postgres_pool
+from stockpulse.postgres_repository import PostgresRepository
 from stockpulse.repository import SQLiteRepository, StockPulseRepository
 from stockpulse.sentiment import (
     SentimentAnalyzer,
@@ -162,10 +164,21 @@ def main(
 
     args = build_parser().parse_args(argv)
     storage = repository or SQLiteRepository(args.database)
+    postgres_pool = None
     application_run_id: str | None = None
 
     try:
         settings = load_settings(require_token=bool(args.collect or args.resume_run))
+        if repository is None and settings.database_backend == "postgresql":
+            postgres_pool = create_postgres_pool(
+                settings.database_url or "",
+                min_size=settings.database_pool_min_size,
+                max_size=settings.database_pool_max_size,
+                open_pool=True,
+            )
+            with postgres_pool.connection() as connection:
+                apply_postgres_migrations(connection)
+            storage = PostgresRepository(postgres_pool)
         print(build_startup_message())
         analysis_version = build_analysis_version(
             settings.sentiment_model,
@@ -525,7 +538,10 @@ def main(
         print(f"Raw JSON saved to: {output_path.resolve()}")
         print(f"New database messages: {storage_result.inserted}")
         print(f"Duplicate database messages: {storage_result.duplicates}")
-        print(f"SQLite database: {args.database.resolve()}")
+        if settings.database_backend == "sqlite":
+            print(f"SQLite database: {args.database.resolve()}")
+        else:
+            print("PostgreSQL database: configured securely")
         if messages:
             print(f"Returned fields: {', '.join(sorted(messages[0]))}")
         return 0
@@ -544,6 +560,9 @@ def main(
                 pass
         print(f"StockPulse stopped safely: {error}")
         return 1
+    finally:
+        if postgres_pool is not None:
+            postgres_pool.close()
 
 
 
