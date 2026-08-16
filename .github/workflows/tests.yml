@@ -34,3 +34,31 @@ jobs:
 
       - name: Compile source and tests
         run: python -m compileall -q src tests
+
+  container-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build Cloud Run service image
+        run: docker build --tag stockpulse:ci .
+
+      - name: Start container
+        run: docker run --detach --rm --name stockpulse-ci --publish 8080:8080 stockpulse:ci
+
+      - name: Verify health and Dashboard
+        run: |
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:8080/api/v1/health > /tmp/health.json; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8080/ | grep --quiet StockPulse
+          grep --quiet '"status":"ok"' /tmp/health.json
+
+      - name: Show container logs after failure
+        if: failure()
+        run: docker logs stockpulse-ci
