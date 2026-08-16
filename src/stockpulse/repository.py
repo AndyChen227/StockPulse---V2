@@ -12,11 +12,13 @@ from stockpulse.storage import (
     StorageResult,
     TopicCandidate,
     finish_run,
+    check_database_ready,
     get_ai_daily_stats,
     get_anomaly_history,
     get_daily_stats,
     get_messages,
     get_run_history,
+    get_run,
     get_representative_candidates,
     get_topic_candidates,
     get_topic_daily_stats,
@@ -81,7 +83,19 @@ class StockPulseRepository(Protocol):
 
     def finish_run(self, run_id: str, result: RunResult) -> None: ...
 
-    def get_run_history(self, *, limit: int = 20) -> list[dict[str, Any]]: ...
+    def get_run_history(
+        self,
+        *,
+        limit: int = 20,
+        status: str | None = None,
+        action: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> list[dict[str, Any]]: ...
+
+    def get_run(self, run_id: str) -> dict[str, Any] | None: ...
+
+    def check_ready(self) -> bool: ...
 
     def get_topic_candidates(
         self,
@@ -216,8 +230,29 @@ class SQLiteRepository:
     def finish_run(self, run_id: str, result: RunResult) -> None:
         finish_run(run_id, result, database_path=self.database_path)
 
-    def get_run_history(self, *, limit: int = 20) -> list[dict[str, Any]]:
-        return get_run_history(database_path=self.database_path, limit=limit)
+    def get_run_history(
+        self,
+        *,
+        limit: int = 20,
+        status: str | None = None,
+        action: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_run_history(
+            database_path=self.database_path,
+            limit=limit,
+            status=status,
+            action=action,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+    def get_run(self, run_id: str) -> dict[str, Any] | None:
+        return get_run(run_id, database_path=self.database_path)
+
+    def check_ready(self) -> bool:
+        return check_database_ready(database_path=self.database_path)
 
     def get_topic_candidates(
         self,

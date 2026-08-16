@@ -126,12 +126,32 @@ class RepositoryContractMixin:
             ),
         )
         run = self.repository.get_run_history()[0]
+        detail = self.repository.get_run(run_id)
+        filtered = self.repository.get_run_history(
+            status="succeeded",
+            action="collect",
+            start_date=run["started_at"][:10],
+            end_date=run["started_at"][:10],
+        )
 
         self.assertEqual(run["run_id"], run_id)
         self.assertEqual(run["status"], "succeeded")
         self.assertEqual(run["max_total_charge_usd"], "0.05")
         self.assertEqual(run["external_run_id"], "apify-run-1")
         self.assertEqual(run["external_dataset_id"], "dataset-1")
+        self.assertEqual(detail, run)
+        self.assertEqual([item["run_id"] for item in filtered], [run_id])
+        self.assertEqual(
+            self.repository.get_run_history(status="failed"),
+            [],
+        )
+
+    def test_database_readiness_requires_an_existing_supported_schema(self) -> None:
+        self.assertFalse(self.repository.check_ready())
+
+        self.repository.store_messages([VALID_MESSAGE])
+
+        self.assertTrue(self.repository.check_ready())
 
     def test_topic_lifecycle_is_versioned_idempotent_and_source_linked(self) -> None:
         self.repository.store_messages([VALID_MESSAGE])

@@ -159,7 +159,7 @@ Apify usage is a real project constraint, so V1 intentionally stays small:
 | Stocktwits | Investor-discussion data source |
 | Twitter-RoBERTa + Transformers | Local sentiment classification |
 | SQLite | Historical storage for V1 |
-| Web API | Read-only V1 endpoints in progress |
+| Web API | Dashboard read contract implemented; authenticated actions pending |
 | Dashboard | Planned interactive product interface |
 | Docker | Reproducible application packaging |
 | Google Cloud Run service | Planned dashboard and API hosting |

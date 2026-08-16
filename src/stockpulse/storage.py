@@ -963,7 +963,13 @@ def finish_run(
 
 
 def get_run_history(
-    *, database_path: Path = Path("data/stockpulse.db"), limit: int = 20
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+    limit: int = 20,
+    status: str | None = None,
+    action: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return recent durable run records newest first."""
 
@@ -972,12 +978,40 @@ def get_run_history(
     if not database_path.exists():
         return []
 
+    try:
+        parsed_start = date.fromisoformat(start_date) if start_date else None
+        parsed_end = date.fromisoformat(end_date) if end_date else None
+    except ValueError as error:
+        raise ValueError("Run history dates must use YYYY-MM-DD.") from error
+    if parsed_start and parsed_end and parsed_start > parsed_end:
+        raise ValueError("Run history start date cannot be after end date.")
+    if status and status not in RUN_STATUSES:
+        raise ValueError(f"Unsupported run status: {status}")
+    if action and action not in RUN_ACTIONS:
+        raise ValueError(f"Unsupported run action: {action}")
+
+    filters = ["1 = 1"]
+    parameters: list[Any] = []
+    if status:
+        filters.append("status = ?")
+        parameters.append(status)
+    if action:
+        filters.append("action = ?")
+        parameters.append(action)
+    if start_date:
+        filters.append("date(started_at) >= date(?)")
+        parameters.append(start_date)
+    if end_date:
+        filters.append("date(started_at) <= date(?)")
+        parameters.append(end_date)
+    parameters.append(limit)
+
     with closing(sqlite3.connect(database_path)) as connection:
         connection.row_factory = sqlite3.Row
         with connection:
             _create_schema(connection)
         rows = connection.execute(
-            """
+            f"""
             SELECT
                 run_id, action, status, symbol, analysis_version,
                 external_run_id, started_at, finished_at,
@@ -986,12 +1020,50 @@ def get_run_history(
                 max_messages, max_total_charge_usd, retry_of_run_id,
                 error_type, error_message
             FROM runs
+            WHERE {' AND '.join(filters)}
             ORDER BY started_at DESC, run_id DESC
             LIMIT ?
             """,
-            (limit,),
+            parameters,
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def get_run(
+    run_id: str,
+    *,
+    database_path: Path = Path("data/stockpulse.db"),
+) -> dict[str, Any] | None:
+    """Return one complete run record by application run ID."""
+
+    if not database_path.exists():
+        return None
+    with closing(sqlite3.connect(database_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        with connection:
+            _create_schema(connection)
+        row = connection.execute(
+            "SELECT * FROM runs WHERE run_id = ?",
+            (run_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def check_database_ready(
+    *, database_path: Path = Path("data/stockpulse.db")
+) -> bool:
+    """Confirm the configured SQLite database exists and its schema is readable."""
+
+    if not database_path.exists():
+        return False
+    try:
+        with closing(sqlite3.connect(database_path)) as connection:
+            with connection:
+                _create_schema(connection)
+            connection.execute("SELECT 1").fetchone()
+    except (sqlite3.Error, ValueError):
+        return False
+    return True
 
 
 def _create_schema(connection: sqlite3.Connection) -> None:

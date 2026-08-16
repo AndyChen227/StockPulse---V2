@@ -8,7 +8,11 @@ import os
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Path as PathParam, Query, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from stockpulse import __version__
 from stockpulse.anomaly import DETECTOR_VERSION
@@ -19,6 +23,36 @@ from stockpulse.topics import TOPIC_ANALYSIS_VERSION
 
 
 API_VERSION = "v1"
+
+
+class HealthResponse(BaseModel):
+    status: str
+    service: str
+    application_version: str
+    api_version: str
+
+
+class ReadinessResponse(BaseModel):
+    status: str
+    database: str
+
+
+class CollectionResponse(BaseModel):
+    data: list[dict[str, Any]]
+    meta: dict[str, Any]
+
+
+class OverviewResponse(BaseModel):
+    symbol: str
+    latest_metric: dict[str, Any] | None
+    latest_anomaly: dict[str, Any] | None
+    latest_run: dict[str, Any] | None
+    top_topics: list[dict[str, Any]]
+    versions: dict[str, str]
+
+
+class ItemResponse(BaseModel):
+    data: dict[str, Any]
 
 
 def create_app(
@@ -42,16 +76,44 @@ def create_app(
         description="Read-only dashboard API for versioned TSLA sentiment history.",
     )
 
-    @app.get("/api/v1/health")
-    def health() -> dict[str, Any]:
-        return {
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(
+        request: Request, error: RequestValidationError
+    ) -> JSONResponse:
+        return _error_response(
+            422,
+            "validation_error",
+            "Request validation failed",
+            jsonable_encoder(error.errors()),
+        )
+
+    @app.exception_handler(HTTPException)
+    async def http_error(request: Request, error: HTTPException) -> JSONResponse:
+        message = error.detail if isinstance(error.detail, str) else "Request failed"
+        details = None if isinstance(error.detail, str) else error.detail
+        code = "not_found" if error.status_code == 404 else "request_error"
+        return _error_response(error.status_code, code, message, details)
+
+    @app.get("/api/v1/health", response_model=HealthResponse)
+    def health() -> HealthResponse:
+        return HealthResponse(**{
             "status": "ok",
             "service": "stockpulse-api",
             "application_version": __version__,
             "api_version": API_VERSION,
-        }
+        })
 
-    @app.get("/api/v1/overview")
+    @app.get(
+        "/api/v1/ready",
+        response_model=ReadinessResponse,
+        responses={503: {"description": "Database is not ready"}},
+    )
+    def readiness() -> ReadinessResponse:
+        if not storage.check_ready():
+            raise HTTPException(status_code=503, detail="Database is not ready")
+        return ReadinessResponse(status="ready", database="connected")
+
+    @app.get("/api/v1/overview", response_model=OverviewResponse)
     def overview() -> dict[str, Any]:
         metrics = storage.get_ai_daily_stats(
             analysis_version=current_analysis_version
@@ -76,7 +138,7 @@ def create_app(
             },
         }
 
-    @app.get("/api/v1/metrics/sentiment")
+    @app.get("/api/v1/metrics/sentiment", response_model=CollectionResponse)
     def sentiment_metrics(
         start_date: date | None = None,
         end_date: date | None = None,
@@ -88,7 +150,7 @@ def create_app(
         filtered = _filter_dates(rows, start_date=start_date, end_date=end_date)
         return _collection_response(filtered, start_date, end_date)
 
-    @app.get("/api/v1/topics")
+    @app.get("/api/v1/topics", response_model=CollectionResponse)
     def topic_summary() -> dict[str, Any]:
         rows = storage.get_topic_summary(topic_version=TOPIC_ANALYSIS_VERSION)
         return {
@@ -96,7 +158,7 @@ def create_app(
             "meta": {"count": len(rows), "topic_version": TOPIC_ANALYSIS_VERSION},
         }
 
-    @app.get("/api/v1/messages")
+    @app.get("/api/v1/messages", response_model=CollectionResponse)
     def messages(
         cursor: str | None = Query(default=None, max_length=500),
         limit: int = Query(default=50, ge=1, le=100),
@@ -141,7 +203,7 @@ def create_app(
             },
         }
 
-    @app.get("/api/v1/topics/history")
+    @app.get("/api/v1/topics/history", response_model=CollectionResponse)
     def topic_history(
         start_date: date | None = None,
         end_date: date | None = None,
@@ -156,7 +218,7 @@ def create_app(
         response["meta"]["topic_version"] = TOPIC_ANALYSIS_VERSION
         return response
 
-    @app.get("/api/v1/anomalies")
+    @app.get("/api/v1/anomalies", response_model=CollectionResponse)
     def anomaly_history(
         anomalies_only: bool = False,
         limit: int = Query(default=100, ge=1, le=500),
@@ -177,12 +239,44 @@ def create_app(
             },
         }
 
-    @app.get("/api/v1/runs")
+    @app.get("/api/v1/runs", response_model=CollectionResponse)
     def run_history(
         limit: int = Query(default=20, ge=1, le=100),
+        status: Literal["running", "succeeded", "partial", "failed"] | None = None,
+        action: Literal[
+            "collect", "resume", "analyze", "reanalyze", "topics", "anomalies"
+        ] | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
     ) -> dict[str, Any]:
-        rows = storage.get_run_history(limit=limit)
-        return {"data": rows, "meta": {"count": len(rows), "limit": limit}}
+        _validate_date_range(start_date, end_date)
+        rows = storage.get_run_history(
+            limit=limit,
+            status=status,
+            action=action,
+            start_date=start_date.isoformat() if start_date else None,
+            end_date=end_date.isoformat() if end_date else None,
+        )
+        return {
+            "data": rows,
+            "meta": {
+                "count": len(rows),
+                "limit": limit,
+                "status": status,
+                "action": action,
+                "start_date": start_date.isoformat() if start_date else None,
+                "end_date": end_date.isoformat() if end_date else None,
+            },
+        }
+
+    @app.get("/api/v1/runs/{run_id}", response_model=ItemResponse)
+    def run_detail(
+        run_id: str = PathParam(min_length=1, max_length=100),
+    ) -> dict[str, Any]:
+        run_record = storage.get_run(run_id)
+        if run_record is None:
+            raise HTTPException(status_code=404, detail="Run not found")
+        return {"data": run_record}
 
     return app
 
@@ -193,6 +287,24 @@ def _validate_date_range(start_date: date | None, end_date: date | None) -> None
             status_code=422,
             detail="start_date cannot be after end_date",
         )
+
+
+def _error_response(
+    status_code: int,
+    code: str,
+    message: str,
+    details: Any = None,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "error": {
+                "code": code,
+                "message": message,
+                "details": details,
+            }
+        },
+    )
 
 
 def _filter_dates(
