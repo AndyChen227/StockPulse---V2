@@ -17,6 +17,7 @@ from stockpulse.storage import (
     get_run_history,
     get_representative_candidates,
     get_topic_candidates,
+    get_topic_daily_stats,
     get_topic_summary,
     get_unanalyzed_messages,
     start_run,
@@ -76,6 +77,14 @@ class StockPulseRepository(Protocol):
     ) -> int: ...
 
     def get_topic_summary(self, *, topic_version: str) -> list[dict[str, Any]]: ...
+
+    def get_topic_daily_stats(
+        self,
+        *,
+        topic_version: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> list[dict[str, Any]]: ...
 
     def get_representative_candidates(
         self, *, topic: str, topic_version: str, limit: int = 100
@@ -175,6 +184,20 @@ class SQLiteRepository:
     def get_topic_summary(self, *, topic_version: str) -> list[dict[str, Any]]:
         return get_topic_summary(
             database_path=self.database_path, topic_version=topic_version
+        )
+
+    def get_topic_daily_stats(
+        self,
+        *,
+        topic_version: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_topic_daily_stats(
+            database_path=self.database_path,
+            topic_version=topic_version,
+            start_date=start_date,
+            end_date=end_date,
         )
 
     def get_representative_candidates(

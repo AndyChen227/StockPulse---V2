@@ -67,11 +67,20 @@ python -m stockpulse.main --reanalyze-topics --topic-limit 100
 # Inspect topic counts.
 python -m stockpulse.main --topic-stats
 
+# Inspect UTC date-bucketed topic and sentiment metrics for historical charts.
+python -m stockpulse.main --topic-history
+
 # Inspect up to three representative messages and their source links.
 python -m stockpulse.main --representatives "Robotaxi"
 ```
 
 These commands are local and never contact Apify.
+
+The history query returns one row per UTC date and topic. Each row includes the
+message count, Bullish/Neutral/Bearish counts, average AI confidence, average
+topic score, and a `-1.0` to `1.0` sentiment score. The repository contract also
+supports optional inclusive start and end dates so the future API can expose
+bounded chart ranges without loading the full history.
 
 ## Known limitations and next validation
 

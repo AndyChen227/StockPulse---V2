@@ -193,6 +193,29 @@ class MainTests(unittest.TestCase):
             RunResult(status="succeeded", message_count=1, analyzed_count=1),
         )
 
+    def test_topic_history_uses_only_local_metrics(self) -> None:
+        repository = MagicMock()
+        repository.get_topic_daily_stats.return_value = [
+            {
+                "stat_date": "2026-08-05",
+                "topic": "Robotaxi",
+                "message_count": 2,
+                "bullish_count": 1,
+                "neutral_count": 0,
+                "bearish_count": 1,
+                "sentiment_score": 0.0,
+            }
+        ]
+
+        with patch("stockpulse.main.collect_messages") as collect_mock:
+            exit_code = main(["--topic-history"], repository=repository)
+
+        self.assertEqual(exit_code, 0)
+        collect_mock.assert_not_called()
+        repository.get_topic_daily_stats.assert_called_once_with(
+            topic_version=TOPIC_ANALYSIS_VERSION
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
