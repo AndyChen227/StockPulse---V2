@@ -216,9 +216,11 @@ def apply_postgres_migrations(connection: Any) -> int:
             """
         )
         latest_row = connection.execute(
-            "SELECT COALESCE(MAX(version), 0) FROM schema_migrations"
+            "SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations"
         ).fetchone()
-        latest_version = int(latest_row[0])
+        latest_version = int(
+            latest_row["version"] if isinstance(latest_row, dict) else latest_row[0]
+        )
         if latest_version > POSTGRES_SCHEMA_VERSION:
             raise ValueError(
                 "PostgreSQL schema is newer than this StockPulse version supports."
