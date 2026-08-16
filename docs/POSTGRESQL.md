@@ -25,6 +25,9 @@ to validate the configuration and schema foundation in this stage.
   run history/detail.
 - GitHub Actions applies the migrations to an ephemeral PostgreSQL 17 service,
   inserts representative records, and verifies API-safe query results.
+- PostgreSQL now implements the complete shared repository contract: message
+  deduplication, daily statistics, versioned sentiment metrics, topic writes,
+  anomaly writes, and durable run lifecycle in addition to Dashboard reads.
 
 ## Configuration
 
@@ -44,18 +47,16 @@ STOCKPULSE_DATABASE_POOL_MIN_SIZE=1
 STOCKPULSE_DATABASE_POOL_MAX_SIZE=4
 ```
 
-The read-only Dashboard service selects PostgreSQL when the backend and secret
-URL are configured. SQLite remains the default. Collection and analysis jobs
-are not switched yet because PostgreSQL write operations are still pending.
+The Dashboard service and command-line background workflows select PostgreSQL
+when the backend and secret URL are configured. They apply pending migrations
+before serving or processing data and close the bounded pool on shutdown.
+SQLite remains the zero-cost default.
 
 ## Remaining implementation sequence
 
-1. Implement PostgreSQL collection, analysis, topic, anomaly, and run writes.
-2. Run the complete shared repository contract against ephemeral PostgreSQL.
-3. Add deterministic SQLite export and idempotent PostgreSQL import.
-4. Compare row counts, identifiers, timestamps, versions, and aggregates.
-5. Wire background jobs to select the repository from validated settings.
-6. Add Secret Manager and Cloud SQL connector configuration.
-7. Complete the pre-console architecture, cost, IAM, region, backup, and
+1. Add deterministic SQLite export and idempotent PostgreSQL import.
+2. Compare row counts, identifiers, timestamps, versions, and aggregates.
+3. Add Secret Manager and Cloud SQL connector configuration.
+4. Complete the pre-console architecture, cost, IAM, region, backup, and
    rollback review with the owner.
-8. Only after explicit approval, provision Google Cloud resources.
+5. Only after explicit approval, provision Google Cloud resources.

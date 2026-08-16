@@ -18,8 +18,8 @@ from pydantic import BaseModel
 from stockpulse import __version__
 from stockpulse.anomaly import DETECTOR_VERSION
 from stockpulse.config import load_settings
-from stockpulse.postgres import create_postgres_pool
-from stockpulse.postgres_repository import PostgresDashboardRepository
+from stockpulse.postgres import apply_postgres_migrations, create_postgres_pool
+from stockpulse.postgres_repository import PostgresRepository
 from stockpulse.repository import SQLiteRepository, StockPulseRepository
 from stockpulse.sentiment import build_analysis_version
 from stockpulse.topics import TOPIC_ANALYSIS_VERSION
@@ -83,7 +83,9 @@ def create_app(
             max_size=settings.database_pool_max_size,
             open_pool=True,
         )
-        storage = PostgresDashboardRepository(postgres_pool)
+        with postgres_pool.connection() as connection:
+            apply_postgres_migrations(connection)
+        storage = PostgresRepository(postgres_pool)
     else:
         storage = SQLiteRepository(database_path)
     app = FastAPI(

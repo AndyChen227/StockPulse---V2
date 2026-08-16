@@ -11,6 +11,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from stockpulse.postgres import apply_postgres_migrations, create_postgres_pool  # noqa: E402
 from stockpulse.postgres_repository import PostgresDashboardRepository  # noqa: E402
+from tests.test_repository import RepositoryContractMixin  # noqa: E402
 
 
 @unittest.skipUnless(os.getenv("STOCKPULSE_TEST_POSTGRES_URL"), "PostgreSQL test URL not set")
@@ -101,6 +102,30 @@ class PostgresDashboardIntegrationTests(unittest.TestCase):
         self.assertEqual(topics[0]["message_count"], 1)
         self.assertEqual(runs[0]["run_id"], "00000000000000000000000000000001")
         self.assertEqual(anomalies[0]["signals"], ("volume_spike",))
+
+
+@unittest.skipUnless(os.getenv("STOCKPULSE_TEST_POSTGRES_URL"), "PostgreSQL test URL not set")
+class PostgresRepositoryContractTests(RepositoryContractMixin, unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.pool = create_postgres_pool(
+            os.environ["STOCKPULSE_TEST_POSTGRES_URL"], open_pool=True
+        )
+        with cls.pool.connection() as connection:
+            apply_postgres_migrations(connection)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.pool.close()
+
+    def setUp(self) -> None:
+        with self.pool.connection() as connection:
+            connection.execute(
+                "TRUNCATE message_topics, anomaly_results, daily_metrics, "
+                "daily_stats, runs, messages CASCADE"
+            )
+            connection.commit()
+        self.repository = PostgresDashboardRepository(self.pool)
 
 
 if __name__ == "__main__":
