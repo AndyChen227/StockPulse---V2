@@ -241,6 +241,11 @@ See [Cloud Run service preparation](docs/CLOUD_RUN.md). Production deployment
 remains gated on durable PostgreSQL storage, authentication, and explicit cost
 approval; local SQLite is not treated as persistent cloud storage.
 
+The PostgreSQL foundation now includes secret-safe configuration, a bounded
+connection pool, and ordered schema migrations. The application still uses
+SQLite by default until the complete PostgreSQL repository and verified data
+migration are ready. See [PostgreSQL implementation](docs/POSTGRESQL.md).
+
 The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
 
 Sentiment analysis is an **experimental adapter** built on `cardiffnlp/twitter-roberta-base-sentiment-latest`. The model revision is pinned for reproducibility. Positive, neutral, and negative model labels map to Bullish, Neutral, and Bearish, but this mapping still requires evaluation on a larger finance-specific sample. Predictions below the default **0.60 confidence threshold keep their original direction** and are marked as low-confidence instead of being rewritten as Neutral. The model revision, threshold, and analysis version are stored with each result. Stocktwits author labels remain separate and are never overwritten.
