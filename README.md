@@ -203,6 +203,9 @@ python -m stockpulse.main --reanalyze
 
 # Show daily AI sentiment, confidence, and label-agreement statistics.
 python -m stockpulse.main --ai-stats
+
+# Show recent collection and analysis runs without contacting Apify.
+python -m stockpulse.main --runs
 ```
 
 The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
@@ -495,6 +498,9 @@ python -m stockpulse.main --reanalyze
 
 # 查看每日 AI 情绪、平均置信度和标签一致情况
 python -m stockpulse.main --ai-stats
+
+# 查看最近的采集与分析运行记录；不会连接 Apify
+python -m stockpulse.main --runs
 ```
 
 真实 `.env`、原始 JSON 和 SQLite 数据库均不会上传到 Git。当前测试配置将单次运行限制为 **5 条消息**、**5 分钟**和 **最高 0.05 美元 Actor 费用**。

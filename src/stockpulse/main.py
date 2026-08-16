@@ -18,10 +18,14 @@ from stockpulse.sentiment import (
 )
 from stockpulse.storage import (
     MessageAnalysis,
+    RunResult,
+    finish_run,
     get_ai_daily_stats,
     get_daily_stats,
+    get_run_history,
     get_unanalyzed_messages,
     save_raw_messages,
+    start_run,
     store_message_analyses,
     store_messages,
 )
@@ -77,6 +81,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Show local AI sentiment statistics without contacting Apify.",
     )
+    action_group.add_argument(
+        "--runs",
+        action="store_true",
+        help="Show recent collection and analysis run history.",
+    )
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -102,6 +111,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Preview configuration or explicitly run the Phase 2 collector."""
 
     args = build_parser().parse_args(argv)
+    application_run_id: str | None = None
 
     try:
         settings = load_settings(require_token=bool(args.collect or args.resume_run))
@@ -111,6 +121,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             settings.sentiment_model_revision,
             settings.sentiment_threshold,
         )
+
+        if args.runs:
+            runs = get_run_history(database_path=args.database)
+            if not runs:
+                print("No collection or analysis runs are stored yet.")
+                return 0
+
+            print("Started (UTC)             | Action    | Status    | Msgs | New | Dup | AI")
+            print("--------------------------+-----------+-----------+------+-----+-----+----")
+            for run in runs:
+                print(
+                    f"{run['started_at'][:24]:<24} | {run['action']:<9} | "
+                    f"{run['status']:<9} | {run['message_count']:>4} | "
+                    f"{run['inserted_count']:>3} | {run['duplicate_count']:>3} | "
+                    f"{run['analyzed_count']:>2}"
+                )
+            return 0
 
         if args.stats:
             daily_stats = get_daily_stats(database_path=args.database)
@@ -155,6 +182,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
 
         if args.analyze or args.reanalyze:
+            action = "reanalyze" if args.reanalyze else "analyze"
+            application_run_id = start_run(
+                action,
+                database_path=args.database,
+                symbol=settings.symbol,
+                analysis_version=analysis_version,
+            )
             pending_messages = get_unanalyzed_messages(
                 database_path=args.database,
                 limit=args.analysis_limit,
@@ -162,6 +196,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 reanalyze=args.reanalyze,
             )
             if not pending_messages:
+                finish_run(
+                    application_run_id,
+                    RunResult(status="succeeded"),
+                    database_path=args.database,
+                )
                 print("No unanalyzed messages are stored. Nothing changed.")
                 return 0
 
@@ -198,6 +237,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 database_path=args.database,
                 overwrite=args.reanalyze,
             )
+            finish_run(
+                application_run_id,
+                RunResult(
+                    status="succeeded",
+                    message_count=len(pending_messages),
+                    analyzed_count=updated,
+                ),
+                database_path=args.database,
+            )
             for message, prediction in zip(
                 pending_messages, predictions, strict=True
             ):
@@ -218,12 +266,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
 
         if args.resume_run:
+            application_run_id = start_run(
+                "resume",
+                database_path=args.database,
+                symbol=settings.symbol,
+                external_run_id=args.resume_run,
+            )
             print(
                 f"Retrieving existing Apify run {args.resume_run}; "
                 "no new Actor run will be started..."
             )
             messages = retrieve_run_messages(settings, args.resume_run)
         else:
+            application_run_id = start_run(
+                "collect",
+                database_path=args.database,
+                symbol=settings.symbol,
+            )
             print(
                 f"Starting a cost-capped Apify run for up to "
                 f"{settings.max_messages} {settings.symbol} messages..."
@@ -235,6 +294,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             output_dir=args.output_dir,
         )
         storage_result = store_messages(messages, database_path=args.database)
+        finish_run(
+            application_run_id,
+            RunResult(
+                status="succeeded",
+                message_count=len(messages),
+                inserted_count=storage_result.inserted,
+                duplicate_count=storage_result.duplicates,
+            ),
+            database_path=args.database,
+        )
 
         print(f"Collected {len(messages)} messages.")
         print(f"Raw JSON saved to: {output_path.resolve()}")
@@ -245,6 +314,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"Returned fields: {', '.join(sorted(messages[0]))}")
         return 0
     except (CollectionError, SentimentModelError, ValueError) as error:
+        if application_run_id is not None:
+            try:
+                finish_run(
+                    application_run_id,
+                    RunResult(
+                        status="failed",
+                        error_type=type(error).__name__,
+                        error_message=str(error),
+                    ),
+                    database_path=args.database,
+                )
+            except ValueError:
+                pass
         print(f"StockPulse stopped safely: {error}")
         return 1
 

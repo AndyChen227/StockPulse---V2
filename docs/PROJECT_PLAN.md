@@ -99,7 +99,7 @@ Cloud Run containers have disposable local filesystems. SQLite is therefore a lo
 | Stage | Outcome | Status |
 |---|---|---|
 | 1. Foundation | Cost-capped collection, validation, deduplication, SQLite history, experimental versioned sentiment analysis, CI | Complete |
-| 2. Durable data contract | Run history, daily metrics, schema versioning, stricter validation, storage abstraction, cloud migration plan | Next |
+| 2. Durable data contract | Run history, daily metrics, schema versioning, stricter validation, storage abstraction, cloud migration plan | In progress |
 | 3. Analysis quality | Finance-specific evaluation set, quality metrics, topic extraction, representative messages | Pending |
 | 4. Baseline and anomaly detection | Historical baseline, explainable anomaly rules, replay tests, duplicate-alert prevention | Pending |
 | 5. Product API | Read APIs, guarded action APIs, pagination, filters, run-status endpoints | Pending |
@@ -139,6 +139,12 @@ Completed:
 - Experimental local Twitter-RoBERTa sentiment adapter
 - Pinned model revision and versioned analysis metadata
 - Low-confidence tracking and safe reanalysis behavior
+- Durable collection and analysis run records with bounded error summaries
+- Versioned daily AI metrics and automatic backfill for existing analysis history
+- Explicit schema migration records with protection against opening newer databases
+- Shared message-contract validation and canonical UTC timestamps
+- Cloud SQL for PostgreSQL selected for production history, with explicit cost approval required before provisioning
+- Local `--runs` history view for operational verification
 - Python 3.11 and 3.12 GitHub Actions tests
 
 Current limitations:
@@ -146,7 +152,7 @@ Current limitations:
 - Generic social sentiment is not yet validated as financial direction
 - Topic extraction is not implemented
 - Baseline and anomaly detection are not implemented
-- Run history is printed rather than stored as a durable domain record
+- Run records do not yet include partial-success state, invalid-message counts, cost details, or retry relationships
 - SQLite is not suitable as persistent Cloud Run storage
 - No product API or dashboard exists yet
 - No container or Google Cloud resources exist yet
@@ -157,13 +163,10 @@ Stage 2 will establish the data contract required by both the dashboard and clou
 
 Planned work:
 
-1. Define `runs`, `daily_metrics`, and schema-version records.
-2. Record collection and analysis status instead of relying only on console output.
-3. Record counts, timings, versions, limits, external run identifiers, and safe error summaries.
-4. Strengthen message type and timestamp validation.
-5. Separate storage interfaces from SQLite-specific implementation.
-6. Document candidate managed datastores and make a cost-aware production choice.
-7. Add migration and repository tests before building API or UI layers.
+1. Extend the implemented run status records with partial-success, validation, limit, cost, and retry details.
+2. Capture Apify dataset identifiers in addition to resumable external run identifiers.
+3. Separate storage interfaces from SQLite-specific implementation.
+4. Add repository contract tests before building API or UI layers.
 
 ## 8. Documentation system
 
@@ -176,6 +179,10 @@ The project should keep the following records:
 - Future deployment runbook: provisioning, deployment, rollback, backup, and incident steps
 
 Progress should be updated when a stage changes status or a product requirement changes. Routine code details belong in pull requests rather than being duplicated here.
+
+Current architecture decisions:
+
+- [ADR 0001: Use Cloud SQL for PostgreSQL as the production datastore](adr/0001-cloud-datastore.md)
 
 ---
 
