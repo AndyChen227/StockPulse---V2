@@ -13,6 +13,7 @@ from stockpulse.storage import (
     TopicCandidate,
     finish_run,
     get_ai_daily_stats,
+    get_anomaly_history,
     get_daily_stats,
     get_run_history,
     get_representative_candidates,
@@ -22,9 +23,11 @@ from stockpulse.storage import (
     get_unanalyzed_messages,
     start_run,
     store_message_analyses,
+    store_anomaly_results,
     store_messages,
     store_message_topics,
 )
+from stockpulse.anomaly import AnomalyResult
 from stockpulse.topics import RepresentativeMessage
 
 
@@ -84,6 +87,17 @@ class StockPulseRepository(Protocol):
         topic_version: str,
         start_date: str | None = None,
         end_date: str | None = None,
+    ) -> list[dict[str, Any]]: ...
+
+    def store_anomaly_results(self, results: list[AnomalyResult]) -> int: ...
+
+    def get_anomaly_history(
+        self,
+        *,
+        analysis_version: str | None = None,
+        detector_version: str | None = None,
+        anomalies_only: bool = False,
+        limit: int = 100,
     ) -> list[dict[str, Any]]: ...
 
     def get_representative_candidates(
@@ -198,6 +212,25 @@ class SQLiteRepository:
             topic_version=topic_version,
             start_date=start_date,
             end_date=end_date,
+        )
+
+    def store_anomaly_results(self, results: list[AnomalyResult]) -> int:
+        return store_anomaly_results(results, database_path=self.database_path)
+
+    def get_anomaly_history(
+        self,
+        *,
+        analysis_version: str | None = None,
+        detector_version: str | None = None,
+        anomalies_only: bool = False,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        return get_anomaly_history(
+            database_path=self.database_path,
+            analysis_version=analysis_version,
+            detector_version=detector_version,
+            anomalies_only=anomalies_only,
+            limit=limit,
         )
 
     def get_representative_candidates(

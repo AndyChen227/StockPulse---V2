@@ -100,8 +100,8 @@ Cloud Run containers have disposable local filesystems. SQLite is therefore a lo
 |---|---|---|
 | 1. Foundation | Cost-capped collection, validation, deduplication, SQLite history, experimental versioned sentiment analysis, CI | Complete |
 | 2. Durable data contract | Run history, daily metrics, schema versioning, stricter validation, storage abstraction, cloud migration plan | Complete |
-| 3. Analysis quality | Finance-specific evaluation set, quality metrics, topic extraction, representative messages | Pending |
-| 4. Baseline and anomaly detection | Historical baseline, explainable anomaly rules, replay tests, duplicate-alert prevention | Pending |
+| 3. Analysis quality | Finance-specific evaluation set, quality metrics, topic extraction, representative messages | In progress: engineering baseline complete; larger reviewed samples remain |
+| 4. Baseline and anomaly detection | Historical baseline, explainable anomaly rules, replay tests, duplicate-alert prevention | In progress |
 | 5. Product API | Read APIs, guarded action APIs, pagination, filters, run-status endpoints | Pending |
 | 6. Dashboard UI | Polished responsive dashboard, charts, tables, controls, history, empty/error/loading states | Pending |
 | 7. Cloud readiness | Docker images, production configuration, authentication, durable datastore, secrets, logs, backups, cost controls | Pending |
@@ -156,15 +156,17 @@ Current limitations:
 
 - Finance-direction evaluation is still provisional: the first balanced synthetic benchmark is too small for production acceptance
 - Topic taxonomy quality is not yet measured on a representative real-message sample
-- Baseline and anomaly detection are not implemented
+- Experimental baseline and anomaly detection are implemented; thresholds still require calibration on representative history
 - Actual Apify spend is not yet retrieved; runs currently preserve the configured cost ceiling
 - SQLite is not suitable as persistent Cloud Run storage
 - No product API or dashboard exists yet
 - No container or Google Cloud resources exist yet
 
-## 7. Immediate next stage
+## 7. Immediate work
 
-Stage 3 will validate whether the sentiment pipeline measures financial direction reliably and will add the topic and representative-message data required to explain Dashboard changes.
+Stage 3 quality validation continues while Stage 4 begins with an explicitly
+experimental anomaly baseline. Production notifications remain disabled until
+representative historical replay results have been manually reviewed.
 
 Planned work:
 
@@ -191,12 +193,17 @@ Progress should be updated when a stage changes status or a product requirement 
 
 Current architecture decisions:
 
+- anomaly detection uses a versioned 28-day rolling median baseline with explicit
+  minimum-history, minimum-volume, volume-ratio, and sentiment-shift thresholds;
+  see [Anomaly Detection](ANOMALY_DETECTION.md)
+
 - [ADR 0001: Use Cloud SQL for PostgreSQL as the production datastore](adr/0001-cloud-datastore.md)
 
 Current analysis references:
 
 - [Sentiment evaluation](SENTIMENT_EVALUATION.md)
 - [Topic analysis and representative messages](TOPIC_ANALYSIS.md)
+- [Anomaly detection and replay](ANOMALY_DETECTION.md)
 
 ---
 

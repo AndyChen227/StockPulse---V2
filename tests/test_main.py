@@ -22,6 +22,7 @@ from stockpulse.sentiment import (  # noqa: E402
 )
 from stockpulse.storage import PendingMessage, RunResult, TopicCandidate  # noqa: E402
 from stockpulse.topics import TOPIC_ANALYSIS_VERSION  # noqa: E402
+from stockpulse.anomaly import DETECTOR_VERSION  # noqa: E402
 
 
 class MainTests(unittest.TestCase):
@@ -214,6 +215,50 @@ class MainTests(unittest.TestCase):
         collect_mock.assert_not_called()
         repository.get_topic_daily_stats.assert_called_once_with(
             topic_version=TOPIC_ANALYSIS_VERSION
+        )
+
+    def test_anomaly_detection_uses_local_metrics_and_records_run(self) -> None:
+        repository = MagicMock()
+        repository.start_run.return_value = "anomaly-run-1"
+        repository.store_anomaly_results.return_value = 1
+        repository.get_ai_daily_stats.return_value = [
+            {
+                "stat_date": f"2026-08-{day:02d}",
+                "analysis_version": build_analysis_version(
+                    DEFAULT_MODEL_NAME, DEFAULT_MODEL_REVISION, 0.60
+                ),
+                "analyzed_count": 10 if day < 8 else 25,
+                "sentiment_score": 0.0 if day < 8 else -0.5,
+            }
+            for day in range(1, 9)
+        ]
+
+        with patch("stockpulse.main.collect_messages") as collect_mock:
+            exit_code = main(["--detect-anomalies"], repository=repository)
+
+        self.assertEqual(exit_code, 0)
+        collect_mock.assert_not_called()
+        repository.start_run.assert_called_once()
+        repository.store_anomaly_results.assert_called_once()
+        repository.finish_run.assert_called_once_with(
+            "anomaly-run-1",
+            RunResult(status="succeeded", message_count=1, analyzed_count=1),
+        )
+
+    def test_anomaly_history_is_local_and_version_filtered(self) -> None:
+        repository = MagicMock()
+        repository.get_anomaly_history.return_value = []
+
+        with patch("stockpulse.main.collect_messages") as collect_mock:
+            exit_code = main(["--anomalies"], repository=repository)
+
+        self.assertEqual(exit_code, 0)
+        collect_mock.assert_not_called()
+        repository.get_anomaly_history.assert_called_once_with(
+            analysis_version=build_analysis_version(
+                DEFAULT_MODEL_NAME, DEFAULT_MODEL_REVISION, 0.60
+            ),
+            detector_version=DETECTOR_VERSION,
         )
 
 

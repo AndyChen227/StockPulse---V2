@@ -218,6 +218,11 @@ python -m stockpulse.main --analyze-topics
 python -m stockpulse.main --topic-stats
 python -m stockpulse.main --topic-history
 python -m stockpulse.main --representatives "Deliveries & Demand"
+
+# Evaluate the latest day, replay history, or inspect stored evaluations locally.
+python -m stockpulse.main --detect-anomalies
+python -m stockpulse.main --replay-anomalies
+python -m stockpulse.main --anomalies
 ```
 
 The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
@@ -284,10 +289,10 @@ StockPulse/
 
 ### Phase 4 — Baseline and Detection
 
-- [ ] Build a historical daily baseline
-- [ ] Define anomaly thresholds
+- [x] Build an experimental rolling historical baseline
+- [x] Define versioned, explainable anomaly thresholds
 - [ ] Detect unusual volume and sentiment changes
-- [ ] Reduce false and duplicate alerts
+- [x] Prevent duplicate versioned anomaly evaluations
 
 ### Phase 5 — Summaries and Alerts
 
@@ -526,6 +531,11 @@ python -m stockpulse.main --analyze-topics
 python -m stockpulse.main --topic-stats
 python -m stockpulse.main --topic-history
 python -m stockpulse.main --representatives "Deliveries & Demand"
+
+# Local anomaly evaluation, historical replay, and complete evaluation history
+python -m stockpulse.main --detect-anomalies
+python -m stockpulse.main --replay-anomalies
+python -m stockpulse.main --anomalies
 ```
 
 真实 `.env`、原始 JSON 和 SQLite 数据库均不会上传到 Git。当前测试配置将单次运行限制为 **5 条消息**、**5 分钟**和 **最高 0.05 美元 Actor 费用**。
