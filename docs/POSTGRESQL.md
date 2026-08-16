@@ -20,6 +20,11 @@ to validate the configuration and schema foundation in this stage.
   and numeric types preserve stronger production constraints.
 - A database created by a newer application version is rejected rather than
   silently downgraded.
+- The Dashboard read repository supports readiness, overview metrics, stable
+  message pagination and filters, topic summary/history, anomaly history, and
+  run history/detail.
+- GitHub Actions applies the migrations to an ephemeral PostgreSQL 17 service,
+  inserts representative records, and verifies API-safe query results.
 
 ## Configuration
 
@@ -39,17 +44,17 @@ STOCKPULSE_DATABASE_POOL_MIN_SIZE=1
 STOCKPULSE_DATABASE_POOL_MAX_SIZE=4
 ```
 
-The application is not switched to PostgreSQL yet. Selecting the PostgreSQL
-backend before the repository implementation is complete is intentionally a
-configuration-only validation path, not a production-ready deployment mode.
+The read-only Dashboard service selects PostgreSQL when the backend and secret
+URL are configured. SQLite remains the default. Collection and analysis jobs
+are not switched yet because PostgreSQL write operations are still pending.
 
 ## Remaining implementation sequence
 
-1. Implement every `StockPulseRepository` operation using Psycopg.
-2. Run the shared repository contract against an ephemeral PostgreSQL database.
+1. Implement PostgreSQL collection, analysis, topic, anomaly, and run writes.
+2. Run the complete shared repository contract against ephemeral PostgreSQL.
 3. Add deterministic SQLite export and idempotent PostgreSQL import.
 4. Compare row counts, identifiers, timestamps, versions, and aggregates.
-5. Wire the API and jobs to select the repository from validated settings.
+5. Wire background jobs to select the repository from validated settings.
 6. Add Secret Manager and Cloud SQL connector configuration.
 7. Complete the pre-console architecture, cost, IAM, region, backup, and
    rollback review with the owner.

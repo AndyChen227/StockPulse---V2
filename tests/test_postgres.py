@@ -1,6 +1,7 @@
 """Tests for PostgreSQL schema and connection foundations."""
 
 from contextlib import nullcontext
+from datetime import date, datetime, timezone
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -17,14 +18,19 @@ from stockpulse.postgres import (  # noqa: E402
     apply_postgres_migrations,
     create_postgres_pool,
 )
+from stockpulse.postgres_repository import PostgresDashboardRepository  # noqa: E402
 
 
 class FakeResult:
-    def __init__(self, row=None) -> None:
+    def __init__(self, row=None, rows=None) -> None:
         self.row = row
+        self.rows = rows or []
 
     def fetchone(self):
         return self.row
+
+    def fetchall(self):
+        return self.rows
 
 
 class FakeConnection:
@@ -83,7 +89,16 @@ class PostgresFoundationTests(unittest.TestCase):
     def test_pool_is_bounded_and_closed_by_default(self) -> None:
         pool_class = MagicMock()
         fake_module = SimpleNamespace(ConnectionPool=pool_class)
-        with patch.dict(sys.modules, {"psycopg_pool": fake_module}):
+        fake_rows = SimpleNamespace(dict_row="dict-row")
+        fake_psycopg = SimpleNamespace(rows=fake_rows)
+        with patch.dict(
+            sys.modules,
+            {
+                "psycopg_pool": fake_module,
+                "psycopg": fake_psycopg,
+                "psycopg.rows": fake_rows,
+            },
+        ):
             create_postgres_pool(
                 "postgresql://user:secret@db/stockpulse",
                 min_size=2,
@@ -95,6 +110,43 @@ class PostgresFoundationTests(unittest.TestCase):
         self.assertEqual(kwargs["max_size"], 5)
         self.assertFalse(kwargs["open"])
         self.assertEqual(kwargs["kwargs"]["connect_timeout"], 10)
+        self.assertEqual(kwargs["kwargs"]["row_factory"], "dict-row")
+
+    def test_dashboard_repository_serializes_native_values(self) -> None:
+        connection = MagicMock()
+        connection.execute.return_value.fetchall.return_value = [
+            {
+                "stat_date": date(2026, 8, 6),
+                "total_messages": 2,
+                "bullish_count": 1,
+                "bearish_count": 1,
+                "unlabeled_count": 0,
+                "updated_at": datetime(2026, 8, 6, tzinfo=timezone.utc),
+            }
+        ]
+        pool = MagicMock()
+        pool.connection.return_value.__enter__.return_value = connection
+
+        rows = PostgresDashboardRepository(pool).get_daily_stats()
+
+        self.assertEqual(rows[0]["stat_date"], "2026-08-06")
+        self.assertEqual(rows[0]["updated_at"], "2026-08-06T00:00:00+00:00")
+
+    def test_dashboard_message_query_uses_stable_tuple_cursor(self) -> None:
+        connection = MagicMock()
+        connection.execute.return_value.fetchall.return_value = []
+        pool = MagicMock()
+        pool.connection.return_value.__enter__.return_value = connection
+
+        PostgresDashboardRepository(pool).get_messages(
+            before_created_at="2026-08-06T00:00:00+00:00",
+            before_message_id=101,
+            topic_version="topics-v1",
+        )
+
+        sql, params = connection.execute.call_args.args
+        self.assertIn("(m.created_at, m.message_id) <", sql)
+        self.assertEqual(params[:2], ("2026-08-06T00:00:00+00:00", 101))
 
 
 if __name__ == "__main__":

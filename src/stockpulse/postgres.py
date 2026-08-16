@@ -181,6 +181,7 @@ def create_postgres_pool(
 
     try:
         from psycopg_pool import ConnectionPool
+        from psycopg.rows import dict_row
     except ImportError as error:
         raise RuntimeError(
             "PostgreSQL support is not installed. Install requirements-postgres.txt."
@@ -192,7 +193,11 @@ def create_postgres_pool(
         max_size=max_size,
         timeout=10,
         open=open_pool,
-        kwargs={"connect_timeout": 10, "application_name": "stockpulse"},
+        kwargs={
+            "connect_timeout": 10,
+            "application_name": "stockpulse",
+            "row_factory": dict_row,
+        },
     )
 
 
