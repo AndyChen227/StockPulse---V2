@@ -146,12 +146,13 @@ Completed:
 - Cloud SQL for PostgreSQL selected for production history, with explicit cost approval required before provisioning
 - Backend-neutral repository contract with a tested SQLite implementation
 - Partial run status, validation counts, limits, retry relationships, and Apify run/dataset identifiers
+- Reproducible 36-example finance-specific sentiment benchmark and pinned-model baseline
 - Local `--runs` history view for operational verification
 - Python 3.11 and 3.12 GitHub Actions tests
 
 Current limitations:
 
-- Generic social sentiment is not yet validated as financial direction
+- Finance-direction evaluation is still provisional: the first balanced synthetic benchmark is too small for production acceptance
 - Topic extraction is not implemented
 - Baseline and anomaly detection are not implemented
 - Actual Apify spend is not yet retrieved; runs currently preserve the configured cost ceiling
@@ -166,8 +167,8 @@ Stage 3 will validate whether the sentiment pipeline measures financial directio
 Planned work:
 
 1. Create a finance-specific labeled evaluation set with difficult and mixed-direction examples.
-2. Measure directional precision, recall, confusion, confidence calibration, and low-confidence behavior.
-3. Decide whether to keep, calibrate, or replace the current experimental sentiment adapter.
+2. Expand the initial 36-example benchmark to at least 150 reviewed examples with a held-out test split.
+3. Compare the current adapter with at least one finance-oriented alternative, then keep, calibrate, or replace it.
 4. Extract versioned discussion topics without overwriting sentiment history.
 5. Select representative messages with source links and documented ranking rules.
 6. Extend repository contracts and daily metrics for topic history.

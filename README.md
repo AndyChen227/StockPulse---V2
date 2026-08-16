@@ -206,11 +206,17 @@ python -m stockpulse.main --ai-stats
 
 # Show recent collection and analysis runs without contacting Apify.
 python -m stockpulse.main --runs
+
+# Evaluate the pinned model on the tracked finance-specific benchmark.
+# This uses local AI dependencies and never contacts Apify.
+python -m stockpulse.evaluation
 ```
 
 The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
 
 Sentiment analysis is an **experimental adapter** built on `cardiffnlp/twitter-roberta-base-sentiment-latest`. The model revision is pinned for reproducibility. Positive, neutral, and negative model labels map to Bullish, Neutral, and Bearish, but this mapping still requires evaluation on a larger finance-specific sample. Predictions below the default **0.60 confidence threshold keep their original direction** and are marked as low-confidence instead of being rewritten as Neutral. The model revision, threshold, and analysis version are stored with each result. Stocktwits author labels remain separate and are never overwritten.
+
+The first tracked finance-specific benchmark scored **88.9% accuracy** and **89.2% Macro F1** on 36 balanced synthetic examples. This is a reproducible provisional baseline, not production acceptance. See [Sentiment Evaluation](docs/SENTIMENT_EVALUATION.md) for the confusion matrix, errors, limitations, and expansion gate.
 
 ## Current Project Structure
 
@@ -501,11 +507,16 @@ python -m stockpulse.main --ai-stats
 
 # 查看最近的采集与分析运行记录；不会连接 Apify
 python -m stockpulse.main --runs
+
+# 使用仓库内的金融语境基准评估固定版本模型；不会连接 Apify
+python -m stockpulse.evaluation
 ```
 
 真实 `.env`、原始 JSON 和 SQLite 数据库均不会上传到 Git。当前测试配置将单次运行限制为 **5 条消息**、**5 分钟**和 **最高 0.05 美元 Actor 费用**。
 
 情绪分析目前是基于 `cardiffnlp/twitter-roberta-base-sentiment-latest` 的**实验性适配器**，并固定模型 revision 以保证结果可复现。模型的 Positive、Neutral 和 Negative 会分别映射为 Bullish、Neutral 和 Bearish，但该映射仍需使用更大的金融语境样本进行评估。低于默认 **0.60 置信度阈值**的结果会保留原始方向并标记为低置信度，而不会被改写成 Neutral。每条结果会保存模型 revision、阈值与分析版本；Stocktwits 用户标签始终独立保存。
+
+首个金融语境基准在 36 条平衡的合成样本上取得 **88.9% 准确率**和 **89.2% Macro F1**。这是可复现的初步基线，不代表已经达到生产标准。混淆矩阵、错误案例、局限性与扩充门槛请查看 [情绪评估文档](docs/SENTIMENT_EVALUATION.md)。
 
 ## 开发路线
 
