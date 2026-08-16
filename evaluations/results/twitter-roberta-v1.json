@@ -1,0 +1,99 @@
+{
+  "evaluation_schema_version": 1,
+  "dataset": {
+    "path": "evaluations/finance_sentiment_v1.jsonl",
+    "sha256": "154770059e09afd8848bc3494004b50874ca3d1ea71359ec149cbe549cfa97e8",
+    "examples": 36
+  },
+  "analysis": {
+    "model_name": "cardiffnlp/twitter-roberta-base-sentiment-latest",
+    "model_revision": "3216a57f2a0d9c45a2e6c20157c20c49fb4bf9c7",
+    "confidence_threshold": 0.6,
+    "analysis_version": "2:cardiffnlp/twitter-roberta-base-sentiment-latest@3216a57f2a0d9c45a2e6c20157c20c49fb4bf9c7:threshold=0.6"
+  },
+  "metrics": {
+    "total": 36,
+    "correct": 32,
+    "accuracy": 0.8888888888888888,
+    "macro_f1": 0.8917748917748917,
+    "low_confidence_count": 5,
+    "low_confidence_accuracy": 0.8,
+    "high_confidence_accuracy": 0.9032258064516129,
+    "average_confidence": 0.7501103745566474,
+    "per_label": {
+      "Bullish": {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "support": 12
+      },
+      "Neutral": {
+        "precision": 0.75,
+        "recall": 1.0,
+        "f1": 0.8571428571428571,
+        "support": 12
+      },
+      "Bearish": {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "support": 12
+      }
+    },
+    "confusion_matrix": {
+      "Bullish": {
+        "Bullish": 10,
+        "Neutral": 2,
+        "Bearish": 0
+      },
+      "Neutral": {
+        "Bullish": 0,
+        "Neutral": 12,
+        "Bearish": 0
+      },
+      "Bearish": {
+        "Bullish": 0,
+        "Neutral": 2,
+        "Bearish": 10
+      }
+    },
+    "errors": [
+      {
+        "id": "bull-002",
+        "category": "demand",
+        "expected": "Bullish",
+        "predicted": "Neutral",
+        "confidence": 0.6387,
+        "low_confidence": false,
+        "text": "Demand looks strong and the order backlog keeps growing."
+      },
+      {
+        "id": "bull-006",
+        "category": "market_positioning",
+        "expected": "Bullish",
+        "predicted": "Neutral",
+        "confidence": 0.7286,
+        "low_confidence": false,
+        "text": "Shorts may get squeezed if revenue guidance holds."
+      },
+      {
+        "id": "bear-008",
+        "category": "analyst_action",
+        "expected": "Bearish",
+        "predicted": "Neutral",
+        "confidence": 0.5472,
+        "low_confidence": true,
+        "text": "Analyst downgrade to Sell with a lower price target."
+      },
+      {
+        "id": "bear-009",
+        "category": "competition",
+        "expected": "Bearish",
+        "predicted": "Neutral",
+        "confidence": 0.704,
+        "low_confidence": false,
+        "text": "Competition is gaining share while Tesla discounts more vehicles."
+      }
+    ]
+  }
+}

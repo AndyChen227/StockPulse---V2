@@ -1,0 +1,36 @@
+{"id":"bull-001","text":"$TSLA deliveries beat expectations and margins improved.","label":"Bullish","category":"fundamentals"}
+{"id":"bull-002","text":"Demand looks strong and the order backlog keeps growing.","label":"Bullish","category":"demand"}
+{"id":"bull-003","text":"The factory ramp is ahead of schedule; raising my target.","label":"Bullish","category":"operations"}
+{"id":"bull-004","text":"Free cash flow surprised to the upside this quarter.","label":"Bullish","category":"fundamentals"}
+{"id":"bull-005","text":"I am buying this dip because the long-term thesis is intact.","label":"Bullish","category":"trading_language"}
+{"id":"bull-006","text":"Shorts may get squeezed if revenue guidance holds.","label":"Bullish","category":"market_positioning"}
+{"id":"bull-007","text":"The recall is manageable and does not change my bullish view.","label":"Bullish","category":"negation"}
+{"id":"bull-008","text":"Price cut pressure is real, but unit growth and energy margins make me optimistic.","label":"Bullish","category":"mixed"}
+{"id":"bull-009","text":"Analyst upgrade to Buy with a higher price target.","label":"Bullish","category":"analyst_action"}
+{"id":"bull-010","text":"Robotaxi approval would unlock a meaningful new revenue stream.","label":"Bullish","category":"forward_looking"}
+{"id":"bull-011","text":"Not bearish here; support held and buyers stepped in.","label":"Bullish","category":"negation"}
+{"id":"bull-012","text":"Strong execution, lower costs, and improving gross margin. Long $TSLA.","label":"Bullish","category":"fundamentals"}
+{"id":"neutral-001","text":"$TSLA reports earnings after the market closes on Wednesday.","label":"Neutral","category":"factual"}
+{"id":"neutral-002","text":"Shares are trading near yesterday's closing price.","label":"Neutral","category":"price_observation"}
+{"id":"neutral-003","text":"The company delivered 450,000 vehicles during the quarter.","label":"Neutral","category":"factual"}
+{"id":"neutral-004","text":"Watching the 200-day moving average before making a decision.","label":"Neutral","category":"wait_and_see"}
+{"id":"neutral-005","text":"Bull case is autonomy; bear case is margin compression.","label":"Neutral","category":"balanced"}
+{"id":"neutral-006","text":"I have no position and want to see the next delivery report.","label":"Neutral","category":"wait_and_see"}
+{"id":"neutral-007","text":"The stock rose in early trading and then returned to flat.","label":"Neutral","category":"price_observation"}
+{"id":"neutral-008","text":"New Model Y specifications were posted on the website today.","label":"Neutral","category":"factual"}
+{"id":"neutral-009","text":"Could break higher or lower from this range; confirmation is missing.","label":"Neutral","category":"uncertain"}
+{"id":"neutral-010","text":"Revenue beat estimates, while earnings per share missed.","label":"Neutral","category":"mixed"}
+{"id":"neutral-011","text":"Holding my existing position with no change to the thesis.","label":"Neutral","category":"position_status"}
+{"id":"neutral-012","text":"What time does the shareholder meeting begin?","label":"Neutral","category":"question"}
+{"id":"bear-001","text":"$TSLA deliveries missed expectations and inventory increased.","label":"Bearish","category":"fundamentals"}
+{"id":"bear-002","text":"Demand is weakening despite another round of price cuts.","label":"Bearish","category":"demand"}
+{"id":"bear-003","text":"Margins collapsed and management lowered guidance.","label":"Bearish","category":"fundamentals"}
+{"id":"bear-004","text":"I am selling before earnings because downside risk is too high.","label":"Bearish","category":"trading_language"}
+{"id":"bear-005","text":"The investigation could delay approval and increase costs.","label":"Bearish","category":"regulatory"}
+{"id":"bear-006","text":"This bounce does not change the bearish trend.","label":"Bearish","category":"negation"}
+{"id":"bear-007","text":"Revenue beat, but the cash burn and weak outlook are the real story.","label":"Bearish","category":"mixed"}
+{"id":"bear-008","text":"Analyst downgrade to Sell with a lower price target.","label":"Bearish","category":"analyst_action"}
+{"id":"bear-009","text":"Competition is gaining share while Tesla discounts more vehicles.","label":"Bearish","category":"competition"}
+{"id":"bear-010","text":"Not buying the dip; support keeps failing.","label":"Bearish","category":"negation"}
+{"id":"bear-011","text":"Another executive departure adds uncertainty to execution.","label":"Bearish","category":"management"}
+{"id":"bear-012","text":"Poor quality reports and rising warranty costs make me cautious.","label":"Bearish","category":"operations"}
