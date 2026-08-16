@@ -1,0 +1,104 @@
+"""HTTP contract tests for the read-only dashboard API."""
+
+from pathlib import Path
+import sys
+import unittest
+from unittest.mock import MagicMock
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from stockpulse.api import create_app  # noqa: E402
+
+
+class ApiTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.repository = MagicMock()
+        self.repository.get_ai_daily_stats.return_value = [
+            {
+                "stat_date": "2026-08-05",
+                "analyzed_count": 10,
+                "sentiment_score": 0.2,
+            },
+            {
+                "stat_date": "2026-08-06",
+                "analyzed_count": 12,
+                "sentiment_score": -0.1,
+            },
+        ]
+        self.repository.get_anomaly_history.return_value = []
+        self.repository.get_run_history.return_value = []
+        self.repository.get_topic_summary.return_value = []
+        self.repository.get_topic_daily_stats.return_value = []
+        self.client = TestClient(
+            create_app(
+                repository=self.repository,
+                analysis_version="analysis-test-v1",
+            )
+        )
+
+    def test_health_has_stable_versioned_contract(self) -> None:
+        response = self.client.get("/api/v1/health")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "ok")
+        self.assertEqual(response.json()["api_version"], "v1")
+
+    def test_overview_combines_latest_dashboard_data(self) -> None:
+        self.repository.get_topic_summary.return_value = [
+            {"topic": "Robotaxi", "message_count": 4, "average_score": 0.9}
+        ]
+
+        response = self.client.get("/api/v1/overview")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["symbol"], "TSLA")
+        self.assertEqual(body["latest_metric"]["stat_date"], "2026-08-06")
+        self.assertEqual(body["top_topics"][0]["topic"], "Robotaxi")
+        self.assertEqual(body["versions"]["analysis"], "analysis-test-v1")
+
+    def test_sentiment_history_filters_inclusive_date_range(self) -> None:
+        response = self.client.get(
+            "/api/v1/metrics/sentiment",
+            params={"start_date": "2026-08-06", "end_date": "2026-08-06"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["data"]), 1)
+        self.assertEqual(response.json()["data"][0]["stat_date"], "2026-08-06")
+
+    def test_invalid_date_range_returns_422(self) -> None:
+        response = self.client.get(
+            "/api/v1/topics/history",
+            params={"start_date": "2026-08-07", "end_date": "2026-08-06"},
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.repository.get_topic_daily_stats.assert_not_called()
+
+    def test_anomaly_query_is_bounded_and_filtered(self) -> None:
+        response = self.client.get(
+            "/api/v1/anomalies", params={"anomalies_only": "true", "limit": 25}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.repository.get_anomaly_history.assert_called_with(
+            analysis_version="analysis-test-v1",
+            detector_version=response.json()["meta"]["detector_version"],
+            anomalies_only=True,
+            limit=25,
+        )
+
+    def test_limits_are_rejected_before_repository_access(self) -> None:
+        response = self.client.get("/api/v1/runs", params={"limit": 101})
+
+        self.assertEqual(response.status_code, 422)
+        self.repository.get_run_history.assert_not_called()
+
+
+if __name__ == "__main__":
+    unittest.main()
