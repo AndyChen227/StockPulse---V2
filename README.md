@@ -160,7 +160,7 @@ Apify usage is a real project constraint, so V1 intentionally stays small:
 | Twitter-RoBERTa + Transformers | Local sentiment classification |
 | SQLite | Historical storage for V1 |
 | Web API | Dashboard read contract implemented; authenticated actions pending |
-| Dashboard | Planned interactive product interface |
+| Dashboard | Initial responsive read-only interface implemented; guarded actions pending |
 | Docker | Reproducible application packaging |
 | Google Cloud Run service | Planned dashboard and API hosting |
 | Google Cloud Run job | Planned batch collection and analysis |
@@ -225,9 +225,15 @@ python -m stockpulse.main --detect-anomalies
 python -m stockpulse.main --replay-anomalies
 python -m stockpulse.main --anomalies
 
-# Start the local read-only Dashboard API on http://localhost:8080.
+# Start the local Dashboard and read-only API on http://localhost:8080.
 stockpulse-api
 ```
+
+Open `http://localhost:8080` to use the Dashboard. It currently includes the
+overview, sentiment history, topic summary, anomaly status, message explorer,
+and run history. Collection and other data-changing controls stay visibly
+locked until authenticated, bounded action APIs are available. See
+[Dashboard](docs/DASHBOARD.md) for behavior and current limitations.
 
 The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
 

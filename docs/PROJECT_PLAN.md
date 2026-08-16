@@ -103,7 +103,7 @@ Cloud Run containers have disposable local filesystems. SQLite is therefore a lo
 | 3. Analysis quality | Finance-specific evaluation set, quality metrics, topic extraction, representative messages | In progress: engineering baseline complete; larger reviewed samples remain |
 | 4. Baseline and anomaly detection | Historical baseline, explainable anomaly rules, replay tests, duplicate-alert prevention | In progress |
 | 5. Product API | Read APIs, guarded action APIs, pagination, filters, run-status endpoints | In progress: Dashboard read contract complete; authenticated actions remain |
-| 6. Dashboard UI | Polished responsive dashboard, charts, tables, controls, history, empty/error/loading states | Pending |
+| 6. Dashboard UI | Polished responsive dashboard, charts, tables, controls, history, empty/error/loading states | In progress: initial responsive read-only dashboard implemented |
 | 7. Cloud readiness | Docker images, production configuration, authentication, durable datastore, secrets, logs, backups, cost controls | Pending |
 | 8. Google Cloud launch | Deploy service and job, schedule daily runs, migrate data, verify operations, document rollback and maintenance | Pending |
 
@@ -159,8 +159,11 @@ Current limitations:
 - Experimental baseline and anomaly detection are implemented; thresholds still require calibration on representative history
 - Actual Apify spend is not yet retrieved; runs currently preserve the configured cost ceiling
 - SQLite is not suitable as persistent Cloud Run storage
-- Initial read-only product API exists; message explorer, cursor pagination,
-  guarded actions, and the Dashboard UI remain
+- Initial read-only product API and responsive Dashboard exist, including
+  overview, history charts, message exploration, run history, and explicit
+  loading, empty, and error states
+- Cost-spending and data-changing controls remain locked until authenticated,
+  bounded action APIs are implemented
 - No container or Google Cloud resources exist yet
 
 ## 7. Immediate work
@@ -179,6 +182,9 @@ Planned work:
 6. Add date-bucketed topic metrics for historical Dashboard charts. **Implemented:**
    the repository now returns UTC daily topic counts, sentiment breakdowns,
    confidence, topic strength, sentiment score, and optional date bounds.
+7. Validate and refine the initial Dashboard against representative local data.
+8. Add authenticated, confirmed, and auditable action APIs before enabling any
+   cost-spending or reanalysis controls.
 
 ## 8. Documentation system
 
@@ -206,6 +212,7 @@ Current analysis references:
 - [Topic analysis and representative messages](TOPIC_ANALYSIS.md)
 - [Anomaly detection and replay](ANOMALY_DETECTION.md)
 - [Product API](API.md)
+- [Dashboard](DASHBOARD.md)
 
 ---
 
