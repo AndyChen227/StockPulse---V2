@@ -295,10 +295,10 @@ StockPulse/
 > 🚧 **Currently in active development**
 
 ```text
-Completed: planning, Python setup, cost-capped collection, local history, and an experimental sentiment adapter
-Current milestone: durable metrics/run-history design, financial-direction evaluation, and topic extraction
+Completed: foundation plus durable metrics, run history, schema migrations, validation, and storage contracts
+Current milestone: financial-direction evaluation, topic extraction, and representative-message selection
 Product destination: Google Cloud deployment with a polished dashboard and complete historical records
-Delivery status: stage 1 of 8 complete; 7 major stages remain
+Delivery status: stages 1-2 of 8 complete; 6 major stages remain
 ```
 
 ## Future Ideas
@@ -524,10 +524,10 @@ python -m stockpulse.main --runs
 > 🚧 **项目正在开发中**
 
 ```text
-已完成：项目规划、Python 搭建、带费用保护的数据采集、本地历史记录和实验性情绪适配器
-当前阶段：持久化指标与运行记录设计、金融方向评估和话题提取
+已完成：项目基础、持久化指标、运行记录、数据库迁移、严格验证和存储契约
+当前阶段：金融方向质量评估、话题提取和代表性帖子选择
 最终目标：部署到 Google Cloud，并提供正式 Dashboard 和完整历史记录
-交付进度：八个主要阶段中的第一阶段已完成，剩余七个阶段
+交付进度：八个主要阶段中的前两个阶段已完成，剩余六个阶段
 ```
 
 ## 后续扩展

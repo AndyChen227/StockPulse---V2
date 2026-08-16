@@ -11,6 +11,7 @@ from stockpulse.collector.apify_client import (
     retrieve_run_messages,
 )
 from stockpulse.config import load_settings
+from stockpulse.repository import SQLiteRepository, StockPulseRepository
 from stockpulse.sentiment import (
     SentimentAnalyzer,
     SentimentModelError,
@@ -19,15 +20,7 @@ from stockpulse.sentiment import (
 from stockpulse.storage import (
     MessageAnalysis,
     RunResult,
-    finish_run,
-    get_ai_daily_stats,
-    get_daily_stats,
-    get_run_history,
-    get_unanalyzed_messages,
     save_raw_messages,
-    start_run,
-    store_message_analyses,
-    store_messages,
 )
 
 
@@ -107,10 +100,15 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    repository: StockPulseRepository | None = None,
+) -> int:
     """Preview configuration or explicitly run the Phase 2 collector."""
 
     args = build_parser().parse_args(argv)
+    storage = repository or SQLiteRepository(args.database)
     application_run_id: str | None = None
 
     try:
@@ -123,7 +121,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
 
         if args.runs:
-            runs = get_run_history(database_path=args.database)
+            runs = storage.get_run_history()
             if not runs:
                 print("No collection or analysis runs are stored yet.")
                 return 0
@@ -140,7 +138,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
 
         if args.stats:
-            daily_stats = get_daily_stats(database_path=args.database)
+            daily_stats = storage.get_daily_stats()
             if not daily_stats:
                 print("No daily statistics are stored yet.")
                 return 0
@@ -156,10 +154,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
 
         if args.ai_stats:
-            ai_stats = get_ai_daily_stats(
-                database_path=args.database,
-                analysis_version=analysis_version,
-            )
+            ai_stats = storage.get_ai_daily_stats(analysis_version=analysis_version)
             if not ai_stats:
                 print("No AI sentiment statistics are stored yet.")
                 return 0
@@ -183,23 +178,20 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         if args.analyze or args.reanalyze:
             action = "reanalyze" if args.reanalyze else "analyze"
-            application_run_id = start_run(
+            application_run_id = storage.start_run(
                 action,
-                database_path=args.database,
                 symbol=settings.symbol,
                 analysis_version=analysis_version,
             )
-            pending_messages = get_unanalyzed_messages(
-                database_path=args.database,
+            pending_messages = storage.get_unanalyzed_messages(
                 limit=args.analysis_limit,
                 analysis_version=analysis_version,
                 reanalyze=args.reanalyze,
             )
             if not pending_messages:
-                finish_run(
+                storage.finish_run(
                     application_run_id,
                     RunResult(status="succeeded"),
-                    database_path=args.database,
                 )
                 print("No unanalyzed messages are stored. Nothing changed.")
                 return 0
@@ -232,19 +224,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                     pending_messages, predictions, strict=True
                 )
             ]
-            updated = store_message_analyses(
+            updated = storage.store_message_analyses(
                 analyses,
-                database_path=args.database,
                 overwrite=args.reanalyze,
             )
-            finish_run(
+            storage.finish_run(
                 application_run_id,
                 RunResult(
                     status="succeeded",
                     message_count=len(pending_messages),
                     analyzed_count=updated,
                 ),
-                database_path=args.database,
             )
             for message, prediction in zip(
                 pending_messages, predictions, strict=True
@@ -266,43 +256,47 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
 
         if args.resume_run:
-            application_run_id = start_run(
+            application_run_id = storage.start_run(
                 "resume",
-                database_path=args.database,
                 symbol=settings.symbol,
                 external_run_id=args.resume_run,
+                max_messages=settings.max_messages,
+                max_total_charge_usd="0",
             )
             print(
                 f"Retrieving existing Apify run {args.resume_run}; "
                 "no new Actor run will be started..."
             )
-            messages = retrieve_run_messages(settings, args.resume_run)
+            collection_batch = retrieve_run_messages(settings, args.resume_run)
         else:
-            application_run_id = start_run(
+            application_run_id = storage.start_run(
                 "collect",
-                database_path=args.database,
                 symbol=settings.symbol,
+                max_messages=settings.max_messages,
+                max_total_charge_usd=str(settings.max_total_charge_usd),
             )
             print(
                 f"Starting a cost-capped Apify run for up to "
                 f"{settings.max_messages} {settings.symbol} messages..."
             )
-            messages = collect_messages(settings)
+            collection_batch = collect_messages(settings)
+        messages = collection_batch.messages
         output_path = save_raw_messages(
             messages,
             symbol=settings.symbol,
             output_dir=args.output_dir,
         )
-        storage_result = store_messages(messages, database_path=args.database)
-        finish_run(
+        storage_result = storage.store_messages(messages)
+        storage.finish_run(
             application_run_id,
             RunResult(
                 status="succeeded",
                 message_count=len(messages),
                 inserted_count=storage_result.inserted,
                 duplicate_count=storage_result.duplicates,
+                external_run_id=collection_batch.external_run_id,
+                external_dataset_id=collection_batch.external_dataset_id,
             ),
-            database_path=args.database,
         )
 
         print(f"Collected {len(messages)} messages.")
@@ -316,14 +310,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (CollectionError, SentimentModelError, ValueError) as error:
         if application_run_id is not None:
             try:
-                finish_run(
+                storage.finish_run(
                     application_run_id,
                     RunResult(
                         status="failed",
                         error_type=type(error).__name__,
                         error_message=str(error),
                     ),
-                    database_path=args.database,
                 )
             except ValueError:
                 pass

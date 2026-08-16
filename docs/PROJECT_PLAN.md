@@ -99,7 +99,7 @@ Cloud Run containers have disposable local filesystems. SQLite is therefore a lo
 | Stage | Outcome | Status |
 |---|---|---|
 | 1. Foundation | Cost-capped collection, validation, deduplication, SQLite history, experimental versioned sentiment analysis, CI | Complete |
-| 2. Durable data contract | Run history, daily metrics, schema versioning, stricter validation, storage abstraction, cloud migration plan | In progress |
+| 2. Durable data contract | Run history, daily metrics, schema versioning, stricter validation, storage abstraction, cloud migration plan | Complete |
 | 3. Analysis quality | Finance-specific evaluation set, quality metrics, topic extraction, representative messages | Pending |
 | 4. Baseline and anomaly detection | Historical baseline, explainable anomaly rules, replay tests, duplicate-alert prevention | Pending |
 | 5. Product API | Read APIs, guarded action APIs, pagination, filters, run-status endpoints | Pending |
@@ -107,7 +107,7 @@ Cloud Run containers have disposable local filesystems. SQLite is therefore a lo
 | 7. Cloud readiness | Docker images, production configuration, authentication, durable datastore, secrets, logs, backups, cost controls | Pending |
 | 8. Google Cloud launch | Deploy service and job, schedule daily runs, migrate data, verify operations, document rollback and maintenance | Pending |
 
-Seven major stages remain before the first complete Google Cloud release. Some work may overlap, but stages should not be skipped because later UI and cloud work depend on reliable data and operational history.
+Six major stages remain before the first complete Google Cloud release. Some work may overlap, but stages should not be skipped because later UI and cloud work depend on reliable data and operational history.
 
 ## 5. Definition of done for Google Cloud launch
 
@@ -144,6 +144,8 @@ Completed:
 - Explicit schema migration records with protection against opening newer databases
 - Shared message-contract validation and canonical UTC timestamps
 - Cloud SQL for PostgreSQL selected for production history, with explicit cost approval required before provisioning
+- Backend-neutral repository contract with a tested SQLite implementation
+- Partial run status, validation counts, limits, retry relationships, and Apify run/dataset identifiers
 - Local `--runs` history view for operational verification
 - Python 3.11 and 3.12 GitHub Actions tests
 
@@ -152,21 +154,23 @@ Current limitations:
 - Generic social sentiment is not yet validated as financial direction
 - Topic extraction is not implemented
 - Baseline and anomaly detection are not implemented
-- Run records do not yet include partial-success state, invalid-message counts, cost details, or retry relationships
+- Actual Apify spend is not yet retrieved; runs currently preserve the configured cost ceiling
 - SQLite is not suitable as persistent Cloud Run storage
 - No product API or dashboard exists yet
 - No container or Google Cloud resources exist yet
 
 ## 7. Immediate next stage
 
-Stage 2 will establish the data contract required by both the dashboard and cloud operations.
+Stage 3 will validate whether the sentiment pipeline measures financial direction reliably and will add the topic and representative-message data required to explain Dashboard changes.
 
 Planned work:
 
-1. Extend the implemented run status records with partial-success, validation, limit, cost, and retry details.
-2. Capture Apify dataset identifiers in addition to resumable external run identifiers.
-3. Separate storage interfaces from SQLite-specific implementation.
-4. Add repository contract tests before building API or UI layers.
+1. Create a finance-specific labeled evaluation set with difficult and mixed-direction examples.
+2. Measure directional precision, recall, confusion, confidence calibration, and low-confidence behavior.
+3. Decide whether to keep, calibrate, or replace the current experimental sentiment adapter.
+4. Extract versioned discussion topics without overwriting sentiment history.
+5. Select representative messages with source links and documented ranking rules.
+6. Extend repository contracts and daily metrics for topic history.
 
 ## 8. Documentation system
 
@@ -190,14 +194,13 @@ Current architecture decisions:
 
 StockPulse 的最终目标是在 Google Cloud 上运行，并提供一个正式、清晰、可操作的 Dashboard。Dashboard 必须展示完整历史记录，包括情绪、帖子、每日指标、异常事件、模型版本和每次任务运行情况。
 
-从现在到首个完整云端版本共有七个剩余阶段：
+从现在到首个完整云端版本共有六个剩余阶段：
 
-1. 建立持久化数据契约和运行历史。
-2. 完成金融方向质量评估与话题提取。
-3. 建立历史基线和可解释异常检测。
-4. 开发产品 API。
-5. 开发正式 Dashboard UI。
-6. 完成 Docker、持久化数据库、认证、Secrets、日志、备份和费用保护。
-7. 部署 Google Cloud，配置每日调度并完成上线验证。
+1. 完成金融方向质量评估与话题提取。
+2. 建立历史基线和可解释异常检测。
+3. 开发产品 API。
+4. 开发正式 Dashboard UI。
+5. 完成 Docker、持久化数据库、认证、Secrets、日志、备份和费用保护。
+6. 部署 Google Cloud，配置每日调度并完成上线验证。
 
-当前最重要的下一步不是立即制作界面，而是先定义 Dashboard 和云端运维共同依赖的数据结构，特别是运行历史、每日指标、错误状态和版本信息。这样后续 Dashboard 展示的将是稳定、完整、可追踪的数据。
+当前最重要的下一步是验证金融情绪方向质量，并加入话题与代表性帖子数据，让后续 Dashboard 不仅显示变化，还能可靠解释变化原因。

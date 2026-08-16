@@ -151,6 +151,7 @@ class StorageTests(unittest.TestCase):
             [
                 (1, "foundation_and_sentiment"),
                 (2, "run_history_and_daily_metrics"),
+                (3, "run_limits_and_external_metadata"),
             ],
         )
 
@@ -300,6 +301,8 @@ class StorageTests(unittest.TestCase):
                 "collect",
                 database_path=database_path,
                 symbol="TSLA",
+                max_messages=5,
+                max_total_charge_usd="0.05",
                 started_at=started_at,
             )
             finish_run(
@@ -309,6 +312,8 @@ class StorageTests(unittest.TestCase):
                     message_count=5,
                     inserted_count=4,
                     duplicate_count=1,
+                    external_run_id="apify-run-1",
+                    external_dataset_id="dataset-1",
                 ),
                 database_path=database_path,
                 finished_at=finished_at,
@@ -325,6 +330,11 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(history[0]["message_count"], 5)
         self.assertEqual(history[0]["inserted_count"], 4)
         self.assertEqual(history[0]["duplicate_count"], 1)
+        self.assertEqual(history[0]["invalid_count"], 0)
+        self.assertEqual(history[0]["external_run_id"], "apify-run-1")
+        self.assertEqual(history[0]["external_dataset_id"], "dataset-1")
+        self.assertEqual(history[0]["max_messages"], 5)
+        self.assertEqual(history[0]["max_total_charge_usd"], "0.05")
         self.assertEqual(history[0]["started_at"], started_at.isoformat())
         self.assertEqual(history[0]["finished_at"], finished_at.isoformat())
 
@@ -348,6 +358,40 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(history[0]["error_type"], "ExampleError")
         self.assertNotIn("\n", history[0]["error_message"])
         self.assertEqual(len(history[0]["error_message"]), 500)
+
+    def test_partial_run_and_retry_relationship_are_recorded(self) -> None:
+        with TemporaryDirectory() as directory:
+            database_path = Path(directory) / "stockpulse.db"
+            original_id = start_run(
+                "collect", database_path=database_path, symbol="TSLA"
+            )
+            finish_run(
+                original_id,
+                RunResult(status="failed", error_type="ExampleError"),
+                database_path=database_path,
+            )
+            retry_id = start_run(
+                "collect",
+                database_path=database_path,
+                symbol="TSLA",
+                retry_of_run_id=original_id,
+            )
+            finish_run(
+                retry_id,
+                RunResult(
+                    status="partial",
+                    message_count=5,
+                    inserted_count=3,
+                    invalid_count=2,
+                ),
+                database_path=database_path,
+            )
+            history = get_run_history(database_path=database_path)
+
+        retry = next(run for run in history if run["run_id"] == retry_id)
+        self.assertEqual(retry["status"], "partial")
+        self.assertEqual(retry["invalid_count"], 2)
+        self.assertEqual(retry["retry_of_run_id"], original_id)
 
     def test_explicit_overwrite_reanalyzes_current_version(self) -> None:
         first = MessageAnalysis(
