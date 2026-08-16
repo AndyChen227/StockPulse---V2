@@ -35,6 +35,21 @@ Version 1 focuses exclusively on **Tesla (TSLA)**. Once per day, StockPulse coll
 | 🚨 Is the change unusual? | Detect abnormal shifts in volume or sentiment |
 | 🧠 What may have caused it? | Identify major topics and summarize representative posts |
 
+## Product Destination
+
+StockPulse is intended to become a small but complete cloud product, not remain a command-line experiment. The target release will provide:
+
+- A polished web dashboard with clear manual controls
+- Complete historical sentiment, message, anomaly, and run records
+- Daily automated collection and analysis on Google Cloud
+- Durable cloud storage that survives container restarts
+- Visible run status, errors, model versions, and cost safeguards
+- Historical charts, filters, drill-down views, and source-message links
+
+The planned Google Cloud shape is a **Cloud Run service** for the web application and API, a **Cloud Run job** for collection and analysis, **Cloud Scheduler** for daily execution, and a durable managed datastore selected before deployment. Local SQLite remains appropriate for development but will not be treated as durable Cloud Run storage.
+
+See [Product and Delivery Plan](docs/PROJECT_PLAN.md) for the complete feature scope, eight-stage delivery path, current status, and completion criteria.
+
 ## System Workflow
 
 ```mermaid
@@ -144,9 +159,12 @@ Apify usage is a real project constraint, so V1 intentionally stays small:
 | Stocktwits | Investor-discussion data source |
 | Twitter-RoBERTa + Transformers | Local sentiment classification |
 | SQLite | Historical storage for V1 |
+| Web API and dashboard | Planned interactive product interface |
 | Docker | Reproducible application packaging |
-| Google Cloud Run | Planned cloud execution |
+| Google Cloud Run service | Planned dashboard and API hosting |
+| Google Cloud Run job | Planned batch collection and analysis |
 | Google Cloud Scheduler | Planned daily scheduling |
+| Durable managed datastore | Planned cloud history and run storage |
 | Gmail API | Planned anomaly email alerts |
 | GitHub | Version control and documentation |
 
@@ -274,9 +292,10 @@ StockPulse/
 > 🚧 **Currently in active development**
 
 ```text
-Completed: planning, Python setup, cost-capped collection, and an experimental local sentiment adapter
-Current milestone: broader financial-direction evaluation and topic extraction
-Next milestone: collect enough daily data to evaluate and build a baseline
+Completed: planning, Python setup, cost-capped collection, local history, and an experimental sentiment adapter
+Current milestone: durable metrics/run-history design, financial-direction evaluation, and topic extraction
+Product destination: Google Cloud deployment with a polished dashboard and complete historical records
+Delivery status: stage 1 of 8 complete; 7 major stages remain
 ```
 
 ## Future Ideas
@@ -284,7 +303,6 @@ Next milestone: collect enough daily data to evaluate and build a baseline
 - Multi-stock and cryptocurrency monitoring
 - X, Reddit, or other discussion sources
 - Higher-frequency monitoring
-- Historical sentiment dashboard
 - Cross-platform sentiment comparison
 - Sentiment and market-price correlation research
 - Mobile or chat notifications
@@ -321,6 +339,21 @@ StockPulse is an educational and research project. It does **not** provide finan
 | 📊 情绪是否变化？ | 将当天结果与历史水平比较 |
 | 🚨 变化是否异常？ | 检测讨论量和情绪比例的异常波动 |
 | 🧠 可能是什么原因？ | 提取主要话题并总结代表性帖子 |
+
+## 最终产品目标
+
+StockPulse 的目标是成为一个小而完整的云端产品，而不是停留在命令行实验阶段。目标版本将提供：
+
+- 具有清晰操作按钮的正式 Web Dashboard
+- 完整的历史情绪、帖子、异常事件与运行记录
+- 在 Google Cloud 上自动执行每日采集和分析
+- 容器重启后仍能保留的持久化云端数据
+- 可查看的运行状态、错误、模型版本与费用保护信息
+- 历史图表、筛选、详情下钻以及原帖链接
+
+计划中的 Google Cloud 结构是：使用 **Cloud Run service** 承载 Dashboard 与 API，使用 **Cloud Run job** 执行采集和分析，通过 **Cloud Scheduler** 每日调度，并在部署前选择持久化托管数据存储。本地 SQLite 继续用于开发，但不会被当作 Cloud Run 上的持久化存储。
+
+完整功能范围、八阶段交付路线、当前进度和完成标准，请查看 [产品与交付计划](docs/PROJECT_PLAN.md)。
 
 ## 系统流程
 
@@ -418,9 +451,12 @@ Apify 的使用成本是项目的重要限制，因此第一版会主动保持�
 | Stocktwits | 投资者讨论数据源 |
 | Twitter-RoBERTa + Transformers | 本地情绪分类 |
 | SQLite | 第一版历史数据存储 |
+| Web API 与 Dashboard | 计划中的交互式产品界面 |
 | Docker | 应用容器化 |
-| Google Cloud Run | 计划中的云端运行环境 |
+| Google Cloud Run service | 计划中的 Dashboard 与 API 托管 |
+| Google Cloud Run job | 计划中的批量采集与分析 |
 | Google Cloud Scheduler | 计划中的每日定时任务 |
+| 持久化托管数据存储 | 计划中的云端历史与运行记录存储 |
 | Gmail API | 计划中的异常邮件提醒 |
 | GitHub | 版本管理和项目文档 |
 
@@ -482,9 +518,10 @@ python -m stockpulse.main --ai-stats
 > 🚧 **项目正在开发中**
 
 ```text
-已完成：项目规划、Python 搭建、带费用保护的数据采集和实验性本地情绪适配器
-当前阶段：更大金融语境样本的方向评估与话题提取
-下一阶段：积累足够的每日数据，用于评估并建立历史基准
+已完成：项目规划、Python 搭建、带费用保护的数据采集、本地历史记录和实验性情绪适配器
+当前阶段：持久化指标与运行记录设计、金融方向评估和话题提取
+最终目标：部署到 Google Cloud，并提供正式 Dashboard 和完整历史记录
+交付进度：八个主要阶段中的第一阶段已完成，剩余七个阶段
 ```
 
 ## 后续扩展
@@ -492,7 +529,6 @@ python -m stockpulse.main --ai-stats
 - 多股票与加密货币监控
 - 接入 X、Reddit 或其他讨论平台
 - 提高监控频率
-- 历史情绪可视化 Dashboard
 - 多平台情绪对比
 - 舆情与市场价格的相关性研究
 - 手机或聊天软件通知
