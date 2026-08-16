@@ -8,20 +8,7 @@ from apify_client.errors import ApifyClientError
 from impit import RequestError
 
 from stockpulse.config import Settings
-
-
-REQUIRED_MESSAGE_FIELDS = frozenset(
-    {
-        "messageId",
-        "body",
-        "createdAt",
-        "sentiment",
-        "symbols",
-        "username",
-        "userFollowers",
-        "url",
-    }
-)
+from stockpulse.validation import validate_messages as validate_message_contract
 
 
 class CollectionError(RuntimeError):
@@ -119,10 +106,7 @@ def _read_dataset(
 def validate_messages(messages: list[dict[str, Any]]) -> None:
     """Verify that each message contains the fields required by StockPulse V1."""
 
-    for index, message in enumerate(messages, start=1):
-        missing_fields = REQUIRED_MESSAGE_FIELDS.difference(message)
-        if missing_fields:
-            missing = ", ".join(sorted(missing_fields))
-            raise CollectionError(
-                f"Message {index} is missing required fields: {missing}."
-            )
+    try:
+        validate_message_contract(messages)
+    except ValueError as error:
+        raise CollectionError(str(error)) from error

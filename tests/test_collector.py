@@ -102,6 +102,32 @@ class CollectorTests(unittest.TestCase):
         with self.assertRaisesRegex(CollectionError, "messageId"):
             validate_messages([incomplete_message])
 
+    def test_invalid_timestamp_is_rejected(self) -> None:
+        invalid_message = dict(VALID_MESSAGE, createdAt="not-a-timestamp")
+
+        with self.assertRaisesRegex(CollectionError, "createdAt"):
+            validate_messages([invalid_message])
+
+    def test_timestamp_without_timezone_is_rejected(self) -> None:
+        invalid_message = dict(VALID_MESSAGE, createdAt="2026-08-05T00:00:00")
+
+        with self.assertRaisesRegex(CollectionError, "timezone"):
+            validate_messages([invalid_message])
+
+    def test_invalid_types_are_rejected(self) -> None:
+        invalid_messages = (
+            dict(VALID_MESSAGE, messageId=True),
+            dict(VALID_MESSAGE, body="  "),
+            dict(VALID_MESSAGE, symbols="TSLA"),
+            dict(VALID_MESSAGE, userFollowers=-1),
+            dict(VALID_MESSAGE, url="not-a-url"),
+        )
+
+        for invalid_message in invalid_messages:
+            with self.subTest(invalid_message=invalid_message):
+                with self.assertRaises(CollectionError):
+                    validate_messages([invalid_message])
+
     def test_existing_run_is_retrieved_without_starting_actor(self) -> None:
         settings = Settings(api_token="test-token")
         client = FakeClient()

@@ -9,9 +9,12 @@ import sqlite3
 from typing import Any
 from uuid import uuid4
 
+from stockpulse.validation import normalize_created_at, validate_messages
+
 
 RUN_ACTIONS = frozenset({"collect", "resume", "analyze", "reanalyze"})
 RUN_STATUSES = frozenset({"running", "succeeded", "failed"})
+CURRENT_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -92,6 +95,7 @@ def store_messages(
 
     timestamp = collected_at or datetime.now(timezone.utc)
     collected_at_text = timestamp.isoformat()
+    validate_messages(messages)
     database_path.parent.mkdir(parents=True, exist_ok=True)
 
     inserted = 0
@@ -101,8 +105,8 @@ def store_messages(
         with connection:
             _create_schema(connection)
 
-            for message in messages:
-                created_at = str(message["createdAt"])
+            for index, message in enumerate(messages, start=1):
+                created_at = normalize_created_at(message["createdAt"], index=index)
                 stat_date = created_at[:10]
                 affected_dates.add(stat_date)
 
@@ -474,6 +478,23 @@ def get_run_history(
 def _create_schema(connection: sqlite3.Connection) -> None:
     """Create the schema and migrate older Phase 2 databases in place."""
 
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            applied_at TEXT NOT NULL
+        )
+        """
+    )
+    latest_version = connection.execute(
+        "SELECT COALESCE(MAX(version), 0) FROM schema_migrations"
+    ).fetchone()[0]
+    if latest_version > CURRENT_SCHEMA_VERSION:
+        raise ValueError(
+            "Database schema is newer than this StockPulse version supports."
+        )
+
     connection.executescript(
         """
         CREATE TABLE IF NOT EXISTS messages (
@@ -536,6 +557,7 @@ def _create_schema(connection: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_runs_started_at
             ON runs(started_at DESC);
+
         """
     )
 
@@ -558,6 +580,18 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             connection.execute(
                 f"ALTER TABLE messages ADD COLUMN {column_name} {column_type}"
             )
+
+    applied_at = datetime.now(timezone.utc).isoformat()
+    connection.executemany(
+        """
+        INSERT OR IGNORE INTO schema_migrations (version, name, applied_at)
+        VALUES (?, ?, ?)
+        """,
+        (
+            (1, "foundation_and_sentiment", applied_at),
+            (2, "run_history_and_daily_metrics", applied_at),
+        ),
+    )
 
 
 def _refresh_daily_stats(

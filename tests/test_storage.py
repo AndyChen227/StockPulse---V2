@@ -92,6 +92,101 @@ class StorageTests(unittest.TestCase):
             },
         )
 
+    def test_storage_rejects_invalid_collection_before_creating_database(self) -> None:
+        invalid_message = {
+            "messageId": 1,
+            "body": "$TSLA test",
+            "createdAt": "not-a-timestamp",
+            "sentiment": None,
+            "symbols": ["TSLA"],
+            "username": "tester",
+            "userFollowers": 1,
+            "url": "https://example.com/1",
+        }
+
+        with TemporaryDirectory() as directory:
+            database_path = Path(directory) / "stockpulse.db"
+            with self.assertRaisesRegex(ValueError, "createdAt"):
+                store_messages([invalid_message], database_path=database_path)
+            self.assertFalse(database_path.exists())
+
+    def test_storage_normalizes_source_timestamps_to_utc(self) -> None:
+        message = {
+            "messageId": 1,
+            "body": "$TSLA test",
+            "createdAt": "2026-08-05T23:30:00-07:00",
+            "sentiment": "Bullish",
+            "symbols": ["TSLA"],
+            "username": "tester",
+            "userFollowers": 1,
+            "url": "https://example.com/1",
+        }
+
+        with TemporaryDirectory() as directory:
+            database_path = Path(directory) / "stockpulse.db"
+            result = store_messages([message], database_path=database_path)
+            with closing(sqlite3.connect(database_path)) as connection:
+                created_at = connection.execute(
+                    "SELECT created_at FROM messages WHERE message_id = 1"
+                ).fetchone()[0]
+
+        self.assertEqual(created_at, "2026-08-06T06:30:00+00:00")
+        self.assertEqual(result.affected_dates, ("2026-08-06",))
+
+    def test_phase_two_database_records_schema_migrations(self) -> None:
+        with TemporaryDirectory() as directory:
+            database_path = Path(directory) / "stockpulse.db"
+            self._create_phase_two_database(database_path)
+            get_unanalyzed_messages(
+                database_path=database_path,
+                analysis_version="version-a",
+            )
+            with closing(sqlite3.connect(database_path)) as connection:
+                migrations = connection.execute(
+                    "SELECT version, name FROM schema_migrations ORDER BY version"
+                ).fetchall()
+
+        self.assertEqual(
+            migrations,
+            [
+                (1, "foundation_and_sentiment"),
+                (2, "run_history_and_daily_metrics"),
+            ],
+        )
+
+    def test_newer_database_schema_is_rejected_without_downgrade(self) -> None:
+        with TemporaryDirectory() as directory:
+            database_path = Path(directory) / "stockpulse.db"
+            with closing(sqlite3.connect(database_path)) as connection:
+                with connection:
+                    connection.executescript(
+                        """
+                        CREATE TABLE schema_migrations (
+                            version INTEGER PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            applied_at TEXT NOT NULL
+                        );
+                        INSERT INTO schema_migrations VALUES (
+                            999, 'future_schema', '2026-08-05T00:00:00+00:00'
+                        );
+                        """
+                    )
+
+            with self.assertRaisesRegex(ValueError, "newer"):
+                get_unanalyzed_messages(
+                    database_path=database_path,
+                    analysis_version="version-a",
+                )
+            with closing(sqlite3.connect(database_path)) as connection:
+                message_table = connection.execute(
+                    """
+                    SELECT name FROM sqlite_master
+                    WHERE type = 'table' AND name = 'messages'
+                    """
+                ).fetchone()
+
+        self.assertIsNone(message_table)
+
     def test_phase_two_database_is_migrated_and_ai_results_are_idempotent(self) -> None:
         analysis_version = "2:test-model@revision-a:threshold=0.6"
         analysis = MessageAnalysis(

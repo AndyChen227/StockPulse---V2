@@ -141,6 +141,8 @@ Completed:
 - Low-confidence tracking and safe reanalysis behavior
 - Durable collection and analysis run records with bounded error summaries
 - Versioned daily AI metrics and automatic backfill for existing analysis history
+- Explicit schema migration records with protection against opening newer databases
+- Shared message-contract validation and canonical UTC timestamps
 - Local `--runs` history view for operational verification
 - Python 3.11 and 3.12 GitHub Actions tests
 
@@ -160,13 +162,11 @@ Stage 2 will establish the data contract required by both the dashboard and clou
 
 Planned work:
 
-1. Complete schema-version records around the implemented `runs` and `daily_metrics` tables.
-2. Extend the implemented run status records with partial-success, validation, limit, cost, and retry details.
-3. Capture Apify dataset identifiers in addition to resumable external run identifiers.
-4. Strengthen message type and timestamp validation.
-5. Separate storage interfaces from SQLite-specific implementation.
-6. Document candidate managed datastores and make a cost-aware production choice.
-7. Add migration and repository tests before building API or UI layers.
+1. Extend the implemented run status records with partial-success, validation, limit, cost, and retry details.
+2. Capture Apify dataset identifiers in addition to resumable external run identifiers.
+3. Separate storage interfaces from SQLite-specific implementation.
+4. Document candidate managed datastores and make a cost-aware production choice.
+5. Add repository contract tests before building API or UI layers.
 
 ## 8. Documentation system
 
