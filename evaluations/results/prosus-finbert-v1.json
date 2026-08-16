@@ -1,0 +1,162 @@
+{
+  "evaluation_schema_version": 1,
+  "dataset": {
+    "path": "evaluations/finance_sentiment_v1.jsonl",
+    "sha256": "154770059e09afd8848bc3494004b50874ca3d1ea71359ec149cbe549cfa97e8",
+    "examples": 36
+  },
+  "analysis": {
+    "model_name": "ProsusAI/finbert",
+    "model_revision": "4556d13015211d73dccd3fdd39d39232506f3e43",
+    "confidence_threshold": 0.6,
+    "analysis_version": "2:ProsusAI/finbert@4556d13015211d73dccd3fdd39d39232506f3e43:threshold=0.6"
+  },
+  "metrics": {
+    "total": 36,
+    "correct": 25,
+    "accuracy": 0.6944444444444444,
+    "macro_f1": 0.6949620427881298,
+    "low_confidence_count": 3,
+    "low_confidence_accuracy": 0.3333333333333333,
+    "high_confidence_accuracy": 0.7272727272727273,
+    "average_confidence": 0.8175855370031463,
+    "per_label": {
+      "Bullish": {
+        "precision": 0.8888888888888888,
+        "recall": 0.6666666666666666,
+        "f1": 0.761904761904762,
+        "support": 12
+      },
+      "Neutral": {
+        "precision": 0.6363636363636364,
+        "recall": 0.5833333333333334,
+        "f1": 0.6086956521739131,
+        "support": 12
+      },
+      "Bearish": {
+        "precision": 0.625,
+        "recall": 0.8333333333333334,
+        "f1": 0.7142857142857143,
+        "support": 12
+      }
+    },
+    "confusion_matrix": {
+      "Bullish": {
+        "Bullish": 8,
+        "Neutral": 3,
+        "Bearish": 1
+      },
+      "Neutral": {
+        "Bullish": 0,
+        "Neutral": 7,
+        "Bearish": 5
+      },
+      "Bearish": {
+        "Bullish": 1,
+        "Neutral": 1,
+        "Bearish": 10
+      }
+    },
+    "errors": [
+      {
+        "id": "bull-005",
+        "category": "trading_language",
+        "expected": "Bullish",
+        "predicted": "Neutral",
+        "confidence": 0.701,
+        "low_confidence": false,
+        "text": "I am buying this dip because the long-term thesis is intact."
+      },
+      {
+        "id": "bull-006",
+        "category": "market_positioning",
+        "expected": "Bullish",
+        "predicted": "Bearish",
+        "confidence": 0.9337,
+        "low_confidence": false,
+        "text": "Shorts may get squeezed if revenue guidance holds."
+      },
+      {
+        "id": "bull-007",
+        "category": "negation",
+        "expected": "Bullish",
+        "predicted": "Neutral",
+        "confidence": 0.4359,
+        "low_confidence": true,
+        "text": "The recall is manageable and does not change my bullish view."
+      },
+      {
+        "id": "bull-009",
+        "category": "analyst_action",
+        "expected": "Bullish",
+        "predicted": "Neutral",
+        "confidence": 0.6383,
+        "low_confidence": false,
+        "text": "Analyst upgrade to Buy with a higher price target."
+      },
+      {
+        "id": "neutral-002",
+        "category": "price_observation",
+        "expected": "Neutral",
+        "predicted": "Bearish",
+        "confidence": 0.6962,
+        "low_confidence": false,
+        "text": "Shares are trading near yesterday's closing price."
+      },
+      {
+        "id": "neutral-006",
+        "category": "wait_and_see",
+        "expected": "Neutral",
+        "predicted": "Bearish",
+        "confidence": 0.5128,
+        "low_confidence": true,
+        "text": "I have no position and want to see the next delivery report."
+      },
+      {
+        "id": "neutral-007",
+        "category": "price_observation",
+        "expected": "Neutral",
+        "predicted": "Bearish",
+        "confidence": 0.7036,
+        "low_confidence": false,
+        "text": "The stock rose in early trading and then returned to flat."
+      },
+      {
+        "id": "neutral-009",
+        "category": "uncertain",
+        "expected": "Neutral",
+        "predicted": "Bearish",
+        "confidence": 0.646,
+        "low_confidence": false,
+        "text": "Could break higher or lower from this range; confirmation is missing."
+      },
+      {
+        "id": "neutral-010",
+        "category": "mixed",
+        "expected": "Neutral",
+        "predicted": "Bearish",
+        "confidence": 0.7341,
+        "low_confidence": false,
+        "text": "Revenue beat estimates, while earnings per share missed."
+      },
+      {
+        "id": "bear-006",
+        "category": "negation",
+        "expected": "Bearish",
+        "predicted": "Neutral",
+        "confidence": 0.6058,
+        "low_confidence": false,
+        "text": "This bounce does not change the bearish trend."
+      },
+      {
+        "id": "bear-009",
+        "category": "competition",
+        "expected": "Bearish",
+        "predicted": "Bullish",
+        "confidence": 0.7455,
+        "low_confidence": false,
+        "text": "Competition is gaining share while Tesla discounts more vehicles."
+      }
+    ]
+  }
+}

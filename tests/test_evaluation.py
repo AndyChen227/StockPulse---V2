@@ -1,7 +1,6 @@
 """Tests for the finance-specific sentiment evaluation harness."""
 
 from pathlib import Path
-from hashlib import sha256
 import json
 import sys
 from tempfile import TemporaryDirectory
@@ -14,6 +13,8 @@ sys.path.insert(0, str(SRC_PATH))
 
 from stockpulse.evaluation import (  # noqa: E402
     EvaluationExample,
+    build_parser,
+    canonical_dataset_hash,
     evaluate_predictions,
     load_evaluation_set,
 )
@@ -48,22 +49,27 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(counts, {"Bullish": 12, "Neutral": 12, "Bearish": 12})
         self.assertEqual(len({example.example_id for example in examples}), 36)
 
-        baseline = json.loads(
-            (
-                PROJECT_ROOT
-                / "evaluations"
-                / "results"
-                / "twitter-roberta-v1.json"
-            ).read_text(encoding="utf-8")
-        )
-        self.assertEqual(
-            baseline["dataset"]["sha256"],
-            sha256(dataset_path.read_bytes()).hexdigest(),
-        )
-        self.assertEqual(baseline["dataset"]["examples"], len(examples))
-        self.assertEqual(
-            baseline["analysis"]["model_revision"], DEFAULT_MODEL_REVISION
-        )
+        expected_revisions = {
+            "twitter-roberta-v1.json": DEFAULT_MODEL_REVISION,
+            "prosus-finbert-v1.json": (
+                "4556d13015211d73dccd3fdd39d39232506f3e43"
+            ),
+        }
+        for filename, expected_revision in expected_revisions.items():
+            with self.subTest(filename=filename):
+                baseline = json.loads(
+                    (
+                        PROJECT_ROOT / "evaluations" / "results" / filename
+                    ).read_text(encoding="utf-8")
+                )
+                self.assertEqual(
+                    baseline["dataset"]["sha256"],
+                    canonical_dataset_hash(dataset_path),
+                )
+                self.assertEqual(baseline["dataset"]["examples"], len(examples))
+                self.assertEqual(
+                    baseline["analysis"]["model_revision"], expected_revision
+                )
 
     def test_metrics_include_confusion_and_confidence_segments(self) -> None:
         examples = [
@@ -105,6 +111,22 @@ class EvaluationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "same length"):
             evaluate_predictions(examples, [])
+
+    def test_model_comparison_arguments_are_configurable(self) -> None:
+        args = build_parser().parse_args(
+            [
+                "--model",
+                "ProsusAI/finbert",
+                "--revision",
+                "test-revision",
+                "--confidence-threshold",
+                "0.7",
+            ]
+        )
+
+        self.assertEqual(args.model, "ProsusAI/finbert")
+        self.assertEqual(args.revision, "test-revision")
+        self.assertEqual(args.confidence_threshold, 0.7)
 
 
 if __name__ == "__main__":
