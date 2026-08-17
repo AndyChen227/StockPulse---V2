@@ -14,6 +14,7 @@ from stockpulse.collector.apify_client import (
 from stockpulse.config import load_settings
 from stockpulse.postgres import apply_postgres_migrations, create_postgres_pool
 from stockpulse.postgres_repository import PostgresRepository
+from stockpulse.pipeline import run_daily_pipeline
 from stockpulse.repository import SQLiteRepository, StockPulseRepository
 from stockpulse.sentiment import (
     SentimentAnalyzer,
@@ -53,6 +54,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(description="StockPulse TSLA data collector")
     action_group = parser.add_mutually_exclusive_group()
+    action_group.add_argument(
+        "--daily-pipeline",
+        action="store_true",
+        help="Run the complete bounded daily collection and analysis workflow.",
+    )
     action_group.add_argument(
         "--collect",
         action="store_true",
@@ -168,7 +174,9 @@ def main(
     application_run_id: str | None = None
 
     try:
-        settings = load_settings(require_token=bool(args.collect or args.resume_run))
+        settings = load_settings(
+            require_token=bool(args.daily_pipeline or args.collect or args.resume_run)
+        )
         if repository is None and settings.database_backend == "postgresql":
             postgres_pool = create_postgres_pool(
                 settings.database_url or "",
@@ -185,6 +193,17 @@ def main(
             settings.sentiment_model_revision,
             settings.sentiment_threshold,
         )
+
+        if args.daily_pipeline:
+            run_id = run_daily_pipeline(
+                storage,
+                settings,
+                output_dir=args.output_dir,
+                analysis_limit=args.analysis_limit,
+                topic_limit=args.topic_limit,
+            )
+            print(f"Daily pipeline completed successfully. Run: {run_id}")
+            return 0
 
         if args.runs:
             runs = storage.get_run_history()

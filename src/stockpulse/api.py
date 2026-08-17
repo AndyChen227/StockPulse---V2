@@ -349,7 +349,7 @@ def create_app(
         limit: int = Query(default=20, ge=1, le=100),
         status: Literal["running", "succeeded", "partial", "failed"] | None = None,
         action: Literal[
-            "collect", "resume", "analyze", "reanalyze", "topics", "anomalies"
+            "collect", "resume", "analyze", "reanalyze", "topics", "anomalies", "pipeline"
         ] | None = None,
         start_date: date | None = None,
         end_date: date | None = None,
