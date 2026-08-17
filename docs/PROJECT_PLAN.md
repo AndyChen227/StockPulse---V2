@@ -1,6 +1,6 @@
 # StockPulse Product and Delivery Plan
 
-> Last updated: 2026-08-16  
+> Last updated: 2026-08-17
 > Status: active development  
 > Product target: Google Cloud deployment with a polished dashboard and complete historical records
 
@@ -162,10 +162,11 @@ Current limitations:
 - Initial read-only product API and responsive Dashboard exist, including
   overview, history charts, message exploration, run history, and explicit
   loading, empty, and error states
-- Cost-spending and data-changing controls remain locked until authenticated,
-  bounded action APIs are implemented
+- Cost-spending and data-changing controls remain locked; the bounded action
+  contract exists, while IAP identity, CSRF, distributed idempotency, and the
+  cloud job dispatcher remain
 - Cloud Run service container includes the PostgreSQL runtime and is
-  smoke-tested in CI; authentication, secrets, data migration, and operational
+  smoke-tested in CI; authentication, secrets, the AI job image, and operational
   configuration remain
 - PostgreSQL secret configuration, bounded pool construction, and six ordered
   schema migrations exist; the shared read/write repository contract runs
@@ -223,6 +224,7 @@ Current analysis references:
 - [Dashboard](DASHBOARD.md)
 - [Cloud Run service preparation](CLOUD_RUN.md)
 - [PostgreSQL implementation](POSTGRESQL.md)
+- [Google Cloud launch runbook](GOOGLE_CLOUD_RUNBOOK.md)
 
 ---
 
