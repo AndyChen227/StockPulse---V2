@@ -37,6 +37,7 @@ class SettingsTests(unittest.TestCase):
         self.assertIsNone(settings.database_url)
         self.assertEqual(settings.database_pool_min_size, 1)
         self.assertEqual(settings.database_pool_max_size, 4)
+        self.assertFalse(settings.has_action_api_token)
         self.assertFalse(settings.has_api_token)
 
     def test_symbol_is_normalized(self) -> None:
@@ -121,6 +122,22 @@ class SettingsTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(ValueError, "maximum <= 10"):
                 load_settings(load_env_file=False)
+
+    def test_action_secret_is_hidden_and_must_be_long(self) -> None:
+        with patch.dict(
+            os.environ, {"STOCKPULSE_ACTION_API_TOKEN": "too-short"}, clear=True
+        ):
+            with self.assertRaisesRegex(ValueError, "at least 32"):
+                load_settings(load_env_file=False)
+
+        secret = "a" * 32
+        with patch.dict(
+            os.environ, {"STOCKPULSE_ACTION_API_TOKEN": secret}, clear=True
+        ):
+            settings = load_settings(load_env_file=False)
+
+        self.assertTrue(settings.has_action_api_token)
+        self.assertNotIn(secret, repr(settings))
 
 
 if __name__ == "__main__":

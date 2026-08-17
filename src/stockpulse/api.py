@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Path as PathParam, Query, Request
+from fastapi import FastAPI, Header, HTTPException, Path as PathParam, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
@@ -16,12 +16,14 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from stockpulse import __version__
+from stockpulse.actions import ActionDispatcher, ActionGate
 from stockpulse.anomaly import DETECTOR_VERSION
 from stockpulse.config import load_settings
 from stockpulse.postgres import apply_postgres_migrations, create_postgres_pool
 from stockpulse.postgres_repository import PostgresRepository
 from stockpulse.repository import SQLiteRepository, StockPulseRepository
 from stockpulse.sentiment import build_analysis_version
+from stockpulse.storage import RunResult
 from stockpulse.topics import TOPIC_ANALYSIS_VERSION
 
 
@@ -59,11 +61,16 @@ class ItemResponse(BaseModel):
     data: dict[str, Any]
 
 
+class ActionExecutionRequest(BaseModel):
+    confirmation: str
+
+
 def create_app(
     *,
     repository: StockPulseRepository | None = None,
     database_path: Path = Path("data/stockpulse.db"),
     analysis_version: str | None = None,
+    action_dispatcher: ActionDispatcher | None = None,
 ) -> FastAPI:
     """Build an injectable FastAPI application without starting a server."""
 
@@ -73,6 +80,7 @@ def create_app(
         settings.sentiment_model_revision,
         settings.sentiment_threshold,
     )
+    action_gate = ActionGate(settings.action_api_token) if settings.action_api_token else None
     postgres_pool = None
     if repository is not None:
         storage = repository
@@ -130,6 +138,75 @@ def create_app(
             "application_version": __version__,
             "api_version": API_VERSION,
         })
+
+    @app.get("/api/v1/actions/capabilities")
+    def action_capabilities() -> dict[str, Any]:
+        enabled = action_gate is not None and action_dispatcher is not None
+        return {
+            "enabled": enabled,
+            "actions": ["collect"] if enabled else [],
+            "limits": {
+                "symbol": settings.symbol,
+                "max_messages": settings.max_messages,
+                "max_total_charge_usd": str(settings.max_total_charge_usd),
+            },
+        }
+
+    @app.post("/api/v1/actions/collect/confirmation")
+    def confirm_collection(
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        gate = _require_action_gate(action_gate, action_dispatcher)
+        _authenticate_action(gate, authorization)
+        confirmation = gate.issue(
+            action="collect",
+            symbol=settings.symbol,
+            max_messages=settings.max_messages,
+            max_charge=str(settings.max_total_charge_usd),
+        )
+        return {
+            "confirmation": confirmation,
+            "action": "collect",
+            "symbol": settings.symbol,
+            "max_messages": settings.max_messages,
+            "max_total_charge_usd": str(settings.max_total_charge_usd),
+            "expires_in_seconds": gate.lifetime_seconds,
+        }
+
+    @app.post("/api/v1/actions/collect", status_code=202)
+    def execute_collection(
+        request_body: ActionExecutionRequest,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        gate = _require_action_gate(action_gate, action_dispatcher)
+        _authenticate_action(gate, authorization)
+        try:
+            payload = gate.consume(request_body.confirmation)
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from None
+        if payload.get("action") != "collect":
+            raise HTTPException(status_code=409, detail="Confirmation action mismatch")
+        run_id = storage.start_run(
+            "collect",
+            symbol=settings.symbol,
+            analysis_version=current_analysis_version,
+            max_messages=settings.max_messages,
+            max_total_charge_usd=str(settings.max_total_charge_usd),
+        )
+        dispatch_payload = {**payload, "run_id": run_id}
+        try:
+            dispatch_id = action_dispatcher(dispatch_payload)  # type: ignore[misc]
+        except Exception as error:
+            storage.finish_run(
+                run_id,
+                RunResult(
+                    status="failed",
+                    error_type=type(error).__name__,
+                    error_message=str(error),
+                ),
+            )
+            raise HTTPException(status_code=503, detail="Action dispatch failed") from None
+        return {"status": "accepted", "run_id": run_id, "dispatch_id": dispatch_id}
 
     @app.get(
         "/api/v1/ready",
@@ -315,6 +392,21 @@ def _validate_date_range(start_date: date | None, end_date: date | None) -> None
             status_code=422,
             detail="start_date cannot be after end_date",
         )
+
+
+def _require_action_gate(
+    gate: ActionGate | None, dispatcher: ActionDispatcher | None
+) -> ActionGate:
+    if gate is None or dispatcher is None:
+        raise HTTPException(status_code=503, detail="Manual actions are disabled")
+    return gate
+
+
+def _authenticate_action(gate: ActionGate, authorization: str | None) -> None:
+    try:
+        gate.authenticate(authorization)
+    except PermissionError as error:
+        raise HTTPException(status_code=401, detail=str(error)) from None
 
 
 def _error_response(

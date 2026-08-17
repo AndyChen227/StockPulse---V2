@@ -92,6 +92,24 @@ routing traffic without confusing a database failure with a crashed process.
 
 ## Remaining Stage 5 work
 
-- add explicit authentication and authorization before any write endpoint
-- design confirmation tokens and audit behavior for bounded manual actions
+- choose and configure browser authentication before cloud launch
+- connect the guarded collection endpoint to the deployment-specific job dispatcher
 - add structured error responses and readiness checks for PostgreSQL
+
+## Guarded manual action contract
+
+The collection action API is implemented but disabled by default. It is enabled
+only when both a separate 32+ character `STOCKPULSE_ACTION_API_TOKEN` and an
+application-injected job dispatcher exist.
+
+1. `GET /api/v1/actions/capabilities` reports availability and server limits.
+2. `POST /api/v1/actions/collect/confirmation` requires bearer authentication
+   and returns a five-minute signed confirmation containing the symbol, message
+   limit, and maximum Actor charge.
+3. `POST /api/v1/actions/collect` consumes the confirmation once, creates a
+   durable running record, and hands the bounded payload to the dispatcher.
+4. Dispatch failures finish that run as failed with a bounded error summary.
+
+No production dispatcher exists yet, so the default service cannot start Apify
+or a cloud job. Browser login and multi-instance idempotency remain explicit
+pre-console architecture decisions.
