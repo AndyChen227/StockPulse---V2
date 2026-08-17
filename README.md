@@ -259,6 +259,19 @@ all six historical data tables with post-import key verification. See
 
 The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
 
+Production deployments set `STOCKPULSE_ENVIRONMENT=production` and can be
+checked without contacting PostgreSQL or Apify:
+
+```powershell
+stockpulse --check-production-config service
+stockpulse --check-production-config job
+```
+
+The service and daily Job enforce separate least-privilege configuration: the
+Dashboard never needs the Apify token, while the Job requires it and verifies
+the exact model revision cached in its image. Preflight output contains only
+safe configuration status and never secret values.
+
 Sentiment analysis is an **experimental adapter** built on `cardiffnlp/twitter-roberta-base-sentiment-latest`. The model revision is pinned for reproducibility. Positive, neutral, and negative model labels map to Bullish, Neutral, and Bearish, but this mapping still requires evaluation on a larger finance-specific sample. Predictions below the default **0.60 confidence threshold keep their original direction** and are marked as low-confidence instead of being rewritten as Neutral. The model revision, threshold, and analysis version are stored with each result. Stocktwits author labels remain separate and are never overwritten.
 
 The first tracked finance-specific benchmark scored **88.9% accuracy** and **89.2% Macro F1** on 36 balanced synthetic examples. This is a reproducible provisional baseline, not production acceptance. See [Sentiment Evaluation](docs/SENTIMENT_EVALUATION.md) for the confusion matrix, errors, limitations, and expansion gate.

@@ -12,7 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_PATH = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_PATH))
 
-from stockpulse.config import load_settings  # noqa: E402
+from stockpulse.config import Settings, load_settings, validate_runtime_settings  # noqa: E402
 
 
 class SettingsTests(unittest.TestCase):
@@ -39,6 +39,60 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.database_pool_max_size, 4)
         self.assertFalse(settings.has_action_api_token)
         self.assertFalse(settings.has_api_token)
+        self.assertEqual(settings.environment, "development")
+
+    def test_environment_rejects_unknown_value(self) -> None:
+        with patch.dict(
+            os.environ, {"STOCKPULSE_ENVIRONMENT": "staging"}, clear=True
+        ):
+            with self.assertRaisesRegex(ValueError, "development.*production"):
+                load_settings(load_env_file=False)
+
+    def test_production_service_requires_postgres_and_bounded_pool(self) -> None:
+        settings = Settings(environment="production")
+        with self.assertRaisesRegex(ValueError, "PostgreSQL"):
+            validate_runtime_settings(settings, "service")
+
+        settings = Settings(
+            environment="production",
+            database_backend="postgresql",
+            database_url="postgresql://user:secret@db/stockpulse",
+            database_pool_max_size=5,
+        )
+        with self.assertRaisesRegex(ValueError, "cannot exceed 4"):
+            validate_runtime_settings(settings, "service")
+
+    def test_production_roles_return_only_secret_safe_checks(self) -> None:
+        secret = "secret-apify-token"
+        common = {
+            "environment": "production",
+            "database_backend": "postgresql",
+            "database_url": "postgresql://user:database-secret@db/stockpulse",
+        }
+        service_checks = validate_runtime_settings(Settings(**common), "service")
+        job_checks = validate_runtime_settings(
+            Settings(api_token=secret, **common), "job"
+        )
+
+        rendered = " ".join(service_checks + job_checks)
+        self.assertIn("action_api=disabled", service_checks)
+        self.assertIn("apify_token=configured", job_checks)
+        self.assertNotIn(secret, rendered)
+        self.assertNotIn("database-secret", rendered)
+
+    def test_production_job_requires_token_and_image_pinned_model(self) -> None:
+        common = {
+            "environment": "production",
+            "database_backend": "postgresql",
+            "database_url": "postgresql://user:secret@db/stockpulse",
+        }
+        with self.assertRaisesRegex(ValueError, "APIFY_API_TOKEN"):
+            validate_runtime_settings(Settings(**common), "job")
+        with self.assertRaisesRegex(ValueError, "match the model pinned"):
+            validate_runtime_settings(
+                Settings(api_token="token", sentiment_model_revision="main", **common),
+                "job",
+            )
 
     def test_symbol_is_normalized(self) -> None:
         with patch.dict(

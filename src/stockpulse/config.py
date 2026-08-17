@@ -15,6 +15,8 @@ from stockpulse.sentiment import (
 
 DEFAULT_ACTOR_ID = "automation-lab/stocktwits-scraper"
 DEFAULT_MAX_CHARGE_USD = Decimal("0.05")
+ENVIRONMENTS = frozenset({"development", "production"})
+RUNTIME_ROLES = frozenset({"service", "job"})
 
 
 @dataclass(frozen=True)
@@ -34,6 +36,7 @@ class Settings:
     database_pool_min_size: int = 1
     database_pool_max_size: int = 4
     action_api_token: str | None = field(default=None, repr=False)
+    environment: str = "development"
 
     @property
     def has_api_token(self) -> bool:
@@ -75,6 +78,12 @@ def load_settings(
     pool_min_text = os.getenv("STOCKPULSE_DATABASE_POOL_MIN_SIZE", "1").strip()
     pool_max_text = os.getenv("STOCKPULSE_DATABASE_POOL_MAX_SIZE", "4").strip()
     action_api_token = _clean_secret(os.getenv("STOCKPULSE_ACTION_API_TOKEN"))
+    environment = os.getenv("STOCKPULSE_ENVIRONMENT", "development").strip().lower()
+
+    if environment not in ENVIRONMENTS:
+        raise ValueError(
+            "STOCKPULSE_ENVIRONMENT must be 'development' or 'production'."
+        )
 
     if require_token and not api_token:
         raise ValueError(
@@ -169,7 +178,49 @@ def load_settings(
         database_pool_min_size=database_pool_min_size,
         database_pool_max_size=database_pool_max_size,
         action_api_token=action_api_token,
+        environment=environment,
     )
+
+
+def validate_runtime_settings(settings: Settings, role: str) -> tuple[str, ...]:
+    """Validate one production runtime without exposing secret values."""
+
+    normalized_role = role.strip().lower()
+    if normalized_role not in RUNTIME_ROLES:
+        raise ValueError("Runtime role must be 'service' or 'job'.")
+    if settings.environment != "production":
+        raise ValueError(
+            "STOCKPULSE_ENVIRONMENT must be 'production' for a production preflight."
+        )
+    if settings.database_backend != "postgresql" or not settings.database_url:
+        raise ValueError("Production requires the PostgreSQL database backend and URL.")
+    if settings.database_pool_max_size > 4:
+        raise ValueError(
+            "Production database pool maximum cannot exceed 4 in the initial deployment."
+        )
+
+    checks = [
+        "environment=production",
+        "database=postgresql",
+        f"database_pool={settings.database_pool_min_size}..{settings.database_pool_max_size}",
+    ]
+    if normalized_role == "job":
+        if not settings.has_api_token:
+            raise ValueError("APIFY_API_TOKEN is required for the production job.")
+        if (
+            settings.sentiment_model != DEFAULT_MODEL_NAME
+            or settings.sentiment_model_revision != DEFAULT_MODEL_REVISION
+        ):
+            raise ValueError(
+                "Production job model and revision must match the model pinned in its image."
+            )
+        checks.extend(("apify_token=configured", "sentiment_model=pinned"))
+    else:
+        checks.append(
+            "action_api=enabled" if settings.has_action_api_token else "action_api=disabled"
+        )
+
+    return tuple(checks)
 
 
 def _clean_secret(value: str | None) -> str | None:
