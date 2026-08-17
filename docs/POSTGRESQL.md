@@ -56,11 +56,32 @@ when the backend and secret URL are configured. They apply pending migrations
 before serving or processing data and close the bounded pool on shutdown.
 SQLite remains the zero-cost default.
 
+## Historical data migration
+
+Preview the source inventory without connecting to or writing PostgreSQL:
+
+```powershell
+stockpulse-migrate --source data/stockpulse.db
+```
+
+After the PostgreSQL runtime secret is configured, explicitly apply the import:
+
+```powershell
+stockpulse-migrate --source data/stockpulse.db --apply
+```
+
+The importer requires SQLite schema version 6, reads the source in read-only
+mode, imports all six business tables in foreign-key order, and restores run
+retry relationships in a second pass. PostgreSQL writes and source-key
+verification share one transaction, so a failed verification rolls back the
+entire attempt. Primary-key conflicts are skipped, making a verified rerun
+idempotent.
+
 ## Remaining implementation sequence
 
-1. Add deterministic SQLite export and idempotent PostgreSQL import.
-2. Compare row counts, identifiers, timestamps, versions, and aggregates.
-3. Add Secret Manager and Cloud SQL connector configuration.
-4. Complete the pre-console architecture, cost, IAM, region, backup, and
+1. Validate the migration against the final production snapshot and record the
+   verification report.
+2. Add Secret Manager and Cloud SQL connector configuration.
+3. Complete the pre-console architecture, cost, IAM, region, backup, and
    rollback review with the owner.
-5. Only after explicit approval, provision Google Cloud resources.
+4. Only after explicit approval, provision Google Cloud resources.

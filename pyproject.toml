@@ -33,6 +33,7 @@ postgres = [
 [project.scripts]
 stockpulse = "stockpulse.main:main"
 stockpulse-api = "stockpulse.api:run"
+stockpulse-migrate = "stockpulse.migration:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

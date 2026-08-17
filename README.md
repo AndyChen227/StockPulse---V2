@@ -245,7 +245,8 @@ treated as persistent cloud storage.
 The PostgreSQL foundation now includes secret-safe configuration, a bounded
 connection pool, ordered schema migrations, and the complete read/write
 repository used by the Dashboard and background workflows. SQLite remains the
-default until verified historical-data migration is ready. See
+default. A transactional, idempotent migration command can preview and import
+all six historical data tables with post-import key verification. See
 [PostgreSQL implementation](docs/POSTGRESQL.md).
 
 The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
