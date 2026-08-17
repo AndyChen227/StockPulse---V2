@@ -242,6 +242,11 @@ remains gated on verified data migration, authentication, and explicit cost
 approval. The production image includes PostgreSQL support; local SQLite is not
 treated as persistent cloud storage.
 
+The proposed region, IAP access, IAM boundaries, cost guardrails, deployment
+order, backups, and rollback are recorded in the
+[Google Cloud launch runbook](docs/GOOGLE_CLOUD_RUNBOOK.md). It is a review
+document only and does not authorize cloud resource creation.
+
 The PostgreSQL foundation now includes secret-safe configuration, a bounded
 connection pool, ordered schema migrations, and the complete read/write
 repository used by the Dashboard and background workflows. SQLite remains the
