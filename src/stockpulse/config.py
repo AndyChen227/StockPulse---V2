@@ -33,12 +33,17 @@ class Settings:
     database_url: str | None = field(default=None, repr=False)
     database_pool_min_size: int = 1
     database_pool_max_size: int = 4
+    action_api_token: str | None = field(default=None, repr=False)
 
     @property
     def has_api_token(self) -> bool:
         """Return whether a usable Apify token is configured."""
 
         return bool(self.api_token)
+
+    @property
+    def has_action_api_token(self) -> bool:
+        return bool(self.action_api_token)
 
 
 def load_settings(
@@ -69,6 +74,7 @@ def load_settings(
     database_url = _clean_secret(os.getenv("STOCKPULSE_DATABASE_URL"))
     pool_min_text = os.getenv("STOCKPULSE_DATABASE_POOL_MIN_SIZE", "1").strip()
     pool_max_text = os.getenv("STOCKPULSE_DATABASE_POOL_MAX_SIZE", "4").strip()
+    action_api_token = _clean_secret(os.getenv("STOCKPULSE_ACTION_API_TOKEN"))
 
     if require_token and not api_token:
         raise ValueError(
@@ -146,6 +152,8 @@ def load_settings(
         raise ValueError(
             "Database pool sizes must satisfy 1 <= minimum <= maximum <= 10."
         )
+    if action_api_token and len(action_api_token) < 32:
+        raise ValueError("STOCKPULSE_ACTION_API_TOKEN must contain at least 32 characters.")
 
     return Settings(
         api_token=api_token,
@@ -160,6 +168,7 @@ def load_settings(
         database_url=database_url,
         database_pool_min_size=database_pool_min_size,
         database_pool_max_size=database_pool_max_size,
+        action_api_token=action_api_token,
     )
 
 

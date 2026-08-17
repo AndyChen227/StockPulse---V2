@@ -3,7 +3,7 @@
 from pathlib import Path
 import sys
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -210,6 +210,54 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(invalid_cursor.status_code, 422)
         self.assertEqual(invalid_confidence.status_code, 422)
         self.repository.get_messages.assert_not_called()
+
+    def test_manual_actions_are_disabled_by_default(self) -> None:
+        capabilities = self.client.get("/api/v1/actions/capabilities")
+        response = self.client.post("/api/v1/actions/collect/confirmation")
+
+        self.assertFalse(capabilities.json()["enabled"])
+        self.assertEqual(response.status_code, 503)
+
+    def test_collection_requires_authentication_confirmation_and_is_single_use(self) -> None:
+        secret = "action-secret-with-at-least-32-characters"
+        dispatcher = MagicMock(return_value="dispatch-1")
+        self.repository.start_run.return_value = "run-1"
+        with patch.dict(
+            "os.environ", {"STOCKPULSE_ACTION_API_TOKEN": secret}, clear=True
+        ):
+            client = TestClient(
+                create_app(
+                    repository=self.repository,
+                    analysis_version="analysis-test-v1",
+                    action_dispatcher=dispatcher,
+                )
+            )
+        unauthorized = client.post("/api/v1/actions/collect/confirmation")
+        headers = {"Authorization": f"Bearer {secret}"}
+        confirmation = client.post(
+            "/api/v1/actions/collect/confirmation", headers=headers
+        )
+        token = confirmation.json()["confirmation"]
+        accepted = client.post(
+            "/api/v1/actions/collect",
+            headers=headers,
+            json={"confirmation": token},
+        )
+        replayed = client.post(
+            "/api/v1/actions/collect",
+            headers=headers,
+            json={"confirmation": token},
+        )
+
+        self.assertEqual(unauthorized.status_code, 401)
+        self.assertEqual(confirmation.status_code, 200)
+        self.assertEqual(confirmation.json()["max_messages"], 5)
+        self.assertEqual(confirmation.json()["max_total_charge_usd"], "0.05")
+        self.assertEqual(accepted.status_code, 202)
+        self.assertEqual(accepted.json()["run_id"], "run-1")
+        self.assertEqual(replayed.status_code, 409)
+        self.repository.start_run.assert_called_once()
+        dispatcher.assert_called_once()
 
 
 if __name__ == "__main__":
