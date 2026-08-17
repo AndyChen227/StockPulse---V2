@@ -49,6 +49,18 @@ class MainTests(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         collect_mock.assert_not_called()
 
+    def test_daily_pipeline_requires_token_and_uses_one_orchestrator(self) -> None:
+        settings = Settings(api_token="test-token")
+        repository = MagicMock()
+        with patch("stockpulse.main.load_settings", return_value=settings), patch(
+            "stockpulse.main.run_daily_pipeline", return_value="pipeline-run-1"
+        ) as pipeline_mock, patch("stockpulse.main.collect_messages") as collect_mock:
+            exit_code = main(["--daily-pipeline"], repository=repository)
+
+        self.assertEqual(exit_code, 0)
+        pipeline_mock.assert_called_once()
+        collect_mock.assert_not_called()
+
     def test_stats_mode_does_not_collect(self) -> None:
         daily_stats = [
             {

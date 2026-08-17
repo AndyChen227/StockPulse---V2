@@ -19,6 +19,18 @@ The root `Dockerfile`:
 GitHub Actions builds the image, starts it, and verifies both the health endpoint
 and Dashboard on every pull request. Local Docker is optional for development.
 
+The separate `Dockerfile.job` builds the daily batch image. It installs both AI
+and PostgreSQL dependencies, downloads the exact pinned sentiment model revision
+during the image build, runs as a non-root user, and starts
+`stockpulse --daily-pipeline`. CI verifies that the image can load the tokenizer
+from its local cache without a runtime download.
+
+The daily command creates one durable `pipeline` run and performs collection,
+validation/storage, current-version sentiment analysis, topic extraction, daily
+metric materialization, and anomaly evaluation. It uses the same server-side
+item and Apify charge limits as manual collection. A failure records the bounded
+error and preserves external Apify identifiers when they are already known.
+
 ## Local container check
 
 On a computer with Docker installed:

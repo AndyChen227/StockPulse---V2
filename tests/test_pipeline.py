@@ -1,0 +1,91 @@
+"""Tests for the complete bounded daily pipeline."""
+
+from pathlib import Path
+import sys
+from types import SimpleNamespace
+import unittest
+from unittest.mock import MagicMock
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+
+from stockpulse.collector.apify_client import CollectionBatch  # noqa: E402
+from stockpulse.config import Settings  # noqa: E402
+from stockpulse.pipeline import run_daily_pipeline  # noqa: E402
+from stockpulse.sentiment import (  # noqa: E402
+    DEFAULT_MODEL_NAME, DEFAULT_MODEL_REVISION, SentimentResult,
+    build_analysis_version,
+)
+from stockpulse.storage import PendingMessage, RunResult, TopicCandidate  # noqa: E402
+
+
+class DailyPipelineTests(unittest.TestCase):
+    def test_pipeline_materializes_every_stage_and_records_one_run(self) -> None:
+        repository = MagicMock()
+        repository.start_run.return_value = "pipeline-run-1"
+        repository.store_messages.return_value = SimpleNamespace(inserted=1, duplicates=0)
+        repository.get_unanalyzed_messages.return_value = [
+            PendingMessage(1, "TSLA robotaxi demand is strong", "Bullish")
+        ]
+        repository.store_message_analyses.return_value = 1
+        repository.get_topic_candidates.return_value = [
+            TopicCandidate(
+                1, "TSLA robotaxi demand is strong", "2026-08-17T00:00:00+00:00",
+                "Bullish", 0.9, 10, "https://example.com/1"
+            )
+        ]
+        repository.get_ai_daily_stats.return_value = []
+        batch = CollectionBatch([{"messageId": 1}], "apify-1", "dataset-1")
+        analyzer = MagicMock()
+        analyzer.analyze.return_value = [
+            SentimentResult(
+                "Bullish", 0.9, DEFAULT_MODEL_NAME, DEFAULT_MODEL_REVISION,
+                "positive", False, 0.6,
+                build_analysis_version(DEFAULT_MODEL_NAME, DEFAULT_MODEL_REVISION, 0.6),
+            )
+        ]
+
+        run_id = run_daily_pipeline(
+            repository,
+            Settings(api_token="test-token"),
+            collector=MagicMock(return_value=batch),
+            analyzer_factory=MagicMock(return_value=analyzer),
+            raw_writer=MagicMock(return_value=Path("raw.json")),
+        )
+
+        self.assertEqual(run_id, "pipeline-run-1")
+        repository.store_messages.assert_called_once_with(batch.messages)
+        repository.store_message_analyses.assert_called_once()
+        repository.store_message_topics.assert_called_once()
+        repository.finish_run.assert_called_once_with(
+            "pipeline-run-1",
+            RunResult(
+                status="succeeded", message_count=1, inserted_count=1,
+                analyzed_count=1, external_run_id="apify-1",
+                external_dataset_id="dataset-1",
+            ),
+        )
+
+    def test_pipeline_failure_is_audited_and_propagated(self) -> None:
+        repository = MagicMock()
+        repository.start_run.return_value = "pipeline-run-2"
+
+        with self.assertRaisesRegex(RuntimeError, "collector failed"):
+            run_daily_pipeline(
+                repository,
+                Settings(api_token="test-token"),
+                collector=MagicMock(side_effect=RuntimeError("collector failed")),
+                raw_writer=MagicMock(),
+            )
+
+        repository.finish_run.assert_called_once_with(
+            "pipeline-run-2",
+            RunResult(
+                status="failed", error_type="RuntimeError",
+                error_message="collector failed",
+            ),
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

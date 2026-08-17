@@ -15,7 +15,7 @@ from stockpulse.anomaly import AnomalyResult
 
 
 RUN_ACTIONS = frozenset(
-    {"collect", "resume", "analyze", "reanalyze", "topics", "anomalies"}
+    {"collect", "resume", "analyze", "reanalyze", "topics", "anomalies", "pipeline"}
 )
 RUN_STATUSES = frozenset({"running", "succeeded", "partial", "failed"})
 CURRENT_SCHEMA_VERSION = 6

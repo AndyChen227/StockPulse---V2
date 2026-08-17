@@ -189,6 +189,9 @@ python -m stockpulse.main
 # Explicitly start one cost-capped Actor run.
 python -m stockpulse.main --collect
 
+# Run the complete bounded daily workflow (intended for the Cloud Run Job).
+python -m stockpulse.main --daily-pipeline
+
 # Read an existing successful run without starting another Actor.
 python -m stockpulse.main --resume-run YOUR_RUN_ID
 

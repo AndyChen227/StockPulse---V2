@@ -278,12 +278,11 @@ or deleted. Export required data before any destructive cleanup.
 
 These must be completed before console provisioning:
 
-1. build a separate Cloud Run Job image with the pinned AI dependencies and
-   measure cold-start time and peak memory
-2. add one idempotent full daily-pipeline command
-3. implement the Cloud Run Jobs dispatcher and distributed action idempotency
-4. replace browser action-secret handling with verified IAP identity and CSRF
-5. add deployment configuration using immutable image digests
+1. measure the implemented pinned-model Job image cold-start time and peak
+   memory on its final container runtime
+2. implement the Cloud Run Jobs dispatcher and distributed action idempotency
+3. replace browser action-secret handling with verified IAP identity and CSRF
+4. add deployment configuration using immutable image digests
 
 ## 10. Owner decisions required
 

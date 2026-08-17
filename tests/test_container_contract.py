@@ -39,6 +39,17 @@ class ContainerContractTests(unittest.TestCase):
 
         self.assertIn("import psycopg, psycopg_pool", workflow)
 
+    def test_daily_job_image_has_ai_postgres_and_pinned_model(self) -> None:
+        dockerfile = (PROJECT_ROOT / "Dockerfile.job").read_text(encoding="utf-8")
+        workflow = (PROJECT_ROOT / ".github" / "workflows" / "tests.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('".[ai,postgres]"', dockerfile)
+        self.assertIn("python -m stockpulse.model_cache", dockerfile)
+        self.assertIn('CMD ["stockpulse", "--daily-pipeline"]', dockerfile)
+        self.assertIn("local_files_only=True", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

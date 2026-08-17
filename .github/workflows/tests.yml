@@ -101,3 +101,18 @@ jobs:
 
       - name: Run PostgreSQL Dashboard integration tests
         run: python -m unittest tests.test_postgres_integration -v
+
+  job-container-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build pinned AI daily job image
+        run: docker build --file Dockerfile.job --tag stockpulse-job:ci .
+
+      - name: Verify daily pipeline entry point and cached model
+        run: |
+          docker run --rm --entrypoint python stockpulse-job:ci -c "import torch, transformers, psycopg"
+          docker run --rm --entrypoint python stockpulse-job:ci -c "from transformers import AutoTokenizer; from stockpulse.sentiment import DEFAULT_MODEL_NAME, DEFAULT_MODEL_REVISION; AutoTokenizer.from_pretrained(DEFAULT_MODEL_NAME, revision=DEFAULT_MODEL_REVISION, local_files_only=True)"
