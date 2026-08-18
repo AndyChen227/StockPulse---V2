@@ -212,6 +212,10 @@ Start with the [Documentation Guide](docs/README.md).
 
 ## Repository map
 
+For a description of every tracked file and the safest place to make a change,
+see the [Repository Guide](docs/REPOSITORY_GUIDE.md). Every major directory also
+contains a short bilingual `README.md` that explains its purpose and boundaries.
+
 ```text
 StockPulse-V2/
 ├── src/stockpulse/        application, analysis, repositories, API, and web UI
@@ -423,6 +427,10 @@ python -m compileall -q src tests
 | [异常检测](docs/ANOMALY_DETECTION.md) | 基线、规则与历史重放 |
 
 ## 仓库结构
+
+如果需要查看每个受 Git 跟踪文件的用途，以及修改某项功能时应从哪里开始，
+请阅读[仓库指南](docs/REPOSITORY_GUIDE.md)。每个主要目录也包含一份简短的
+双语 `README.md`，说明该目录的用途和边界。
 
 ```text
 StockPulse-V2/
