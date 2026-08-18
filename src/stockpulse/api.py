@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from stockpulse import __version__
 from stockpulse.actions import ActionDispatcher, ActionGate
 from stockpulse.anomaly import DETECTOR_VERSION
-from stockpulse.config import load_settings
+from stockpulse.config import load_settings, validate_runtime_settings
 from stockpulse.postgres import apply_postgres_migrations, create_postgres_pool
 from stockpulse.postgres_repository import PostgresRepository
 from stockpulse.repository import SQLiteRepository, StockPulseRepository
@@ -75,6 +75,8 @@ def create_app(
     """Build an injectable FastAPI application without starting a server."""
 
     settings = load_settings()
+    if settings.environment == "production":
+        validate_runtime_settings(settings, "service")
     current_analysis_version = analysis_version or build_analysis_version(
         settings.sentiment_model,
         settings.sentiment_model_revision,

@@ -283,6 +283,7 @@ These must be completed before console provisioning:
 2. implement the Cloud Run Jobs dispatcher and distributed action idempotency
 3. replace browser action-secret handling with verified IAP identity and CSRF
 4. add deployment configuration using immutable image digests
+5. run the secret-safe `service` and `job` production configuration preflights
 
 ## 10. Owner decisions required
 

@@ -31,6 +31,28 @@ metric materialization, and anomaly evaluation. It uses the same server-side
 item and Apify charge limits as manual collection. A failure records the bounded
 error and preserves external Apify identifiers when they are already known.
 
+## Production configuration preflight
+
+Cloud Run must explicitly set `STOCKPULSE_ENVIRONMENT=production`. Before a
+revision or Job is allowed to do real work, run the matching offline preflight:
+
+```text
+stockpulse --check-production-config service
+stockpulse --check-production-config job
+```
+
+Both checks require the PostgreSQL backend and keep the initial connection pool
+at four or fewer connections per instance. The Job check additionally requires
+an Apify token and verifies that the configured sentiment model and revision
+match the model cached in `Dockerfile.job`. The command never opens the database,
+contacts Apify, or prints secret values. Normal production service and Job
+startup enforce the same role-specific contract automatically.
+
+The Dashboard service does not need the Apify token. Only the daily Job receives
+that secret. `STOCKPULSE_DATABASE_URL` is supplied to both runtimes through
+Secret Manager; it must never be placed in an image or committed environment
+file.
+
 ## Local container check
 
 On a computer with Docker installed:

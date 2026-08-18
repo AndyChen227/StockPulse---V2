@@ -11,7 +11,7 @@ from stockpulse.collector.apify_client import (
     collect_messages,
     retrieve_run_messages,
 )
-from stockpulse.config import load_settings
+from stockpulse.config import load_settings, validate_runtime_settings
 from stockpulse.postgres import apply_postgres_migrations, create_postgres_pool
 from stockpulse.postgres_repository import PostgresRepository
 from stockpulse.pipeline import run_daily_pipeline
@@ -54,6 +54,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(description="StockPulse TSLA data collector")
     action_group = parser.add_mutually_exclusive_group()
+    action_group.add_argument(
+        "--check-production-config",
+        choices=("service", "job"),
+        metavar="ROLE",
+        help="Safely validate production settings for the service or job.",
+    )
     action_group.add_argument(
         "--daily-pipeline",
         action="store_true",
@@ -169,7 +175,7 @@ def main(
     """Preview configuration or explicitly run the Phase 2 collector."""
 
     args = build_parser().parse_args(argv)
-    storage = repository or SQLiteRepository(args.database)
+    storage = repository
     postgres_pool = None
     application_run_id: str | None = None
 
@@ -177,6 +183,15 @@ def main(
         settings = load_settings(
             require_token=bool(args.daily_pipeline or args.collect or args.resume_run)
         )
+        if args.check_production_config:
+            checks = validate_runtime_settings(settings, args.check_production_config)
+            print(
+                f"Production {args.check_production_config} configuration is valid: "
+                + ", ".join(checks)
+            )
+            return 0
+        if args.daily_pipeline and settings.environment == "production":
+            validate_runtime_settings(settings, "job")
         if repository is None and settings.database_backend == "postgresql":
             postgres_pool = create_postgres_pool(
                 settings.database_url or "",
@@ -187,6 +202,9 @@ def main(
             with postgres_pool.connection() as connection:
                 apply_postgres_migrations(connection)
             storage = PostgresRepository(postgres_pool)
+        elif storage is None:
+            storage = SQLiteRepository(args.database)
+        assert storage is not None
         print(build_startup_message())
         analysis_version = build_analysis_version(
             settings.sentiment_model,

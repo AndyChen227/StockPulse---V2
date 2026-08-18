@@ -61,6 +61,26 @@ class MainTests(unittest.TestCase):
         pipeline_mock.assert_called_once()
         collect_mock.assert_not_called()
 
+    def test_production_preflight_is_offline_and_secret_safe(self) -> None:
+        settings = Settings(
+            environment="production",
+            database_backend="postgresql",
+            database_url="postgresql://user:database-secret@db/stockpulse",
+        )
+        with patch("stockpulse.main.load_settings", return_value=settings), patch(
+            "stockpulse.main.create_postgres_pool"
+        ) as pool_mock, patch("stockpulse.main.SQLiteRepository") as sqlite_mock, patch(
+            "builtins.print"
+        ) as print_mock:
+            exit_code = main(["--check-production-config", "service"])
+
+        self.assertEqual(exit_code, 0)
+        pool_mock.assert_not_called()
+        sqlite_mock.assert_not_called()
+        output = " ".join(str(call) for call in print_mock.call_args_list)
+        self.assertIn("configuration is valid", output)
+        self.assertNotIn("database-secret", output)
+
     def test_stats_mode_does_not_collect(self) -> None:
         daily_stats = [
             {
