@@ -1,0 +1,60 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: stockpulse-dashboard
+  namespace: "{{PROJECT_NUMBER}}"
+  labels:
+    cloud.googleapis.com/location: "{{REGION}}"
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/iap-enabled: "true"
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "1"
+        run.googleapis.com/cloudsql-instances: "{{CLOUD_SQL_CONNECTION}}"
+        run.googleapis.com/secrets: database-url:projects/{{PROJECT_NUMBER}}/secrets/stockpulse-database-url
+    spec:
+      serviceAccountName: "{{SERVICE_ACCOUNT}}"
+      timeoutSeconds: 60
+      containers:
+        - name: stockpulse-dashboard
+          image: "{{SERVICE_IMAGE}}"
+          ports:
+            - name: http1
+              containerPort: 8080
+          env:
+            - name: STOCKPULSE_ENVIRONMENT
+              value: production
+            - name: STOCKPULSE_DATABASE_BACKEND
+              value: postgresql
+            - name: STOCKPULSE_DATABASE_POOL_MIN_SIZE
+              value: "1"
+            - name: STOCKPULSE_DATABASE_POOL_MAX_SIZE
+              value: "4"
+            - name: STOCKPULSE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: "{{DATABASE_SECRET_VERSION}}"
+                  name: database-url
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8080
+            periodSeconds: 2
+            failureThreshold: 15
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8080
+            periodSeconds: 30
+            failureThreshold: 3
+  traffic:
+    - percent: 100
+      latestRevision: true

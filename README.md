@@ -245,6 +245,12 @@ remains gated on verified data migration, authentication, and explicit cost
 approval. The production image includes PostgreSQL support; local SQLite is not
 treated as persistent cloud storage.
 
+The repository also includes [offline deployment contracts](deploy/README.md)
+for the IAP-protected service, pinned-model daily Job, and OAuth-authenticated
+Scheduler trigger. They require immutable image digests, numeric secret
+versions, and recorded owner approval before rendering; rendering itself never
+contacts Google Cloud or creates billable resources.
+
 The proposed region, IAP access, IAM boundaries, cost guardrails, deployment
 order, backups, and rollback are recorded in the
 [Google Cloud launch runbook](docs/GOOGLE_CLOUD_RUNBOOK.md). It is a review
