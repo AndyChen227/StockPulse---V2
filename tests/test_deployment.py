@@ -29,8 +29,18 @@ class DeploymentContractTests(unittest.TestCase):
             "apify_secret_version": "2",
             "service_image": f"us-west1-docker.pkg.dev/stockpulse-prod1/stockpulse/service@sha256:{digest}",
             "job_image": f"us-west1-docker.pkg.dev/stockpulse-prod1/stockpulse/job@sha256:{digest}",
-            "schedule": "0 14 * * *",
-            "time_zone": "America/Los_Angeles",
+            "schedules": [
+                {
+                    "name": "stockpulse-premarket-trigger",
+                    "cron": "15 9 * * 1-5",
+                    "time_zone": "America/New_York",
+                },
+                {
+                    "name": "stockpulse-afterhours-trigger",
+                    "cron": "0 18 * * 1-5",
+                    "time_zone": "America/New_York",
+                },
+            ],
         }
 
     def test_requires_recorded_approval_and_immutable_images(self) -> None:
@@ -69,6 +79,16 @@ class DeploymentContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "pinned positive numeric"):
             validate_config(config)
 
+    def test_requires_both_owner_approved_eastern_time_triggers(self) -> None:
+        config = self.config()
+        config["schedules"][0]["time_zone"] = "UTC"  # type: ignore[index]
+        with self.assertRaisesRegex(ValueError, "America/New_York"):
+            validate_config(config)
+        config = self.config()
+        config["schedules"][1]["cron"] = "15 18 * * 1-5"  # type: ignore[index]
+        with self.assertRaisesRegex(ValueError, "owner-approved times"):
+            validate_config(config)
+
     def test_rendered_contracts_are_bounded_private_and_secret_safe(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -77,8 +97,10 @@ class DeploymentContractTests(unittest.TestCase):
             paths = render(config_path, root / "out")
             service = paths[0].read_text(encoding="utf-8")
             job = paths[1].read_text(encoding="utf-8")
-            scheduler = paths[2].read_text(encoding="utf-8")
-            manifest = json.loads(paths[3].read_text(encoding="utf-8"))
+            premarket = paths[2].read_text(encoding="utf-8")
+            afterhours = paths[3].read_text(encoding="utf-8")
+            scheduler = premarket + afterhours
+            manifest = json.loads(paths[4].read_text(encoding="utf-8"))
 
         self.assertIn('run.googleapis.com/iap-enabled: "true"', service)
         self.assertIn('autoscaling.knative.dev/minScale: "0"', service)
@@ -91,9 +113,15 @@ class DeploymentContractTests(unittest.TestCase):
         self.assertIn("maxRetries: 0", job)
         self.assertIn('timeoutSeconds: "900"', job)
         self.assertIn("--max-retry-attempts 0", scheduler)
+        self.assertIn("--schedule '15 9 * * 1-5'", premarket)
+        self.assertIn("--schedule '0 18 * * 1-5'", afterhours)
+        self.assertEqual(scheduler.count("--time-zone 'America/New_York'"), 2)
         self.assertIn(":run", scheduler)
         self.assertEqual(set(manifest["files"]), {
-            "service.yaml", "job.yaml", "create-scheduler.ps1"
+            "service.yaml",
+            "job.yaml",
+            "create-scheduler-premarket.ps1",
+            "create-scheduler-afterhours.ps1",
         })
         self.assertNotIn("{{", service + job + scheduler)
 

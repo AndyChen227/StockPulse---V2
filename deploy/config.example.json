@@ -11,6 +11,16 @@
   "apify_secret_version": "1",
   "service_image": "us-west1-docker.pkg.dev/stockpulse-example/stockpulse/service@sha256:0000000000000000000000000000000000000000000000000000000000000000",
   "job_image": "us-west1-docker.pkg.dev/stockpulse-example/stockpulse/job@sha256:0000000000000000000000000000000000000000000000000000000000000000",
-  "schedule": "0 14 * * *",
-  "time_zone": "America/Los_Angeles"
+  "schedules": [
+    {
+      "name": "stockpulse-premarket-trigger",
+      "cron": "15 9 * * 1-5",
+      "time_zone": "America/New_York"
+    },
+    {
+      "name": "stockpulse-afterhours-trigger",
+      "cron": "0 18 * * 1-5",
+      "time_zone": "America/New_York"
+    }
+  ]
 }

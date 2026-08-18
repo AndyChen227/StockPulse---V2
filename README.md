@@ -22,7 +22,7 @@
 
 **StockPulse** is a cost-aware stock sentiment monitoring project that detects unusual changes in investor discussions.
 
-Version 1 focuses exclusively on **Tesla (TSLA)**. Once per day, StockPulse collects TSLA-related posts from **Stocktwits** through **Apify**, classifies their sentiment, stores historical results, and compares current activity with a historical baseline.
+Version 1 focuses exclusively on **Tesla (TSLA)**. On weekdays at 9:15 AM and 6:00 PM Eastern, StockPulse collects TSLA-related posts from **Stocktwits** through **Apify**, classifies their sentiment, stores historical results, and compares current activity with a historical baseline.
 
 > StockPulse does not try to predict stock prices. It asks a different question: **Is investor sentiment behaving unusually today—and what may be driving the change?**
 
@@ -46,7 +46,7 @@ StockPulse is intended to become a small but complete cloud product, not remain 
 - Visible run status, errors, model versions, and cost safeguards
 - Historical charts, filters, drill-down views, and source-message links
 
-The planned Google Cloud shape is a **Cloud Run service** for the web application and API, a **Cloud Run job** for collection and analysis, **Cloud Scheduler** for daily execution, and a durable managed datastore selected before deployment. Local SQLite remains appropriate for development but will not be treated as durable Cloud Run storage.
+The planned Google Cloud shape is a **Cloud Run service** for the web application and API, a **Cloud Run job** for collection and analysis, two **Cloud Scheduler** weekday triggers, and a durable managed datastore selected before deployment. Local SQLite remains appropriate for development but will not be treated as durable Cloud Run storage.
 
 See [Product and Delivery Plan](docs/PROJECT_PLAN.md) for the complete feature scope, eight-stage delivery path, current status, and completion criteria.
 
@@ -72,7 +72,7 @@ flowchart TD
 | Monitored asset | **Tesla (TSLA)** only |
 | Discussion source | **Stocktwits** |
 | Collection method | **Apify Stocktwits scraper** |
-| Schedule | Approximately **once per day** |
+| Schedule | **Twice each weekday**, 9:15 AM and 6:00 PM Eastern |
 | Sentiment classes | Bullish · Neutral · Bearish |
 | Main output | Daily metrics and anomaly alerts |
 | Out of scope | Trading, price prediction, and financial advice |
@@ -144,7 +144,7 @@ with discussion concentrated around autonomous-driving regulation.
 Apify usage is a real project constraint, so V1 intentionally stays small:
 
 - Monitor only one asset: **TSLA**
-- Collect data only **once per day**
+- Collect data only **twice per weekday**
 - Use `messageId` to prevent duplicate storage and processing
 - Keep only the fields needed for analysis
 - Track Apify usage and avoid unnecessary test runs
@@ -164,7 +164,7 @@ Apify usage is a real project constraint, so V1 intentionally stays small:
 | Docker | Cloud Run service image implemented and smoke-tested in CI |
 | Google Cloud Run service | Planned dashboard and API hosting |
 | Google Cloud Run job | Planned batch collection and analysis |
-| Google Cloud Scheduler | Planned daily scheduling |
+| Google Cloud Scheduler | Planned weekday 9:15 AM and 6:00 PM Eastern scheduling |
 | Durable managed datastore | Planned cloud history and run storage |
 | Gmail API | Planned anomaly email alerts |
 | GitHub | Version control and documentation |
@@ -359,7 +359,7 @@ StockPulse/
 - [ ] Add logging, retry logic, and usage monitoring
 - [x] Package the Dashboard/API service with Docker
 - [ ] Deploy to Google Cloud Run
-- [ ] Schedule one daily run
+- [ ] Schedule two weekday runs at the approved Eastern times
 - [ ] Configure secrets and cost alerts
 
 ## Project Status
@@ -426,7 +426,7 @@ StockPulse 的目标是成为一个小而完整的云端产品，而不是停留
 - 可查看的运行状态、错误、模型版本与费用保护信息
 - 历史图表、筛选、详情下钻以及原帖链接
 
-计划中的 Google Cloud 结构是：使用 **Cloud Run service** 承载 Dashboard 与 API，使用 **Cloud Run job** 执行采集和分析，通过 **Cloud Scheduler** 每日调度，并在部署前选择持久化托管数据存储。本地 SQLite 继续用于开发，但不会被当作 Cloud Run 上的持久化存储。
+计划中的 Google Cloud 结构是：使用 **Cloud Run service** 承载 Dashboard 与 API，使用 **Cloud Run job** 执行采集和分析，通过两个 **Cloud Scheduler** 工作日定时任务调度，并在部署前选择持久化托管数据存储。本地 SQLite 继续用于开发，但不会被当作 Cloud Run 上的持久化存储。
 
 完整功能范围、八阶段交付路线、当前进度和完成标准，请查看 [产品与交付计划](docs/PROJECT_PLAN.md)。
 
@@ -530,7 +530,7 @@ Apify 的使用成本是项目的重要限制，因此第一版会主动保持�
 | Docker | 应用容器化 |
 | Google Cloud Run service | 计划中的 Dashboard 与 API 托管 |
 | Google Cloud Run job | 计划中的批量采集与分析 |
-| Google Cloud Scheduler | 计划中的每日定时任务 |
+| Google Cloud Scheduler | 计划在工作日美东 9:15 与 18:00 运行 |
 | 持久化托管数据存储 | 计划中的云端历史与运行记录存储 |
 | Gmail API | 计划中的异常邮件提醒 |
 | GitHub | 版本管理和项目文档 |

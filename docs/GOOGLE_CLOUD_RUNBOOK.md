@@ -1,6 +1,6 @@
 # Google Cloud launch runbook
 
-> Status: proposed; owner approval required before any console or provisioning step
+> Status: owner-approved deployment plan; real project identifiers and pricing still required
 > Last reviewed: 2026-08-17
 > Current cloud state: no StockPulse Google Cloud resources have been created
 
@@ -79,7 +79,7 @@ References:
 - maximum retries 0 for the paid collection step
 - initial timeout 15 minutes, adjusted only after measured cold-start inference
 - memory selected after a real container peak-memory measurement
-- one daily Scheduler trigger
+- two weekday Scheduler triggers at 9:15 AM and 6:00 PM Eastern
 - a manual Dashboard trigger calls the Jobs API with the same fixed limits
 
 The job executes one idempotent pipeline: collect, validate, store, analyze
@@ -146,7 +146,7 @@ Expected first-release cost shape:
 | Cloud SQL | Main recurring cost; runs continuously |
 | Cloud Run service | Likely very low at scale-to-zero usage |
 | Cloud Run job | Once-daily CPU/RAM usage; AI model load dominates |
-| Cloud Scheduler | One job; current billing-account free allowance covers up to three jobs |
+| Cloud Scheduler | Two jobs; current billing-account free allowance covers up to three jobs |
 | Artifact Registry / build | Small storage/build cost possible |
 | Secret Manager / logging / backups | Low but non-zero usage possible |
 | Apify | Separate external cost, still capped by application configuration |
@@ -228,7 +228,7 @@ monthly cost, and billing project.
     validation.
 12. Configure direct Cloud Run IAP and grant only the approved Google account.
 13. Validate login, data reads, logs, failures, and rollback.
-14. Create the once-daily Scheduler trigger.
+14. Create the two weekday Scheduler triggers only after the manual Job passes.
 15. Take the final SQLite snapshot, perform final idempotent migration, and
     verify counts and history.
 16. Enable the guarded Dashboard action only after IAP identity and CSRF tests.
@@ -289,14 +289,20 @@ action idempotency, verified IAP identity, and CSRF protection.
 Deployment templates and role-specific production preflights are implemented
 and tested. Rendering them is offline and does not authorize applying them.
 
-## 10. Owner decisions required
+## 10. Owner decisions recorded
 
-- region: `us-west1` or `us-west2`
-- direct Cloud Run IAP restricted to the owner's Google account: approve or
-  choose a different login approach
-- Cloud SQL shared-core, non-HA first release: approve or request HA
-- initial budget alert amount: proposed $20/month
-- backup/PITR proposal: daily backup plus seven-day recovery window
+Approved on 2026-08-17:
 
-Until all five decisions are recorded, this runbook remains proposed and no
-Google Cloud resources should be created.
+- region: `us-west1`
+- direct Cloud Run IAP restricted to the owner's Google account
+- Cloud SQL PostgreSQL 17, `db-f1-micro`, shared-core and non-HA
+- $20/month budget with 50%, 80%, and 100% alerts
+- daily backup, seven-day PITR, and deletion protection
+- weekday collection at 9:15 AM and 6:00 PM in `America/New_York`
+- two Scheduler jobs with no automatic retries
+- manual Dashboard collection remains locked for the first release
+- use eligible $300/90-day Welcome Credit while retaining all cost controls
+
+Before resource creation, the authenticated console must still confirm Welcome
+Credit eligibility, the dedicated project ID, billing attachment, and the live
+region-specific price estimate. Approval does not authorize secret disclosure.
