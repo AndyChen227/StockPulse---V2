@@ -82,10 +82,10 @@ References:
 - one daily Scheduler trigger
 - a manual Dashboard trigger calls the Jobs API with the same fixed limits
 
-The job must execute one idempotent pipeline: collect, validate, store, analyze
+The job executes one idempotent pipeline: collect, validate, store, analyze
 missing current-version records, extract topics, calculate daily metrics, and
-evaluate anomalies. That single orchestration command and the AI job image are
-not implemented yet and are launch blockers.
+evaluate anomalies. The orchestration command and pinned-model Job image are
+implemented and validated in CI.
 
 References:
 
@@ -274,16 +274,20 @@ Pause Scheduler and disable manual dispatch first. Scale-to-zero handles idle
 Cloud Run service compute, but Cloud SQL continues to incur cost until stopped
 or deleted. Export required data before any destructive cleanup.
 
-## 9. Remaining engineering gates
+## 9. Remaining launch gates
 
-These must be completed before console provisioning:
+Before console provisioning, record all owner decisions in section 10. The
+offline renderer then requires that approval plus immutable image digests,
+numeric secret versions, same-project identities, and an approved region.
 
-1. measure the implemented pinned-model Job image cold-start time and peak
-   memory on its final container runtime
-2. implement the Cloud Run Jobs dispatcher and distributed action idempotency
-3. replace browser action-secret handling with verified IAP identity and CSRF
-4. add deployment configuration using immutable image digests
-5. run the secret-safe `service` and `job` production configuration preflights
+Before enabling Scheduler, measure the pinned-model Job cold-start time and peak
+memory on Cloud Run, execute one lowest-cost manual validation, and verify the
+durable run record. Manual Dashboard execution remains disabled in the first
+release; enabling it later requires a Cloud Run Jobs dispatcher, distributed
+action idempotency, verified IAP identity, and CSRF protection.
+
+Deployment templates and role-specific production preflights are implemented
+and tested. Rendering them is offline and does not authorize applying them.
 
 ## 10. Owner decisions required
 

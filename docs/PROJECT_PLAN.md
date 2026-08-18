@@ -104,7 +104,7 @@ Cloud Run containers have disposable local filesystems. SQLite is therefore a lo
 | 4. Baseline and anomaly detection | Historical baseline, explainable anomaly rules, replay tests, duplicate-alert prevention | In progress |
 | 5. Product API | Read APIs, guarded action APIs, pagination, filters, run-status endpoints | In progress: read contract and disabled-by-default bounded collection action contract complete; cloud dispatcher remains |
 | 6. Dashboard UI | Polished responsive dashboard, charts, tables, controls, history, empty/error/loading states | In progress: initial responsive read-only dashboard implemented |
-| 7. Cloud readiness | Docker images, production configuration, authentication, durable datastore, secrets, logs, backups, cost controls | In progress: service and pinned-model daily Job images, full pipeline, PostgreSQL repository, migration tooling, and role-specific production preflight implemented |
+| 7. Cloud readiness | Docker images, production configuration, authentication, durable datastore, secrets, logs, backups, cost controls | In progress: immutable deployment contracts added; owner approval and real cloud validation remain |
 | 8. Google Cloud launch | Deploy service and job, schedule daily runs, migrate data, verify operations, document rollback and maintenance | Pending |
 
 Six major stages remain before the first complete Google Cloud release. Some work may overlap, but stages should not be skipped because later UI and cloud work depend on reliable data and operational history.

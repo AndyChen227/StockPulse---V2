@@ -1,0 +1,51 @@
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: stockpulse-daily-pipeline
+  namespace: "{{PROJECT_NUMBER}}"
+  labels:
+    cloud.googleapis.com/location: "{{REGION}}"
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/cloudsql-instances: "{{CLOUD_SQL_CONNECTION}}"
+        run.googleapis.com/secrets: database-url:projects/{{PROJECT_NUMBER}}/secrets/stockpulse-database-url,apify-token:projects/{{PROJECT_NUMBER}}/secrets/stockpulse-apify-token
+    spec:
+      parallelism: 1
+      taskCount: 1
+      template:
+        spec:
+          serviceAccountName: "{{JOB_SERVICE_ACCOUNT}}"
+          maxRetries: 0
+          timeoutSeconds: "900"
+          containers:
+            - name: stockpulse-daily-pipeline
+              image: "{{JOB_IMAGE}}"
+              env:
+                - name: STOCKPULSE_ENVIRONMENT
+                  value: production
+                - name: STOCKPULSE_DATABASE_BACKEND
+                  value: postgresql
+                - name: STOCKPULSE_DATABASE_POOL_MIN_SIZE
+                  value: "1"
+                - name: STOCKPULSE_DATABASE_POOL_MAX_SIZE
+                  value: "4"
+                - name: STOCKPULSE_MAX_MESSAGES
+                  value: "5"
+                - name: APIFY_MAX_TOTAL_CHARGE_USD
+                  value: "0.05"
+                - name: STOCKPULSE_DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      key: "{{DATABASE_SECRET_VERSION}}"
+                      name: database-url
+                - name: APIFY_API_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      key: "{{APIFY_SECRET_VERSION}}"
+                      name: apify-token
+              resources:
+                limits:
+                  cpu: "2"
+                  memory: 2Gi

@@ -1,0 +1,16 @@
+{
+  "approval_recorded": false,
+  "project_id": "stockpulse-example",
+  "project_number": "123456789012",
+  "region": "us-west1",
+  "cloud_sql_connection": "stockpulse-example:us-west1:stockpulse-postgres",
+  "service_account": "stockpulse-service@stockpulse-example.iam.gserviceaccount.com",
+  "job_service_account": "stockpulse-job@stockpulse-example.iam.gserviceaccount.com",
+  "scheduler_service_account": "stockpulse-scheduler@stockpulse-example.iam.gserviceaccount.com",
+  "database_secret_version": "1",
+  "apify_secret_version": "1",
+  "service_image": "us-west1-docker.pkg.dev/stockpulse-example/stockpulse/service@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "job_image": "us-west1-docker.pkg.dev/stockpulse-example/stockpulse/job@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "schedule": "0 14 * * *",
+  "time_zone": "America/Los_Angeles"
+}
