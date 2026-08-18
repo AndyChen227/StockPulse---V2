@@ -12,6 +12,7 @@ This directory is the project knowledge base. English guidance appears first; Ch
 | See everything completed from PR #1 to #29 | [Project History](PROJECT_HISTORY.md) |
 | Know the exact current stage and remaining work | [Product and Delivery Plan](PROJECT_PLAN.md) |
 | Prepare or operate the first Google Cloud launch | [Google Cloud Launch Runbook](GOOGLE_CLOUD_RUNBOOK.md) |
+| Find a file or decide where a change belongs | [Repository Guide](REPOSITORY_GUIDE.md) |
 
 ### Product and interface
 
@@ -54,6 +55,7 @@ Update the status date and affected documents whenever a milestone, operating de
 | 查看 PR #1 到 #29 的全部成果 | [项目历程](PROJECT_HISTORY.md) |
 | 确认当前阶段和剩余工作 | [产品与交付计划](PROJECT_PLAN.md) |
 | 准备或执行首次 Google Cloud 上线 | [Google Cloud 上线运行手册](GOOGLE_CLOUD_RUNBOOK.md) |
+| 查找文件或判断改动应该放在哪里 | [仓库指南](REPOSITORY_GUIDE.md) |
 
 ### 产品与界面
 

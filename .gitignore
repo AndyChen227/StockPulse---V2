@@ -17,6 +17,7 @@ venv/
 # Local data and databases
 data/*
 !data/.gitkeep
+!data/README.md
 *.db
 *.sqlite
 *.sqlite3
