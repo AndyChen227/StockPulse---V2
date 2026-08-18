@@ -5,9 +5,10 @@
 **中文：** 测试按照产品边界而不是内部实现细节分组。对应模块或跨模块契约使用 `test_<领域>.py`。PostgreSQL 集成测试依赖 CI 数据库；本地没有测试数据库 URL 时会按设计跳过。容器和部署测试用于保护 Python 包之外的文件。
 
 `test_repository_layout.py` additionally protects the organized root layout,
-the real product README, grouped configuration/container paths, and their CI
-references. `test_repository_layout.py` 还会保护整理后的根目录、真正的产品
-README、分类配置与容器路径，以及 CI 对这些路径的引用。
+the real product README, grouped configuration/container paths, documentation
+categories, and every relative Markdown link. `test_repository_layout.py`
+还会保护整理后的根目录、真正的产品 README、分类配置与容器路径、
+文档分类，以及所有相对 Markdown 链接。
 
 Run the local suite from the repository root with `python -m pytest`.
 

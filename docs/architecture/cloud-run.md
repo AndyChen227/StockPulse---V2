@@ -91,7 +91,7 @@ region, access policy, and expected cost. Until then, this image is a
 reproducible deployment artifact and CI smoke-test target.
 
 Reviewed, offline-rendered service, Job, and Scheduler contracts now live under
-[`deploy/`](../deploy/README.md). The renderer rejects mutable image tags,
+[`deploy/`](../../deploy/README.md). The renderer rejects mutable image tags,
 unversioned secrets, unapproved regions, and configurations without a recorded
 owner decision. Rendering never contacts Google Cloud; applying the output is a
 separate deployment action performed only after the full pre-console review.
@@ -99,4 +99,4 @@ separate deployment action performed only after the full pre-console review.
 PostgreSQL configuration, bounded pooling, ordered schema migrations, and the
 full shared read/write repository contract are implemented and tested against
 PostgreSQL 17 in CI. The service is not switched to PostgreSQL until historical
-data migration verification passes. See [PostgreSQL implementation](POSTGRESQL.md).
+data migration verification passes. See [PostgreSQL implementation](postgresql.md).
