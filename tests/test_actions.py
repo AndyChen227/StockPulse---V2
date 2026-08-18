@@ -18,8 +18,10 @@ class ActionGateTests(unittest.TestCase):
         token = self.gate.issue(
             action="collect", symbol="TSLA", max_messages=5, max_charge="0.05"
         )
+        encoded, signature = token.split(".", 1)
+        tampered_signature = ("A" if signature[0] != "A" else "B") + signature[1:]
         with self.assertRaisesRegex(ValueError, "Invalid"):
-            self.gate.consume(token[:-1] + ("A" if token[-1] != "A" else "B"))
+            self.gate.consume(f"{encoded}.{tampered_signature}")
 
     def test_confirmation_preserves_server_limits(self) -> None:
         token = self.gate.issue(
