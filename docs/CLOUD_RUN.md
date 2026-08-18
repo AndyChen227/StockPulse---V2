@@ -1,8 +1,8 @@
 # Cloud Run service preparation
 
-StockPulse now has a container image for the Dashboard and read API. This
-is the first part of Stage 7 cloud readiness; it does not provision or deploy
-Google Cloud resources.
+StockPulse has separate container images for the Dashboard/read API and the
+pinned-model analysis pipeline. Cloud readiness is implemented and validated;
+these files do not provision or deploy Google Cloud resources.
 
 ## Service image
 

@@ -1,6 +1,6 @@
 # Product API
 
-> Status: Stage 5 read-only foundation
+> Status: first-release read contract complete; guarded browser collection remains locked
 
 ## Purpose and safety boundary
 

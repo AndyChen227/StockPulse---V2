@@ -46,13 +46,13 @@ Then open `http://localhost:8080`. API documentation remains available at
 An empty local database is supported and displays empty states rather than
 invented sample data. Collection is still a separate, explicit command.
 
-## Remaining work
+## Remaining work before and after cloud launch
 
-- Review the interface with representative stored history and refine chart and
-  table details
+- Review the interface with representative production history and refine chart
+  and table details after an observation period
 - Add a focused run-detail view for error and retry information
-- Implement authentication and bounded, confirmed action APIs
-- Replace local SQLite with the approved production datastore before Cloud Run
-  deployment
-- Add deployment-time security headers, monitoring, and end-to-end operational
-  checks
+- Configure owner-only IAP authentication in the real Google Cloud project
+- Migrate approved history into the implemented PostgreSQL repository
+- Add deployment-time security headers, monitoring, restore, and rollback checks
+- Add verified IAP identity, CSRF protection, cloud Job dispatch, and distributed
+  idempotency before unlocking bounded, confirmed collection actions
