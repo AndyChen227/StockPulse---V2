@@ -12,6 +12,10 @@ from typing import Any
 
 HERE = Path(__file__).resolve().parent
 ALLOWED_REGIONS = frozenset({"us-west1", "us-west2"})
+APPROVED_SCHEDULES = (
+    ("stockpulse-premarket-trigger", "15 9 * * 1-5"),
+    ("stockpulse-afterhours-trigger", "0 18 * * 1-5"),
+)
 IMAGE_PATTERN = re.compile(
     r"^[a-z0-9-]+-docker\.pkg\.dev/[a-z][a-z0-9-]{4,28}[a-z0-9]/"
     r"[a-z0-9._-]+/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$"
@@ -69,11 +73,22 @@ def validate_config(config: dict[str, Any]) -> None:
         if not version.isdigit() or int(version) < 1:
             raise ValueError(f"{key} must be a pinned positive numeric version.")
 
-    schedule = str(config.get("schedule", ""))
-    if len(schedule.split()) != 5:
-        raise ValueError("schedule must contain five cron fields.")
-    if config.get("time_zone") != "America/Los_Angeles":
-        raise ValueError("time_zone must match the reviewed America/Los_Angeles value.")
+    schedules = config.get("schedules")
+    if not isinstance(schedules, list) or len(schedules) != 2:
+        raise ValueError("Exactly two reviewed Scheduler triggers are required.")
+    actual_schedules: list[tuple[str, str]] = []
+    for schedule in schedules:
+        if not isinstance(schedule, dict):
+            raise ValueError("Each Scheduler trigger must be an object.")
+        name = str(schedule.get("name", ""))
+        cron = str(schedule.get("cron", ""))
+        if len(cron.split()) != 5:
+            raise ValueError("Each Scheduler cron must contain five fields.")
+        if schedule.get("time_zone") != "America/New_York":
+            raise ValueError("Scheduler time_zone must be America/New_York.")
+        actual_schedules.append((name, cron))
+    if tuple(actual_schedules) != APPROVED_SCHEDULES:
+        raise ValueError("Scheduler triggers do not match the owner-approved times.")
 
 
 def render(config_path: Path, output_dir: Path) -> tuple[Path, ...]:
@@ -104,24 +119,28 @@ def render(config_path: Path, output_dir: Path) -> tuple[Path, ...]:
         target.write_text(content, encoding="utf-8", newline="\n")
         rendered.append(target)
 
-    scheduler = output_dir / "create-scheduler.ps1"
-    scheduler.write_text(
-        "# REVIEW BEFORE RUNNING: this command creates a billable cloud resource.\n"
-        "gcloud scheduler jobs create http stockpulse-daily-trigger `\n"
-        f"  --project '{config['project_id']}' `\n"
-        f"  --location '{config['region']}' `\n"
-        f"  --schedule '{config['schedule']}' `\n"
-        f"  --time-zone '{config['time_zone']}' `\n"
-        "  --uri 'https://run.googleapis.com/v2/projects/"
-        f"{config['project_id']}/locations/{config['region']}/jobs/"
-        "stockpulse-daily-pipeline:run' `\n"
-        "  --http-method POST `\n"
-        f"  --oauth-service-account-email '{config['scheduler_service_account']}' `\n"
-        "  --max-retry-attempts 0\n",
-        encoding="utf-8",
-        newline="\n",
-    )
-    rendered.append(scheduler)
+    for schedule in config["schedules"]:
+        short_name = str(schedule["name"]).removeprefix("stockpulse-").removesuffix(
+            "-trigger"
+        )
+        scheduler = output_dir / f"create-scheduler-{short_name}.ps1"
+        scheduler.write_text(
+            "# REVIEW BEFORE RUNNING: this command creates a cloud resource.\n"
+            f"gcloud scheduler jobs create http {schedule['name']} `\n"
+            f"  --project '{config['project_id']}' `\n"
+            f"  --location '{config['region']}' `\n"
+            f"  --schedule '{schedule['cron']}' `\n"
+            f"  --time-zone '{schedule['time_zone']}' `\n"
+            "  --uri 'https://run.googleapis.com/v2/projects/"
+            f"{config['project_id']}/locations/{config['region']}/jobs/"
+            "stockpulse-daily-pipeline:run' `\n"
+            "  --http-method POST `\n"
+            f"  --oauth-service-account-email '{config['scheduler_service_account']}' `\n"
+            "  --max-retry-attempts 0\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        rendered.append(scheduler)
 
     manifest = output_dir / "manifest.json"
     manifest.write_text(
