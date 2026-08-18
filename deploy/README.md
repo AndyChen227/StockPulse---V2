@@ -45,5 +45,5 @@ unversioned secrets, mismatched Cloud SQL names, and malformed schedules.
   Cloud Run Jobs API on `run.googleapis.com`.
 
 Applying any rendered file or running the Scheduler command is a separate,
-explicitly approved deployment action. See `docs/GOOGLE_CLOUD_RUNBOOK.md` for
+explicitly approved deployment action. See `docs/operations/google-cloud-runbook.md` for
 the required provisioning order, IAM, cost, backup, validation, and rollback.

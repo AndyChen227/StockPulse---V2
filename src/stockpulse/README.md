@@ -1,8 +1,8 @@
 # StockPulse package / StockPulse 应用包
 
-**English:** This package contains all runtime behavior. The main flow is `collector → validation → repository → sentiment/topics → metrics/anomaly → API/Dashboard`. `main.py` is the CLI entry, `api.py` is the web entry, and `pipeline.py` is the scheduled Job orchestration. Read [`docs/REPOSITORY_GUIDE.md`](../../docs/REPOSITORY_GUIDE.md) for every module's responsibility.
+**English:** This package contains all runtime behavior. The main flow is `collector → validation → repository → sentiment/topics → metrics/anomaly → API/Dashboard`. `main.py` is the CLI entry, `api.py` is the web entry, and `pipeline.py` is the scheduled Job orchestration. Read the [repository guide](../../docs/reference/repository-guide.md) for every module's responsibility.
 
-**中文：** 本包包含全部运行逻辑。主要流程是“采集 → 校验 → 仓库 → 情绪/话题 → 指标/异常 → API/Dashboard”。`main.py` 是命令行入口，`api.py` 是 Web 入口，`pipeline.py` 是定时 Job 编排入口。每个模块的职责见 [`docs/REPOSITORY_GUIDE.md`](../../docs/REPOSITORY_GUIDE.md)。
+**中文：** 本包包含全部运行逻辑。主要流程是“采集 → 校验 → 仓库 → 情绪/话题 → 指标/异常 → API/Dashboard”。`main.py` 是命令行入口，`api.py` 是 Web 入口，`pipeline.py` 是定时 Job 编排入口。每个模块的职责见[仓库指南](../../docs/reference/repository-guide.md)。
 
 Keep external source adapters inside `collector/` and browser assets inside `web/`. Do not place secrets, generated data, or model files in the package.
 

@@ -5,7 +5,7 @@
 > Status: pre-cloud engineering complete; Google Cloud deployment pending
 > Product target: a private, cost-controlled Google Cloud Dashboard with complete history
 
-This is the source of truth for present status, remaining priorities, and launch acceptance. Historical implementation detail belongs in [Project History](PROJECT_HISTORY.md). English appears first; Chinese follows.
+This is the source of truth for present status, remaining priorities, and launch acceptance. Historical implementation detail belongs in [Project History](project-history.md). English appears first; Chinese follows.
 
 ---
 

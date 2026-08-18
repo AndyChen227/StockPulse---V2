@@ -9,7 +9,7 @@
 [![CI](https://github.com/AndyChen227/StockPulse---V2/actions/workflows/tests.yml/badge.svg)](https://github.com/AndyChen227/StockPulse---V2/actions)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Dashboard%20API-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Cloud](https://img.shields.io/badge/Google%20Cloud-Ready%2C%20not%20deployed-4285F4?logo=googlecloud&logoColor=white)](docs/GOOGLE_CLOUD_RUNBOOK.md)
+[![Cloud](https://img.shields.io/badge/Google%20Cloud-Ready%2C%20not%20deployed-4285F4?logo=googlecloud&logoColor=white)](docs/operations/google-cloud-runbook.md)
 [![License](https://img.shields.io/badge/License-MIT-2EA44F)](LICENSE)
 
 [English](#english) · [简体中文](#简体中文)
@@ -105,7 +105,7 @@ For local development, the same application uses SQLite. Cloud Run filesystems a
 - Two no-retry weekday Scheduler contracts at 09:15 and 18:00 Eastern
 - GitHub Actions validation on Python 3.11 and 3.12, both containers, and PostgreSQL
 
-The complete milestone-by-milestone record, including every merged PR from #1 through #29, is in [Project History](docs/PROJECT_HISTORY.md).
+The complete milestone-by-milestone record is in [Project History](docs/product/project-history.md).
 
 ## What is deliberately not complete
 
@@ -171,7 +171,7 @@ python -m pytest
 python -m compileall -q src tests
 ```
 
-At the current milestone, the local run reports **119 tests and 19 subtests passed**, with **8 PostgreSQL integration tests intentionally deferred to CI**. GitHub Actions validates Python 3.11, Python 3.12, the service image, the AI Job image, and PostgreSQL behavior.
+At the current milestone, the local run reports **121 tests and 37 subtests passed**, with **8 PostgreSQL integration tests intentionally deferred to CI**. GitHub Actions validates Python 3.11, Python 3.12, the service image, the AI Job image, and PostgreSQL behavior.
 
 ## Approved first cloud release
 
@@ -191,7 +191,7 @@ The owner-approved pre-console plan is:
 
 Credit eligibility is account-specific and must be confirmed in the authenticated Google Cloud console. A budget alert warns about spend; it does not automatically cap or stop resources.
 
-Follow [Google Cloud Launch Runbook](docs/GOOGLE_CLOUD_RUNBOOK.md) in order. Rendering deployment files is offline and does not create resources; applying them is a separate owner-approved action.
+Follow [Google Cloud Launch Runbook](docs/operations/google-cloud-runbook.md) in order. Rendering deployment files is offline and does not create resources; applying them is a separate owner-approved action.
 
 ## Documentation
 
@@ -199,21 +199,21 @@ Start with the [Documentation Guide](docs/README.md).
 
 | Document | Purpose |
 |---|---|
-| [Project History](docs/PROJECT_HISTORY.md) | Complete bilingual milestone and PR record |
-| [Product and Delivery Plan](docs/PROJECT_PLAN.md) | Current status, remaining work, and definition of done |
-| [Google Cloud Launch Runbook](docs/GOOGLE_CLOUD_RUNBOOK.md) | Provisioning, IAM, cost, backup, validation, and rollback |
-| [Dashboard](docs/DASHBOARD.md) | UI views and safety boundary |
-| [Product API](docs/API.md) | Endpoint and response contracts |
-| [PostgreSQL](docs/POSTGRESQL.md) | Production repository and migration behavior |
-| [Cloud Run](docs/CLOUD_RUN.md) | Container and runtime contracts |
-| [Sentiment Evaluation](docs/SENTIMENT_EVALUATION.md) | Benchmark and model comparison |
-| [Topic Analysis](docs/TOPIC_ANALYSIS.md) | Taxonomy and representatives |
-| [Anomaly Detection](docs/ANOMALY_DETECTION.md) | Baseline, rules, and replay behavior |
+| [Project History](docs/product/project-history.md) | Complete bilingual milestone and PR record |
+| [Product and Delivery Plan](docs/product/project-plan.md) | Current status, remaining work, and definition of done |
+| [Google Cloud Launch Runbook](docs/operations/google-cloud-runbook.md) | Provisioning, IAM, cost, backup, validation, and rollback |
+| [Dashboard](docs/product/dashboard.md) | UI views and safety boundary |
+| [Product API](docs/architecture/api.md) | Endpoint and response contracts |
+| [PostgreSQL](docs/architecture/postgresql.md) | Production repository and migration behavior |
+| [Cloud Run](docs/architecture/cloud-run.md) | Container and runtime contracts |
+| [Sentiment Evaluation](docs/analysis/sentiment-evaluation.md) | Benchmark and model comparison |
+| [Topic Analysis](docs/analysis/topic-analysis.md) | Taxonomy and representatives |
+| [Anomaly Detection](docs/analysis/anomaly-detection.md) | Baseline, rules, and replay behavior |
 
 ## Repository map
 
 For a description of every tracked file and the safest place to make a change,
-see the [Repository Guide](docs/REPOSITORY_GUIDE.md). Every major directory also
+see the [Repository Guide](docs/reference/repository-guide.md). Every major directory also
 contains a short bilingual `README.md` that explains its purpose and boundaries.
 
 ```text
@@ -321,7 +321,7 @@ flowchart LR
 - 两个不自动重试的工作日计划：美东 09:15 与 18:00
 - Python 3.11、3.12、两个容器和 PostgreSQL 的 GitHub Actions 验证
 
-从 PR #1 到 #29 的逐项里程碑记录，请阅读[项目历程](docs/PROJECT_HISTORY.md)。
+完整的逐项里程碑记录，请阅读[项目历程](docs/product/project-history.md)。
 
 ## 明确尚未完成的工作
 
@@ -387,7 +387,7 @@ python -m pytest
 python -m compileall -q src tests
 ```
 
-在当前里程碑中，本地运行结果为 **119 项测试及 19 项子测试通过**，另有 **8 项 PostgreSQL 集成测试按设计只在 CI 中运行**。GitHub Actions 会验证 Python 3.11、Python 3.12、服务镜像、AI Job 镜像和 PostgreSQL 行为。
+在当前里程碑中，本地运行结果为 **121 项测试及 37 项子测试通过**，另有 **8 项 PostgreSQL 集成测试按设计只在 CI 中运行**。GitHub Actions 会验证 Python 3.11、Python 3.12、服务镜像、AI Job 镜像和 PostgreSQL 行为。
 
 ## 已批准的首个云端版本方案
 
@@ -407,7 +407,7 @@ python -m compileall -q src tests
 
 赠金额度取决于具体账号，必须在已登录的 Google Cloud 控制台确认。预算提醒只负责告警，不会自动限制或停止支出。
 
-部署必须按顺序遵循 [Google Cloud 上线运行手册](docs/GOOGLE_CLOUD_RUNBOOK.md)。渲染部署文件是完全离线的，不会创建资源；应用这些文件属于另一项需要所有者明确批准的操作。
+部署必须按顺序遵循 [Google Cloud 上线运行手册](docs/operations/google-cloud-runbook.md)。渲染部署文件是完全离线的，不会创建资源；应用这些文件属于另一项需要所有者明确批准的操作。
 
 ## 文档导航
 
@@ -415,21 +415,21 @@ python -m compileall -q src tests
 
 | 文档 | 用途 |
 |---|---|
-| [项目历程](docs/PROJECT_HISTORY.md) | 完整的双语里程碑与 PR 记录 |
-| [产品与交付计划](docs/PROJECT_PLAN.md) | 当前状态、剩余工作和完成标准 |
-| [Google Cloud 上线运行手册](docs/GOOGLE_CLOUD_RUNBOOK.md) | 资源配置、IAM、成本、备份、验证与回滚 |
-| [Dashboard](docs/DASHBOARD.md) | UI 视图与安全边界 |
-| [产品 API](docs/API.md) | 接口与响应契约 |
-| [PostgreSQL](docs/POSTGRESQL.md) | 生产仓库与迁移行为 |
-| [Cloud Run](docs/CLOUD_RUN.md) | 容器与运行时契约 |
-| [情绪评估](docs/SENTIMENT_EVALUATION.md) | 基准与模型对比 |
-| [话题分析](docs/TOPIC_ANALYSIS.md) | 话题体系与代表消息 |
-| [异常检测](docs/ANOMALY_DETECTION.md) | 基线、规则与历史重放 |
+| [项目历程](docs/product/project-history.md) | 完整的双语里程碑与 PR 记录 |
+| [产品与交付计划](docs/product/project-plan.md) | 当前状态、剩余工作和完成标准 |
+| [Google Cloud 上线运行手册](docs/operations/google-cloud-runbook.md) | 资源配置、IAM、成本、备份、验证与回滚 |
+| [Dashboard](docs/product/dashboard.md) | UI 视图与安全边界 |
+| [产品 API](docs/architecture/api.md) | 接口与响应契约 |
+| [PostgreSQL](docs/architecture/postgresql.md) | 生产仓库与迁移行为 |
+| [Cloud Run](docs/architecture/cloud-run.md) | 容器与运行时契约 |
+| [情绪评估](docs/analysis/sentiment-evaluation.md) | 基准与模型对比 |
+| [话题分析](docs/analysis/topic-analysis.md) | 话题体系与代表消息 |
+| [异常检测](docs/analysis/anomaly-detection.md) | 基线、规则与历史重放 |
 
 ## 仓库结构
 
 如果需要查看每个受 Git 跟踪文件的用途，以及修改某项功能时应从哪里开始，
-请阅读[仓库指南](docs/REPOSITORY_GUIDE.md)。每个主要目录也包含一份简短的
+请阅读[仓库指南](docs/reference/repository-guide.md)。每个主要目录也包含一份简短的
 双语 `README.md`，说明该目录的用途和边界。
 
 ```text

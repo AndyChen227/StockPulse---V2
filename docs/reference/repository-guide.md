@@ -12,18 +12,18 @@
 
 | Goal | Start here |
 |---|---|
-| Understand the product | [`README.md`](../README.md) |
-| Run or change the command line | [`src/stockpulse/main.py`](../src/stockpulse/main.py) |
-| Run or change the Dashboard/API | [`src/stockpulse/api.py`](../src/stockpulse/api.py) and [`src/stockpulse/web/`](../src/stockpulse/web/) |
-| Change collection | [`src/stockpulse/collector/`](../src/stockpulse/collector/) |
-| Change sentiment, topics, or anomalies | [`src/stockpulse/sentiment.py`](../src/stockpulse/sentiment.py), [`topics.py`](../src/stockpulse/topics.py), [`anomaly.py`](../src/stockpulse/anomaly.py) |
-| Change storage | [`src/stockpulse/repository.py`](../src/stockpulse/repository.py), [`storage.py`](../src/stockpulse/storage.py), and PostgreSQL modules |
-| Change the daily pipeline | [`src/stockpulse/pipeline.py`](../src/stockpulse/pipeline.py) |
-| Change containers | [`containers/`](../containers/) |
-| Change dependencies or the environment template | [`config/`](../config/) |
-| Change Google Cloud deployment | [`deploy/`](../deploy/) and [`GOOGLE_CLOUD_RUNBOOK.md`](GOOGLE_CLOUD_RUNBOOK.md) |
-| Add or fix tests | [`tests/`](../tests/) |
-| Review project decisions and progress | [`docs/`](./) |
+| Understand the product | [`README.md`](../../README.md) |
+| Run or change the command line | [`src/stockpulse/main.py`](../../src/stockpulse/main.py) |
+| Run or change the Dashboard/API | [`src/stockpulse/api.py`](../../src/stockpulse/api.py) and [`src/stockpulse/web/`](../../src/stockpulse/web/) |
+| Change collection | [`src/stockpulse/collector/`](../../src/stockpulse/collector/) |
+| Change sentiment, topics, or anomalies | [`src/stockpulse/sentiment.py`](../../src/stockpulse/sentiment.py), [`topics.py`](../../src/stockpulse/topics.py), [`anomaly.py`](../../src/stockpulse/anomaly.py) |
+| Change storage | [`src/stockpulse/repository.py`](../../src/stockpulse/repository.py), [`storage.py`](../../src/stockpulse/storage.py), and PostgreSQL modules |
+| Change the daily pipeline | [`src/stockpulse/pipeline.py`](../../src/stockpulse/pipeline.py) |
+| Change containers | [`containers/`](../../containers/) |
+| Change dependencies or the environment template | [`config/`](../../config/) |
+| Change Google Cloud deployment | [`deploy/`](../../deploy/) and [Google Cloud runbook](../operations/google-cloud-runbook.md) |
+| Add or fix tests | [`tests/`](../../tests/) |
+| Review project decisions and progress | [documentation center](../README.md) |
 
 ## 2. Why some files remain at the root
 
@@ -45,15 +45,15 @@ root. Docker builds therefore use an explicit `--file` path.
 
 | Directory | Responsibility | Read first |
 |---|---|---|
-| `.github/` | GitHub automation and contributor-facing repository configuration | [`workflows/README.md`](../.github/workflows/README.md) |
-| `config/` | Safe environment template and grouped dependency sets | [`config/README.md`](../config/README.md) |
-| `containers/` | Dashboard service and AI pipeline Job Docker definitions | [`containers/README.md`](../containers/README.md) |
-| `data/` | Ignored local runtime database and raw snapshots | [`data/README.md`](../data/README.md) |
-| `deploy/` | Offline-reviewed Cloud Run, Job, and Scheduler deployment contracts | [`deploy/README.md`](../deploy/README.md) |
-| `docs/` | Product, architecture, analysis, and operations knowledge base | [`docs/README.md`](README.md) |
-| `evaluations/` | Reproducible sentiment benchmark input and result artifacts | [`evaluations/README.md`](../evaluations/README.md) |
-| `src/` | Installable application source tree | [`src/README.md`](../src/README.md) |
-| `tests/` | Unit, contract, integration, container, and deployment tests | [`tests/README.md`](../tests/README.md) |
+| `.github/` | GitHub automation and contributor-facing repository configuration | [`workflows/README.md`](../../.github/workflows/README.md) |
+| `config/` | Safe environment template and grouped dependency sets | [`config/README.md`](../../config/README.md) |
+| `containers/` | Dashboard service and AI pipeline Job Docker definitions | [`containers/README.md`](../../containers/README.md) |
+| `data/` | Ignored local runtime database and raw snapshots | [`data/README.md`](../../data/README.md) |
+| `deploy/` | Offline-reviewed Cloud Run, Job, and Scheduler deployment contracts | [`deploy/README.md`](../../deploy/README.md) |
+| `docs/` | Product, architecture, analysis, and operations knowledge base | [`docs/README.md`](../README.md) |
+| `evaluations/` | Reproducible sentiment benchmark input and result artifacts | [`evaluations/README.md`](../../evaluations/README.md) |
+| `src/` | Installable application source tree | [`src/README.md`](../../src/README.md) |
+| `tests/` | Unit, contract, integration, container, and deployment tests | [`tests/README.md`](../../tests/README.md) |
 
 ## 4. Application file map
 
@@ -106,6 +106,7 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 | `test_main.py` | CLI routing and mutually exclusive command behavior |
 | `test_container_contract.py` | Service and Job Dockerfile safety and runtime contracts |
 | `test_deployment.py` | Offline renderer validation, schedules, secrets, and manifest output |
+| `test_repository_layout.py` | Root organization, documentation categories, and internal Markdown-link integrity |
 
 ## 6. Deployment file map
 
@@ -131,17 +132,17 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 | `evaluations/finance_sentiment_v1.jsonl` | Reviewed V1 finance-direction examples |
 | `evaluations/results/twitter-roberta-v1.json` | Retained pinned-model baseline output |
 | `evaluations/results/prosus-finbert-v1.json` | Candidate comparison output |
-| `docs/PROJECT_HISTORY.md` | PR-by-PR implementation record |
-| `docs/PROJECT_PLAN.md` | Current delivery state, next gates, and definition of done |
-| `docs/API.md` | API and error contracts |
-| `docs/DASHBOARD.md` | Dashboard behavior and action safety boundary |
-| `docs/SENTIMENT_EVALUATION.md` | Sentiment benchmark interpretation |
-| `docs/TOPIC_ANALYSIS.md` | Topic taxonomy and representative evidence |
-| `docs/ANOMALY_DETECTION.md` | Baseline, thresholds, and replay behavior |
-| `docs/POSTGRESQL.md` | Production database and migration design |
-| `docs/CLOUD_RUN.md` | Container and runtime contract |
-| `docs/GOOGLE_CLOUD_RUNBOOK.md` | Owner-approved provisioning, cost, security, backup, validation, and rollback sequence |
-| `docs/adr/` | Durable architecture decision records |
+| `docs/product/project-history.md` | PR-by-PR implementation record |
+| `docs/product/project-plan.md` | Current delivery state, next gates, and definition of done |
+| `docs/architecture/api.md` | API and error contracts |
+| `docs/product/dashboard.md` | Dashboard behavior and action safety boundary |
+| `docs/analysis/sentiment-evaluation.md` | Sentiment benchmark interpretation |
+| `docs/analysis/topic-analysis.md` | Topic taxonomy and representative evidence |
+| `docs/analysis/anomaly-detection.md` | Baseline, thresholds, and replay behavior |
+| `docs/architecture/postgresql.md` | Production database and migration design |
+| `docs/architecture/cloud-run.md` | Container and runtime contract |
+| `docs/operations/google-cloud-runbook.md` | Owner-approved provisioning, cost, security, backup, validation, and rollback sequence |
+| `docs/decisions/` | Durable architecture decision records |
 
 ## 8. Change-placement rules
 
@@ -162,18 +163,18 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 
 | 目标 | 从这里开始 |
 |---|---|
-| 理解产品 | [`README.md`](../README.md) |
-| 运行或修改命令行 | [`src/stockpulse/main.py`](../src/stockpulse/main.py) |
-| 运行或修改 Dashboard/API | [`src/stockpulse/api.py`](../src/stockpulse/api.py) 与 [`src/stockpulse/web/`](../src/stockpulse/web/) |
-| 修改采集 | [`src/stockpulse/collector/`](../src/stockpulse/collector/) |
-| 修改情绪、话题或异常 | [`sentiment.py`](../src/stockpulse/sentiment.py)、[`topics.py`](../src/stockpulse/topics.py)、[`anomaly.py`](../src/stockpulse/anomaly.py) |
-| 修改存储 | [`repository.py`](../src/stockpulse/repository.py)、[`storage.py`](../src/stockpulse/storage.py) 和 PostgreSQL 模块 |
-| 修改每日流水线 | [`pipeline.py`](../src/stockpulse/pipeline.py) |
-| 修改容器 | [`containers/`](../containers/) |
-| 修改依赖或环境模板 | [`config/`](../config/) |
-| 修改 Google Cloud 部署 | [`deploy/`](../deploy/) 与[上线运行手册](GOOGLE_CLOUD_RUNBOOK.md) |
-| 增加或修复测试 | [`tests/`](../tests/) |
-| 查看项目决策和进度 | [`docs/`](./) |
+| 理解产品 | [`README.md`](../../README.md) |
+| 运行或修改命令行 | [`src/stockpulse/main.py`](../../src/stockpulse/main.py) |
+| 运行或修改 Dashboard/API | [`src/stockpulse/api.py`](../../src/stockpulse/api.py) 与 [`src/stockpulse/web/`](../../src/stockpulse/web/) |
+| 修改采集 | [`src/stockpulse/collector/`](../../src/stockpulse/collector/) |
+| 修改情绪、话题或异常 | [`sentiment.py`](../../src/stockpulse/sentiment.py)、[`topics.py`](../../src/stockpulse/topics.py)、[`anomaly.py`](../../src/stockpulse/anomaly.py) |
+| 修改存储 | [`repository.py`](../../src/stockpulse/repository.py)、[`storage.py`](../../src/stockpulse/storage.py) 和 PostgreSQL 模块 |
+| 修改每日流水线 | [`pipeline.py`](../../src/stockpulse/pipeline.py) |
+| 修改容器 | [`containers/`](../../containers/) |
+| 修改依赖或环境模板 | [`config/`](../../config/) |
+| 修改 Google Cloud 部署 | [`deploy/`](../../deploy/) 与[上线运行手册](../operations/google-cloud-runbook.md) |
+| 增加或修复测试 | [`tests/`](../../tests/) |
+| 查看项目决策和进度 | [文档中心](../README.md) |
 
 ## 2. 为什么有些文件必须留在根目录
 
@@ -194,15 +195,15 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 
 | 目录 | 职责 | 先读 |
 |---|---|---|
-| `.github/` | GitHub 自动化与仓库配置 | [`workflows/README.md`](../.github/workflows/README.md) |
-| `config/` | 安全环境模板与分类依赖集合 | [`config/README.md`](../config/README.md) |
-| `containers/` | Dashboard 服务与 AI 流水线 Job 的 Docker 定义 | [`containers/README.md`](../containers/README.md) |
-| `data/` | 被忽略的本地数据库与原始快照 | [`data/README.md`](../data/README.md) |
-| `deploy/` | 离线审查的 Cloud Run、Job 与 Scheduler 契约 | [`deploy/README.md`](../deploy/README.md) |
-| `docs/` | 产品、架构、分析与运维知识库 | [`docs/README.md`](README.md) |
-| `evaluations/` | 可复现的情绪评估输入和结果 | [`evaluations/README.md`](../evaluations/README.md) |
-| `src/` | 可安装的应用源代码 | [`src/README.md`](../src/README.md) |
-| `tests/` | 单元、契约、集成、容器和部署测试 | [`tests/README.md`](../tests/README.md) |
+| `.github/` | GitHub 自动化与仓库配置 | [`workflows/README.md`](../../.github/workflows/README.md) |
+| `config/` | 安全环境模板与分类依赖集合 | [`config/README.md`](../../config/README.md) |
+| `containers/` | Dashboard 服务与 AI 流水线 Job 的 Docker 定义 | [`containers/README.md`](../../containers/README.md) |
+| `data/` | 被忽略的本地数据库与原始快照 | [`data/README.md`](../../data/README.md) |
+| `deploy/` | 离线审查的 Cloud Run、Job 与 Scheduler 契约 | [`deploy/README.md`](../../deploy/README.md) |
+| `docs/` | 产品、架构、分析与运维知识库 | [`docs/README.md`](../README.md) |
+| `evaluations/` | 可复现的情绪评估输入和结果 | [`evaluations/README.md`](../../evaluations/README.md) |
+| `src/` | 可安装的应用源代码 | [`src/README.md`](../../src/README.md) |
+| `tests/` | 单元、契约、集成、容器和部署测试 | [`tests/README.md`](../../tests/README.md) |
 
 ## 4. 应用文件地图
 
@@ -234,7 +235,7 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 
 ## 5. 测试文件地图
 
-测试文件名与产品边界一一对应：配置、采集、存储、仓库、PostgreSQL、迁移、情绪、评估、话题、异常、流水线、操作、API、CLI、容器和部署。完整的逐文件保护范围见本页英文表格与 [`tests/README.md`](../tests/README.md)。
+测试文件名与产品边界一一对应：配置、采集、存储、仓库、PostgreSQL、迁移、情绪、评估、话题、异常、流水线、操作、API、CLI、容器和部署。完整的逐文件保护范围见本页英文表格与 [`tests/README.md`](../../tests/README.md)。
 
 ## 6. 修改位置规则
 

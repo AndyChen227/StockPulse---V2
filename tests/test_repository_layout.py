@@ -1,7 +1,9 @@
 """Protect the human-readable repository layout and its tool references."""
 
 from pathlib import Path
+import re
 import unittest
+from urllib.parse import unquote
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -51,6 +53,55 @@ class RepositoryLayoutTests(unittest.TestCase):
                 PROJECT_ROOT / "config" / "requirements" / filename
             ).read_text(encoding="utf-8")
             self.assertEqual(requirements.splitlines()[0], "-r base.txt")
+
+    def test_documentation_is_grouped_by_reader_need(self) -> None:
+        expected = (
+            "docs/product/project-plan.md",
+            "docs/product/project-history.md",
+            "docs/product/dashboard.md",
+            "docs/architecture/api.md",
+            "docs/architecture/postgresql.md",
+            "docs/architecture/cloud-run.md",
+            "docs/analysis/sentiment-evaluation.md",
+            "docs/analysis/topic-analysis.md",
+            "docs/analysis/anomaly-detection.md",
+            "docs/operations/google-cloud-runbook.md",
+            "docs/reference/repository-guide.md",
+            "docs/decisions/0001-cloud-datastore.md",
+        )
+        for relative_path in expected:
+            with self.subTest(path=relative_path):
+                self.assertTrue((PROJECT_ROOT / relative_path).is_file())
+
+        for category in (
+            "product",
+            "architecture",
+            "analysis",
+            "operations",
+            "reference",
+            "decisions",
+        ):
+            with self.subTest(category=category):
+                self.assertTrue((PROJECT_ROOT / "docs" / category / "README.md").is_file())
+
+    def test_relative_markdown_links_resolve(self) -> None:
+        link_pattern = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
+        failures: list[str] = []
+
+        for markdown_file in PROJECT_ROOT.rglob("*.md"):
+            text = markdown_file.read_text(encoding="utf-8")
+            for raw_target in link_pattern.findall(text):
+                target = raw_target.strip().split(maxsplit=1)[0].strip("<>")
+                if not target or target.startswith(("#", "http://", "https://", "mailto:")):
+                    continue
+                relative_target = unquote(target.split("#", 1)[0].split("?", 1)[0])
+                resolved = (markdown_file.parent / relative_target).resolve()
+                if not resolved.exists():
+                    failures.append(
+                        f"{markdown_file.relative_to(PROJECT_ROOT)} -> {target}"
+                    )
+
+        self.assertEqual(failures, [], "Broken Markdown links:\n" + "\n".join(failures))
 
 
 if __name__ == "__main__":

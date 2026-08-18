@@ -4,7 +4,7 @@
 >
 > Repository: [AndyChen227/StockPulse---V2](https://github.com/AndyChen227/StockPulse---V2)
 >
-> Scope: merged work through pull request #31
+> Scope: merged work through pull request #32
 >
 > Cloud state: no Google Cloud resources have been created
 
@@ -70,6 +70,7 @@ The project is **cloud-ready, not cloud-deployed**. The next step is real Google
 | [#29](https://github.com/AndyChen227/StockPulse---V2/pull/29) | Twice-daily schedule | Separate no-retry weekday Scheduler contracts for 09:15 and 18:00 `America/New_York` |
 | [#30](https://github.com/AndyChen227/StockPulse---V2/pull/30) | Documentation refresh | Rebuilt the English-first bilingual README, project plan, history, and documentation index |
 | [#31](https://github.com/AndyChen227/StockPulse---V2/pull/31) | Repository navigation | Added the repository file map and local directory guides; the later layout correction removes the conflicting `.github/README.md` |
+| [#32](https://github.com/AndyChen227/StockPulse---V2/pull/32) | Repository organization | Restored the product README, grouped configuration and container files, updated every runtime reference, and added layout regression tests |
 
 ## 4. End-to-end behavior today
 
@@ -97,7 +98,7 @@ Each change is checked across five surfaces:
 4. Pinned-model pipeline Job image build and model-load smoke test
 5. PostgreSQL integration behavior
 
-The current local result is 119 tests and 19 subtests passed, with 8 PostgreSQL integration tests intentionally skipped locally and executed in CI.
+The current local result is 121 tests and 37 subtests passed, with 8 PostgreSQL integration tests intentionally skipped locally and executed in CI.
 
 ### Cloud path prepared but not yet executed
 
@@ -248,6 +249,7 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 | [#29](https://github.com/AndyChen227/StockPulse---V2/pull/29) | 每日两次计划 | 工作日美东 09:15 与 18:00 两个独立、不重试的 Scheduler 契约 |
 | [#30](https://github.com/AndyChen227/StockPulse---V2/pull/30) | 文档更新 | 重建英语在前的双语 README、项目计划、项目历程和文档导航 |
 | [#31](https://github.com/AndyChen227/StockPulse---V2/pull/31) | 仓库导航 | 增加文件地图和目录说明；后续布局修复会删除冲突的 `.github/README.md` |
+| [#32](https://github.com/AndyChen227/StockPulse---V2/pull/32) | 仓库整理 | 恢复产品 README，归类配置与容器文件，更新所有运行引用，并加入布局回归测试 |
 
 ## 4. 当前端到端能力
 
@@ -269,7 +271,7 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 
 每次变更检查五个方面：Python 3.11、Python 3.12、Dashboard 服务容器、固定模型流水线 Job 容器，以及 PostgreSQL 集成行为。
 
-当前本地结果为 119 项测试及 19 项子测试通过；另有 8 项 PostgreSQL 集成测试按设计在本地跳过、由 CI 执行。
+当前本地结果为 121 项测试及 37 项子测试通过；另有 8 项 PostgreSQL 集成测试按设计在本地跳过、由 CI 执行。
 
 ### 已准备但尚未执行的云端流程
 

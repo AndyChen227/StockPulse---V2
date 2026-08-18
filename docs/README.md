@@ -1,87 +1,79 @@
-# StockPulse Documentation / StockPulse 文档指南
+# StockPulse Documentation / StockPulse 文档中心
 
-This directory is the project knowledge base. English guidance appears first; Chinese guidance follows.
+> English first · 中文在后
 
-## English
+The documentation is grouped by the question a reader is trying to answer. Start with the product folder for context, then use architecture, analysis, operations, reference, or decisions for deeper detail.
 
-### Start here
+## English directory map
 
-| If you want to… | Read |
+| Category | One-sentence purpose | Index |
+|---|---|---|
+| `product/` | Explains what StockPulse is, what has been delivered, and what the Dashboard must provide. | [Product documents](product/README.md) |
+| `architecture/` | Describes the API, data layer, containers, and technical runtime boundaries. | [Architecture documents](architecture/README.md) |
+| `analysis/` | Defines how sentiment, topics, and anomalies are evaluated and interpreted. | [Analysis documents](analysis/README.md) |
+| `operations/` | Provides the controlled procedure for deploying and operating StockPulse on Google Cloud. | [Operations documents](operations/README.md) |
+| `reference/` | Helps contributors locate every important file and choose the correct place for a change. | [Reference documents](reference/README.md) |
+| `decisions/` | Preserves durable architecture decisions and the alternatives that were considered. | [Decision records](decisions/README.md) |
+
+## English file catalog
+
+| Document | One-sentence description |
 |---|---|
-| Understand the product quickly | [Repository README](../README.md) |
-| See everything completed from PR #1 to #29 | [Project History](PROJECT_HISTORY.md) |
-| Know the exact current stage and remaining work | [Product and Delivery Plan](PROJECT_PLAN.md) |
-| Prepare or operate the first Google Cloud launch | [Google Cloud Launch Runbook](GOOGLE_CLOUD_RUNBOOK.md) |
-| Find a file or decide where a change belongs | [Repository Guide](REPOSITORY_GUIDE.md) |
+| [`product/project-plan.md`](product/project-plan.md) | Tracks the current delivery stage, launch gates, priorities, and definition of done. |
+| [`product/project-history.md`](product/project-history.md) | Records the engineering outcome of every merged pull request and current validation evidence. |
+| [`product/dashboard.md`](product/dashboard.md) | Defines Dashboard views, responsive behavior, and the boundary around paid actions. |
+| [`architecture/api.md`](architecture/api.md) | Documents REST endpoints, filters, pagination, errors, and guarded action contracts. |
+| [`architecture/postgresql.md`](architecture/postgresql.md) | Explains the production repository, schema migrations, pooling, and history import. |
+| [`architecture/cloud-run.md`](architecture/cloud-run.md) | Defines the lightweight service and pinned-model Job container/runtime contracts. |
+| [`analysis/sentiment-evaluation.md`](analysis/sentiment-evaluation.md) | Describes the finance-direction benchmark, metrics, model comparison, and quality limits. |
+| [`analysis/topic-analysis.md`](analysis/topic-analysis.md) | Defines the versioned TSLA topic taxonomy and representative-message ranking. |
+| [`analysis/anomaly-detection.md`](analysis/anomaly-detection.md) | Defines the historical baseline, thresholds, topic shifts, explanations, and replay rules. |
+| [`operations/google-cloud-runbook.md`](operations/google-cloud-runbook.md) | Gives the approved provisioning, cost, IAM, backup, deployment, validation, and rollback sequence. |
+| [`reference/repository-guide.md`](reference/repository-guide.md) | Maps every runtime, test, deployment, evaluation, and documentation file to its responsibility. |
+| [`decisions/0001-cloud-datastore.md`](decisions/0001-cloud-datastore.md) | Records why Cloud SQL for PostgreSQL was selected as the production source of truth. |
 
-### Product and interface
+## Documentation rules
 
-- [Dashboard](DASHBOARD.md) — views, responsive behavior, and safety boundary
-- [Product API](API.md) — endpoints, filters, pagination, errors, and actions
-
-### Analysis
-
-- [Sentiment Evaluation](SENTIMENT_EVALUATION.md) — benchmark, metrics, and model comparison
-- [Topic Analysis](TOPIC_ANALYSIS.md) — taxonomy, multi-label assignments, and representative messages
-- [Anomaly Detection](ANOMALY_DETECTION.md) — baseline, thresholds, explanations, and replay behavior
-
-### Data and cloud engineering
-
-- [PostgreSQL](POSTGRESQL.md) — production schema, repository, and data migration
-- [Cloud Run](CLOUD_RUN.md) — service and Job container contracts
-- [ADR 0001](adr/0001-cloud-datastore.md) — why Cloud SQL for PostgreSQL was selected
-- [Deployment Contracts](../deploy/README.md) — offline rendering and safety gates
-
-### Source-of-truth rules
-
-- README: concise product introduction and verified current status
-- Project History: immutable milestone and PR record
-- Product Plan: current priorities and definition of done
-- Runbook: approved operational sequence and rollback
-- Pull requests: detailed implementation evidence
-- ADRs: durable architecture decisions
-
-Update the status date and affected documents whenever a milestone, operating decision, or product boundary changes. Never store credentials, real secret values, billing identifiers, or private account information in documentation.
+- Keep filenames lowercase with hyphens and place each document in one clear category.
+- Put user and operator explanations here; keep implementation details in code and pull requests.
+- Update links, the category index, and tests whenever a document moves.
+- Never include credentials, secret values, billing identifiers, or private account information.
+- Do not rewrite an accepted decision record; supersede it with a new numbered decision.
 
 ---
 
-## 中文
+## 中文目录地图
 
-### 建议从这里开始
+| 分类 | 一句话用途 | 索引 |
+|---|---|---|
+| `product/` | 说明 StockPulse 是什么、已经交付什么，以及 Dashboard 必须提供什么。 | [产品文档](product/README.md) |
+| `architecture/` | 说明 API、数据层、容器和技术运行边界。 | [架构文档](architecture/README.md) |
+| `analysis/` | 定义情绪、话题和异常如何评估与解释。 | [分析文档](analysis/README.md) |
+| `operations/` | 提供在 Google Cloud 上受控部署和运维 StockPulse 的步骤。 | [运维文档](operations/README.md) |
+| `reference/` | 帮助贡献者找到每个重要文件，并判断改动应放在哪里。 | [参考文档](reference/README.md) |
+| `decisions/` | 保存长期架构决策和曾经考虑过的替代方案。 | [决策记录](decisions/README.md) |
 
-| 如果你想…… | 阅读 |
+## 中文逐文件目录
+
+| 文档 | 一句话说明 |
 |---|---|
-| 快速理解产品 | [仓库 README](../README.md) |
-| 查看 PR #1 到 #29 的全部成果 | [项目历程](PROJECT_HISTORY.md) |
-| 确认当前阶段和剩余工作 | [产品与交付计划](PROJECT_PLAN.md) |
-| 准备或执行首次 Google Cloud 上线 | [Google Cloud 上线运行手册](GOOGLE_CLOUD_RUNBOOK.md) |
-| 查找文件或判断改动应该放在哪里 | [仓库指南](REPOSITORY_GUIDE.md) |
+| [`product/project-plan.md`](product/project-plan.md) | 记录当前交付阶段、上线门槛、优先级和完成标准。 |
+| [`product/project-history.md`](product/project-history.md) | 记录每个已合并 PR 的工程成果和当前验证证据。 |
+| [`product/dashboard.md`](product/dashboard.md) | 定义 Dashboard 页面、响应式行为和付费操作安全边界。 |
+| [`architecture/api.md`](architecture/api.md) | 记录 REST 接口、筛选、分页、错误和受保护操作契约。 |
+| [`architecture/postgresql.md`](architecture/postgresql.md) | 说明生产仓库、模式迁移、连接池和历史导入。 |
+| [`architecture/cloud-run.md`](architecture/cloud-run.md) | 定义轻量服务和固定模型 Job 的容器及运行时契约。 |
+| [`analysis/sentiment-evaluation.md`](analysis/sentiment-evaluation.md) | 说明金融方向基准、指标、模型对比和质量限制。 |
+| [`analysis/topic-analysis.md`](analysis/topic-analysis.md) | 定义版本化 TSLA 话题体系和代表消息排序。 |
+| [`analysis/anomaly-detection.md`](analysis/anomaly-detection.md) | 定义历史基线、阈值、话题变化、解释和重放规则。 |
+| [`operations/google-cloud-runbook.md`](operations/google-cloud-runbook.md) | 给出已批准的资源、成本、IAM、备份、部署、验证和回滚顺序。 |
+| [`reference/repository-guide.md`](reference/repository-guide.md) | 把每个运行、测试、部署、评估和文档文件映射到对应职责。 |
+| [`decisions/0001-cloud-datastore.md`](decisions/0001-cloud-datastore.md) | 记录选择 Cloud SQL for PostgreSQL 作为生产事实来源的原因。 |
 
-### 产品与界面
+## 文档维护规则
 
-- [Dashboard](DASHBOARD.md)：页面、响应式行为和安全边界
-- [产品 API](API.md)：接口、筛选、分页、错误和操作契约
-
-### 分析能力
-
-- [情绪评估](SENTIMENT_EVALUATION.md)：基准、指标和模型对比
-- [话题分析](TOPIC_ANALYSIS.md)：分类体系、多标签分配和代表消息
-- [异常检测](ANOMALY_DETECTION.md)：基线、阈值、解释和历史重放
-
-### 数据与云端工程
-
-- [PostgreSQL](POSTGRESQL.md)：生产模式、仓库和数据迁移
-- [Cloud Run](CLOUD_RUN.md)：服务与 Job 容器契约
-- [ADR 0001](adr/0001-cloud-datastore.md)：选择 Cloud SQL for PostgreSQL 的原因
-- [部署契约](../deploy/README.md)：离线渲染和安全门槛
-
-### 事实来源规则
-
-- README：简洁的产品介绍和已验证当前状态
-- 项目历程：稳定的里程碑与 PR 档案
-- 产品计划：当前优先级和完成标准
-- 运行手册：已批准的操作顺序与回滚方法
-- Pull Request：详细实现和验证证据
-- ADR：长期有效的架构决策
-
-每当里程碑、运维决策或产品边界发生变化时，应更新状态日期和受影响文档。文档中绝不能保存密码、真实 Secret、Billing 标识或私人账号信息。
+- 文件名统一使用小写连字符，并放入一个明确分类。
+- 用户和运维说明放在这里；实现细节保留在代码和 PR 中。
+- 文档移动时同时更新链接、分类索引和测试。
+- 绝不记录凭证、真实 Secret、Billing 标识或私人账号信息。
+- 不改写已经接受的决策记录；应创建新的编号决策取代旧记录。
