@@ -1,8 +1,8 @@
 # PostgreSQL implementation
 
-StockPulse keeps SQLite as the zero-cost local backend and is adding PostgreSQL
-as the production backend in controlled stages. No Cloud SQL resource is needed
-to validate the configuration and schema foundation in this stage.
+StockPulse keeps SQLite as the zero-cost local backend and uses the implemented
+PostgreSQL repository as the production contract. No Cloud SQL resource was
+needed to validate the configuration, schema, reads, writes, and migration.
 
 ## Current foundation
 
@@ -77,11 +77,11 @@ verification share one transaction, so a failed verification rolls back the
 entire attempt. Primary-key conflicts are skipped, making a verified rerun
 idempotent.
 
-## Remaining implementation sequence
+## Remaining production sequence
 
 1. Validate the migration against the final production snapshot and record the
    verification report.
-2. Add Secret Manager and Cloud SQL connector configuration.
-3. Complete the pre-console architecture, cost, IAM, region, backup, and
-   rollback review with the owner.
-4. Only after explicit approval, provision Google Cloud resources.
+2. Create the approved Secret Manager and Cloud SQL resources and supply the
+   existing runtime configuration through narrowly scoped identities.
+3. Run production readiness, import, query, backup, restore, and rollback
+   checks.

@@ -1,647 +1,441 @@
 <div align="center">
 
-# 📈 StockPulse
+# StockPulse
 
-### AI-Powered Stock Sentiment Anomaly Monitor
+### Explainable TSLA investor-sentiment monitoring
 
-**Monitor investor discussions · Detect sentiment shifts · Explain what changed**
+**Collect · Analyze · Compare · Explain**
 
-[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Apify](https://img.shields.io/badge/Apify-Data%20Collection-FF9013?logo=apify&logoColor=white)](https://apify.com/)
-[![Data Source](https://img.shields.io/badge/Data-Stocktwits-1DA1F2)](https://stocktwits.com/)
-[![Status](https://img.shields.io/badge/Status-In%20Development-F4B400)](#project-status)
+[![CI](https://github.com/AndyChen227/StockPulse---V2/actions/workflows/tests.yml/badge.svg)](https://github.com/AndyChen227/StockPulse---V2/actions)
+[![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Dashboard%20API-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Cloud](https://img.shields.io/badge/Google%20Cloud-Ready%2C%20not%20deployed-4285F4?logo=googlecloud&logoColor=white)](docs/GOOGLE_CLOUD_RUNBOOK.md)
 [![License](https://img.shields.io/badge/License-MIT-2EA44F)](LICENSE)
 
-**English** · [简体中文](#简体中文)
+[English](#english) · [简体中文](#简体中文)
 
 </div>
 
 ---
 
-## Overview
+<a id="english"></a>
 
-**StockPulse** is a cost-aware stock sentiment monitoring project that detects unusual changes in investor discussions.
+# English
 
-Version 1 focuses exclusively on **Tesla (TSLA)**. On weekdays at 9:15 AM and 6:00 PM Eastern, StockPulse collects TSLA-related posts from **Stocktwits** through **Apify**, classifies their sentiment, stores historical results, and compares current activity with a historical baseline.
+> **Current state — 2026-08-18:** the application, Dashboard, PostgreSQL repository, containers, twice-weekday pipeline schedule, and reviewed deployment contracts are implemented and validated. **No Google Cloud resources have been created yet.** The next milestone is the owner-guided Google Cloud launch.
 
-> StockPulse does not try to predict stock prices. It asks a different question: **Is investor sentiment behaving unusually today—and what may be driving the change?**
+## What StockPulse does
 
-## Project Goals
+StockPulse is a cost-aware monitoring product for **Tesla (TSLA) investor discussions on Stocktwits**. It collects a deliberately small data sample through Apify, preserves historical records, applies versioned AI sentiment and topic analysis, and explains unusual changes relative to a historical baseline.
 
-| Question | How StockPulse answers it |
+It answers four practical questions:
+
+1. What are investors discussing now?
+2. How does current sentiment compare with recent history?
+3. Is the change unusual?
+4. Which topics and source messages explain the change?
+
+StockPulse is an informational monitoring tool. It does **not** predict prices, execute trades, or provide financial advice.
+
+## Product at a glance
+
+| Area | Current implementation |
 |---|---|
-| 💬 What are investors saying? | Analyze recent TSLA discussions on Stocktwits |
-| 📊 Has sentiment changed? | Compare today's results with historical levels |
-| 🚨 Is the change unusual? | Detect abnormal shifts in volume or sentiment |
-| 🧠 What may have caused it? | Identify major topics and summarize representative posts |
+| Scope | TSLA only; Stocktwits discussions |
+| Collection | Apify Actor with item, runtime, and cost ceilings |
+| Schedule | Weekdays at **9:15 AM** and **6:00 PM**, `America/New_York` |
+| Analysis | Pinned Twitter-RoBERTa sentiment, versioned topics, explainable anomaly rules |
+| History | Messages, runs, metrics, topics, anomalies, versions, errors, and external IDs |
+| Local database | SQLite |
+| Production database | Cloud SQL for PostgreSQL 17 contract implemented and integration-tested |
+| Web product | Responsive FastAPI Dashboard with overview, trends, messages, and run history |
+| Cloud target | Private Cloud Run service + Cloud Run Job + two Scheduler jobs + Cloud SQL |
+| Deployment status | Ready for guided provisioning; not deployed |
 
-## Product Destination
+## Dashboard
 
-StockPulse is intended to become a small but complete cloud product, not remain a command-line experiment. The target release will provide:
+The Dashboard is served by the FastAPI application and requires no separate frontend server. It includes:
 
-- A polished web dashboard with clear manual controls
-- Complete historical sentiment, message, anomaly, and run records
-- Daily automated collection and analysis on Google Cloud
-- Durable cloud storage that survives container restarts
-- Visible run status, errors, model versions, and cost safeguards
-- Historical charts, filters, drill-down views, and source-message links
+- Overview cards for sentiment score, volume, confidence, anomaly state, and latest run
+- Bullish, Neutral, and Bearish distribution
+- Date-range sentiment and volume history
+- Current and historical discussion topics
+- Explainable anomaly detail
+- Searchable, filterable, cursor-paginated source-message explorer
+- Complete collection and analysis run history
+- Loading, empty, error, readiness, and responsive mobile states
 
-The planned Google Cloud shape is a **Cloud Run service** for the web application and API, a **Cloud Run job** for collection and analysis, two **Cloud Scheduler** weekday triggers, and a durable managed datastore selected before deployment. Local SQLite remains appropriate for development but will not be treated as durable Cloud Run storage.
+Refreshing or filtering the Dashboard is read-only and cannot spend Apify credits. The visible collection control remains locked until browser identity, CSRF protection, cloud dispatch, and distributed idempotency are complete.
 
-See [Product and Delivery Plan](docs/PROJECT_PLAN.md) for the complete feature scope, eight-stage delivery path, current status, and completion criteria.
-
-## System Workflow
+## End-to-end architecture
 
 ```mermaid
-flowchart TD
-    A["TSLA discussions on Stocktwits"] --> B["Apify data collection"]
-    B --> C["Clean and deduplicate messages"]
-    C --> D["AI sentiment and topic analysis"]
-    D --> E["Historical database"]
-    E --> F["Daily metrics and baseline comparison"]
-    F --> G{"Anomaly detected?"}
-    G -- No --> H["Save daily result"]
-    G -- Yes --> I["Generate event summary"]
-    I --> J["Send email alert"]
+flowchart LR
+    A["Stocktwits / TSLA"] --> B["Apify collection"]
+    B --> C["Cloud Run pipeline Job"]
+    C --> D["Validate + deduplicate"]
+    D --> E["Pinned sentiment + topics"]
+    E --> F["Metrics + anomaly evaluation"]
+    F --> G["Cloud SQL PostgreSQL"]
+    G --> H["Cloud Run Dashboard + API"]
+    H --> I["Owner through IAP"]
+    J["Cloud Scheduler<br/>09:15 + 18:00 ET weekdays"] --> C
 ```
 
-## V1 Scope
+For local development, the same application uses SQLite. Cloud Run filesystems are disposable, so SQLite is intentionally not the production source of truth.
 
-| Area | Decision |
-|---|---|
-| Monitored asset | **Tesla (TSLA)** only |
-| Discussion source | **Stocktwits** |
-| Collection method | **Apify Stocktwits scraper** |
-| Schedule | **Twice each weekday**, 9:15 AM and 6:00 PM Eastern |
-| Sentiment classes | Bullish · Neutral · Bearish |
-| Main output | Daily metrics and anomaly alerts |
-| Out of scope | Trading, price prediction, and financial advice |
+## What is complete
 
-## Data Model
+- Cost-capped Apify collection, validation, canonical UTC timestamps, and `messageId` deduplication
+- Raw local snapshots and durable structured run records
+- SQLite schema migration history and protection against unsupported newer schemas
+- Backend-neutral repository contract with SQLite and PostgreSQL implementations
+- Versioned sentiment analysis with a pinned model revision and explicit confidence threshold
+- Safe, idempotent reanalysis behavior and low-confidence tracking
+- A reproducible 36-example finance-direction benchmark and a documented FinBERT comparison
+- Versioned multi-label TSLA topic taxonomy and representative-message ranking
+- Daily sentiment, volume, confidence, and topic metrics
+- A versioned 28-day rolling-median anomaly baseline with topic-shift evidence
+- Read-only REST API and guarded, disabled-by-default collection action contract
+- Polished responsive Dashboard
+- Cloud Run service image and separate pinned-model Job image
+- Transactional, repeatable SQLite-to-PostgreSQL migration tooling
+- Production configuration preflight for service and Job
+- Offline-reviewed deployment renderer requiring immutable image digests and numeric secret versions
+- Two no-retry weekday Scheduler contracts at 09:15 and 18:00 Eastern
+- GitHub Actions validation on Python 3.11 and 3.12, both containers, and PostgreSQL
 
-### Collected fields
+The complete milestone-by-milestone record, including every merged PR from #1 through #29, is in [Project History](docs/PROJECT_HISTORY.md).
 
-| Field | Description |
-|---|---|
-| `messageId` | Unique Stocktwits message ID used for deduplication |
-| `createdAt` | Original publication time |
-| `body` | Message text |
-| `symbols` | Assets mentioned in the post |
-| `stocktwitsSentiment` | Optional Bullish or Bearish label selected by the author |
-| `username` | Author username |
-| `followers` | Author follower count |
-| `url` | Link to the original message |
+## What is deliberately not complete
 
-### Generated fields
+- Google Cloud project and resources have not been created
+- Cloud billing budget, IAM, secrets, IAP, Cloud SQL, Cloud Run, and Scheduler have not been configured in a real project
+- Production data migration, backup restore drill, observability check, and rollback exercise have not run
+- Browser-triggered collection remains disabled
+- Email or external anomaly notification delivery is not implemented
+- The first 36-example sentiment benchmark is provisional and needs a larger human-reviewed set
+- Topic and anomaly thresholds need calibration against a representative production history
+- Durable cloud archival of raw Apify JSON snapshots is not yet designed
 
-| Field | Description |
-|---|---|
-| `ai_sentiment` | Bullish, Neutral, or Bearish classification |
-| `ai_confidence` | Confidence score for the classification |
-| `ai_model` | Model used to create the classification |
-| `ai_model_revision` | Pinned model revision used for reproducibility |
-| `ai_low_confidence` | Whether confidence fell below the configured threshold |
-| `analysis_version` | Pipeline, model, revision, and threshold identifier |
-| `analyzed_at` | UTC time when analysis completed |
+## Run locally
 
-Stocktwits sentiment and AI sentiment are kept separate. A Stocktwits label reflects what the author selected; the AI label is StockPulse's independent analysis, including posts whose original sentiment is missing.
-
-## Daily Analysis and Anomaly Detection
-
-Each run is planned to calculate metrics such as:
-
-| Metric | Example |
-|---|---:|
-| New messages collected | 100 |
-| Bullish posts | 47% |
-| Neutral posts | 29% |
-| Bearish posts | 24% |
-| Daily sentiment score | +0.23 |
-| Main topic | Robotaxi |
-
-After enough history is available, StockPulse will look for:
-
-- Sudden increases in discussion volume
-- Significant bullish or bearish sentiment shifts
-- Unusual changes in discussion topics
-- Repeated messages and low-quality noise
-
-Example alert:
-
-```text
-TSLA SENTIMENT ANOMALY
-
-Discussion volume: +210% versus historical average
-Bearish sentiment: 24% → 58%
-Main topics: Robotaxi, FSD, regulatory investigation
-
-Summary: Investor sentiment became significantly more negative,
-with discussion concentrated around autonomous-driving regulation.
-```
-
-## Cost-Aware Design
-
-Apify usage is a real project constraint, so V1 intentionally stays small:
-
-- Monitor only one asset: **TSLA**
-- Collect data only **twice per weekday**
-- Use `messageId` to prevent duplicate storage and processing
-- Keep only the fields needed for analysis
-- Track Apify usage and avoid unnecessary test runs
-- Scale frequency or coverage only after the MVP is validated
-
-## Planned Tech Stack
-
-| Technology | Purpose |
-|---|---|
-| Python | Core application and data processing |
-| Apify | Stocktwits data collection |
-| Stocktwits | Investor-discussion data source |
-| Twitter-RoBERTa + Transformers | Local sentiment classification |
-| SQLite | Historical storage for V1 |
-| Web API | Dashboard read contract implemented; authenticated actions pending |
-| Dashboard | Initial responsive read-only interface implemented; guarded actions pending |
-| Docker | Cloud Run service image implemented and smoke-tested in CI |
-| Google Cloud Run service | Planned dashboard and API hosting |
-| Google Cloud Run job | Planned batch collection and analysis |
-| Google Cloud Scheduler | Planned weekday 9:15 AM and 6:00 PM Eastern scheduling |
-| Durable managed datastore | Planned cloud history and run storage |
-| Gmail API | Planned anomaly email alerts |
-| GitHub | Version control and documentation |
-
-## Local Collection and Analysis Commands
-
-StockPulse separates free local commands from the command that starts a paid Actor run.
+Requirements: Python 3.11 or 3.12.
 
 ```powershell
-# Install the lightweight collection and storage dependencies.
-python -m pip install -r requirements.txt
-
-# Install the optional local AI dependencies before using --analyze.
-python -m pip install -r requirements-ai.txt
-
-# Make the src package available in the current PowerShell session.
-$env:PYTHONPATH = "src"
-
-# Preview configuration. This does not contact Apify.
-python -m stockpulse.main
-
-# Explicitly start one cost-capped Actor run.
-python -m stockpulse.main --collect
-
-# Run the complete bounded daily workflow (intended for the Cloud Run Job).
-python -m stockpulse.main --daily-pipeline
-
-# Read an existing successful run without starting another Actor.
-python -m stockpulse.main --resume-run YOUR_RUN_ID
-
-# Show daily statistics stored in local SQLite. This does not contact Apify.
-python -m stockpulse.main --stats
-
-# Analyze only messages that do not already have AI sentiment.
-# The first run downloads the public model; it never contacts Apify.
-python -m stockpulse.main --analyze
-
-# Force one batch through the current version; use --analysis-limit to size it.
-python -m stockpulse.main --reanalyze
-
-# Show daily AI sentiment, confidence, and label-agreement statistics.
-python -m stockpulse.main --ai-stats
-
-# Show recent collection and analysis runs without contacting Apify.
-python -m stockpulse.main --runs
-
-# Evaluate the pinned model on the tracked finance-specific benchmark.
-# This uses local AI dependencies and never contacts Apify.
-python -m stockpulse.evaluation
-
-# Extract versioned topics from messages that have current AI sentiment.
-python -m stockpulse.main --analyze-topics
-
-# Show stored topic counts or representative source-linked messages.
-python -m stockpulse.main --topic-stats
-python -m stockpulse.main --topic-history
-python -m stockpulse.main --representatives "Deliveries & Demand"
-
-# Evaluate the latest day, replay history, or inspect stored evaluations locally.
-python -m stockpulse.main --detect-anomalies
-python -m stockpulse.main --replay-anomalies
-python -m stockpulse.main --anomalies
-
-# Start the local Dashboard and read-only API on http://localhost:8080.
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e .
 stockpulse-api
 ```
 
-Open `http://localhost:8080` to use the Dashboard. It currently includes the
-overview, sentiment history, topic summary, anomaly status, message explorer,
-and run history. Collection and other data-changing controls stay visibly
-locked until authenticated, bounded action APIs are available. See
-[Dashboard](docs/DASHBOARD.md) for behavior and current limitations.
+Open:
 
-The repository also includes a non-root Cloud Run service image. It packages
-the same Dashboard and API and is built and smoke-tested by GitHub Actions.
-See [Cloud Run service preparation](docs/CLOUD_RUN.md). Production deployment
-remains gated on verified data migration, authentication, and explicit cost
-approval. The production image includes PostgreSQL support; local SQLite is not
-treated as persistent cloud storage.
+- Dashboard: `http://localhost:8080`
+- Interactive API documentation: `http://localhost:8080/docs`
+- Health: `http://localhost:8080/api/v1/health`
 
-The repository also includes [offline deployment contracts](deploy/README.md)
-for the IAP-protected service, pinned-model daily Job, and OAuth-authenticated
-Scheduler trigger. They require immutable image digests, numeric secret
-versions, and recorded owner approval before rendering; rendering itself never
-contacts Google Cloud or creates billable resources.
+An empty database is valid and shows intentional empty states. Starting the Dashboard never starts a paid Apify run.
 
-The proposed region, IAP access, IAM boundaries, cost guardrails, deployment
-order, backups, and rollback are recorded in the
-[Google Cloud launch runbook](docs/GOOGLE_CLOUD_RUNBOOK.md). It is a review
-document only and does not authorize cloud resource creation.
-
-The PostgreSQL foundation now includes secret-safe configuration, a bounded
-connection pool, ordered schema migrations, and the complete read/write
-repository used by the Dashboard and background workflows. SQLite remains the
-default. A transactional, idempotent migration command can preview and import
-all six historical data tables with post-import key verification. See
-[PostgreSQL implementation](docs/POSTGRESQL.md).
-
-The real `.env`, raw JSON files, and SQLite database are excluded from Git. The current test configuration limits a run to **5 messages**, **5 minutes**, and **$0.05 maximum Actor charge**.
-
-Production deployments set `STOCKPULSE_ENVIRONMENT=production` and can be
-checked without contacting PostgreSQL or Apify:
+### Optional AI and PostgreSQL dependencies
 
 ```powershell
-stockpulse --check-production-config service
-stockpulse --check-production-config job
+python -m pip install -e ".[ai,postgres]"
 ```
 
-The service and daily Job enforce separate least-privilege configuration: the
-Dashboard never needs the Apify token, while the Job requires it and verifies
-the exact model revision cached in its image. Preflight output contains only
-safe configuration status and never secret values.
+Copy `.env.example` to an untracked `.env` only when collection is required. Never commit API tokens or database credentials.
 
-Sentiment analysis is an **experimental adapter** built on `cardiffnlp/twitter-roberta-base-sentiment-latest`. The model revision is pinned for reproducibility. Positive, neutral, and negative model labels map to Bullish, Neutral, and Bearish, but this mapping still requires evaluation on a larger finance-specific sample. Predictions below the default **0.60 confidence threshold keep their original direction** and are marked as low-confidence instead of being rewritten as Neutral. The model revision, threshold, and analysis version are stored with each result. Stocktwits author labels remain separate and are never overwritten.
+### Explicit collection commands
 
-The first tracked finance-specific benchmark scored **88.9% accuracy** and **89.2% Macro F1** on 36 balanced synthetic examples. This is a reproducible provisional baseline, not production acceptance. See [Sentiment Evaluation](docs/SENTIMENT_EVALUATION.md) for the confusion matrix, errors, limitations, and expansion gate.
+```powershell
+# Preview limits without calling Apify.
+stockpulse --dry-run
 
-## Current Project Structure
+# This command can start a paid, bounded Actor run.
+stockpulse --collect
+
+# Analyze records missing the current analysis version.
+stockpulse --analyze
+
+# Display recent operational history.
+stockpulse --runs
+```
+
+The default collection contract is intentionally small: at most 5 items, a 60-second Actor timeout, and a maximum recorded cost ceiling of USD 0.05 per run.
+
+## Test and validation
+
+```powershell
+python -m pytest
+python -m compileall -q src tests
+```
+
+At the current milestone, the local run reports **115 tests and 7 subtests passed**, with **8 PostgreSQL integration tests intentionally deferred to CI**. GitHub Actions validates Python 3.11, Python 3.12, the service image, the AI Job image, and PostgreSQL behavior.
+
+## Approved first cloud release
+
+The owner-approved pre-console plan is:
+
+| Decision | Approved value |
+|---|---|
+| Region | `us-west1` |
+| Access | Direct Cloud Run IAP; owner Google account only |
+| Service | Scale to zero; maximum one instance initially |
+| Database | PostgreSQL 17, `db-f1-micro`, single-zone, non-HA |
+| Backups | Daily backup, 7-day PITR, deletion protection, restore drill |
+| Schedule | Weekdays 09:15 and 18:00 `America/New_York`; no retries |
+| Budget | USD 20 monthly alert budget at 50%, 80%, and 100% |
+| Credits | Use an eligible Google Cloud USD 300 Welcome Credit if shown in Billing |
+| Manual collection | Locked in the first release |
+
+Credit eligibility is account-specific and must be confirmed in the authenticated Google Cloud console. A budget alert warns about spend; it does not automatically cap or stop resources.
+
+Follow [Google Cloud Launch Runbook](docs/GOOGLE_CLOUD_RUNBOOK.md) in order. Rendering deployment files is offline and does not create resources; applying them is a separate owner-approved action.
+
+## Documentation
+
+Start with the [Documentation Guide](docs/README.md).
+
+| Document | Purpose |
+|---|---|
+| [Project History](docs/PROJECT_HISTORY.md) | Complete bilingual milestone and PR record |
+| [Product and Delivery Plan](docs/PROJECT_PLAN.md) | Current status, remaining work, and definition of done |
+| [Google Cloud Launch Runbook](docs/GOOGLE_CLOUD_RUNBOOK.md) | Provisioning, IAM, cost, backup, validation, and rollback |
+| [Dashboard](docs/DASHBOARD.md) | UI views and safety boundary |
+| [Product API](docs/API.md) | Endpoint and response contracts |
+| [PostgreSQL](docs/POSTGRESQL.md) | Production repository and migration behavior |
+| [Cloud Run](docs/CLOUD_RUN.md) | Container and runtime contracts |
+| [Sentiment Evaluation](docs/SENTIMENT_EVALUATION.md) | Benchmark and model comparison |
+| [Topic Analysis](docs/TOPIC_ANALYSIS.md) | Taxonomy and representatives |
+| [Anomaly Detection](docs/ANOMALY_DETECTION.md) | Baseline, rules, and replay behavior |
+
+## Repository map
 
 ```text
-StockPulse/
-├── src/
-│   └── stockpulse/
-│       ├── collector/
-│       │   └── apify_client.py
-│       ├── sentiment.py
-│       ├── storage.py
-│       └── main.py
-├── data/
-├── tests/
-├── .env.example
-├── .gitignore
-├── requirements.txt
-├── requirements-ai.txt
-└── README.md
+StockPulse-V2/
+├── src/stockpulse/        application, analysis, repositories, API, and web UI
+├── tests/                 unit, contract, container, migration, and integration tests
+├── docs/                  product, architecture, analysis, and operations documentation
+├── deploy/                reviewed offline Google Cloud deployment templates
+├── evaluations/           reproducible sentiment evaluation data and results
+├── data/                  local runtime data (not the cloud source of truth)
+├── Dockerfile             Dashboard service image
+└── Dockerfile.job         pinned-model pipeline Job image
 ```
 
-> Anomaly detection and the Cloud Run service container are implemented.
-> Notifications, production storage, authentication, and cloud provisioning
-> remain later-stage work.
+## License and disclaimer
 
-## Roadmap
-
-### Phase 0 — Research and Planning
-
-- [x] Define the project goal and V1 scope
-- [x] Select TSLA as the first monitored asset
-- [x] Select Stocktwits as the data source
-- [x] Select Apify as the collection platform
-- [x] Run a successful Stocktwits scraping test
-- [x] Retrieve and inspect real TSLA messages
-
-### Phase 1 — Project Setup
-
-- [x] Create the local Python project
-- [x] Create a virtual environment
-- [x] Add configuration and dependency files
-- [x] Connect the local project to GitHub
-
-### Phase 2 — Collection and Storage
-
-- [x] Connect Python to Apify
-- [x] Retrieve and parse TSLA messages
-- [x] Validate required fields and handle errors
-- [x] Deduplicate messages by `messageId`
-- [x] Store raw messages and daily statistics
-
-### Phase 3 — AI Analysis
-
-- [x] Add an experimental Bullish, Neutral, and Bearish sentiment adapter
-- [x] Generate confidence scores
-- [ ] Extract major discussion topics
-- [x] Compare AI sentiment with author-selected labels
-- [ ] Evaluate classification quality
-
-### Phase 4 — Baseline and Detection
-
-- [x] Build an experimental rolling historical baseline
-- [x] Define versioned, explainable anomaly thresholds
-- [ ] Detect unusual volume and sentiment changes
-- [x] Prevent duplicate versioned anomaly evaluations
-
-### Phase 5 — Summaries and Alerts
-
-- [ ] Select representative messages
-- [ ] Generate concise, evidence-based summaries
-- [ ] Design and test email alerts
-- [ ] Send alerts only when an anomaly is detected
-
-### Phase 6 — Automation and Deployment
-
-- [ ] Add logging, retry logic, and usage monitoring
-- [x] Package the Dashboard/API service with Docker
-- [ ] Deploy to Google Cloud Run
-- [ ] Schedule two weekday runs at the approved Eastern times
-- [ ] Configure secrets and cost alerts
-
-## Project Status
-
-> 🚧 **Currently in active development**
-
-```text
-Completed: foundation plus durable metrics, run history, schema migrations, validation, and storage contracts
-Current milestone: financial-direction evaluation, topic extraction, and representative-message selection
-Product destination: Google Cloud deployment with a polished dashboard and complete historical records
-Delivery status: stages 1-2 of 8 complete; 6 major stages remain
-```
-
-## Future Ideas
-
-- Multi-stock and cryptocurrency monitoring
-- X, Reddit, or other discussion sources
-- Higher-frequency monitoring
-- Cross-platform sentiment comparison
-- Sentiment and market-price correlation research
-- Mobile or chat notifications
-
-## Disclaimer
-
-StockPulse is an educational and research project. It does **not** provide financial advice, investment recommendations, automated trading, or guaranteed price predictions. All outputs are informational only.
+MIT licensed. StockPulse is for engineering and informational research only and is not financial advice.
 
 ---
 
 <a id="简体中文"></a>
 
-<div align="center">
+# 简体中文
 
-# 🇨🇳 StockPulse 中文介绍
+> **当前状态（2026-08-18）：** 应用程序、Dashboard、PostgreSQL 数据仓库、容器、工作日每日两次的流水线计划，以及经过审查的部署配置均已实现并验证。**目前尚未创建任何 Google Cloud 资源。** 下一里程碑是在项目所有者参与下正式部署 Google Cloud。
 
-[返回英文](#-stockpulse)
+## StockPulse 是什么
 
-</div>
+StockPulse 是一个注重成本控制的 **Tesla（TSLA）Stocktwits 投资者讨论监测产品**。它通过 Apify 采集规模受控的数据，保留完整历史，执行带版本的 AI 情绪与话题分析，并通过历史基线解释异常变化。
 
-## 项目简介
+它回答四个实际问题：
 
-**StockPulse** 是一个注重成本控制的股票舆情异常监控项目，用于发现投资者讨论中不同寻常的变化。
+1. 投资者现在正在讨论什么？
+2. 当前情绪与近期历史相比如何？
+3. 这种变化是否异常？
+4. 哪些话题和原始消息可以解释这种变化？
 
-第一版只监控 **Tesla（TSLA）**。系统计划每天运行一次，通过 **Apify** 获取 **Stocktwits** 上与 TSLA 相关的帖子，分析情绪并保存历史结果，再将当天情况与历史基准进行比较。
+StockPulse 只提供信息监测，不预测股价、不执行交易，也不构成投资建议。
 
-> StockPulse 不预测股票价格。它关注的问题是：**今天的投资者情绪是否异常？可能是什么原因造成的？**
+## 产品概览
 
-## 项目目标
-
-| 问题 | StockPulse 的处理方式 |
+| 领域 | 当前实现 |
 |---|---|
-| 💬 投资者在说什么？ | 分析 Stocktwits 上近期的 TSLA 讨论 |
-| 📊 情绪是否变化？ | 将当天结果与历史水平比较 |
-| 🚨 变化是否异常？ | 检测讨论量和情绪比例的异常波动 |
-| 🧠 可能是什么原因？ | 提取主要话题并总结代表性帖子 |
+| 范围 | 仅 TSLA；Stocktwits 讨论 |
+| 采集 | Apify Actor，并限制条数、运行时间和成本 |
+| 计划时间 | 每个工作日美东时间 **上午 9:15** 和 **下午 6:00** |
+| 分析 | 固定版本的 Twitter-RoBERTa、版本化话题和可解释异常规则 |
+| 历史 | 消息、任务、指标、话题、异常、版本、错误和外部运行 ID |
+| 本地数据库 | SQLite |
+| 生产数据库 | Cloud SQL for PostgreSQL 17；契约已实现并完成集成测试 |
+| Web 产品 | 响应式 FastAPI Dashboard，包含概览、趋势、消息和运行历史 |
+| 云端目标 | 私有 Cloud Run 服务 + Cloud Run Job + 两个 Scheduler 任务 + Cloud SQL |
+| 部署状态 | 已准备进入引导式资源配置，尚未部署 |
 
-## 最终产品目标
+## Dashboard
 
-StockPulse 的目标是成为一个小而完整的云端产品，而不是停留在命令行实验阶段。目标版本将提供：
+Dashboard 由 FastAPI 应用直接提供，不需要额外的前端服务器，包含：
 
-- 具有清晰操作按钮的正式 Web Dashboard
-- 完整的历史情绪、帖子、异常事件与运行记录
-- 在 Google Cloud 上自动执行每日采集和分析
-- 容器重启后仍能保留的持久化云端数据
-- 可查看的运行状态、错误、模型版本与费用保护信息
-- 历史图表、筛选、详情下钻以及原帖链接
+- 情绪分数、讨论量、置信度、异常状态和最近一次运行的概览卡片
+- Bullish、Neutral、Bearish 分布
+- 可选日期范围的情绪和讨论量历史
+- 当前与历史讨论话题
+- 可解释的异常详情
+- 支持搜索、筛选和游标分页的原始消息浏览器
+- 完整的采集与分析运行历史
+- 加载、空数据、错误、就绪状态和移动端响应式界面
 
-计划中的 Google Cloud 结构是：使用 **Cloud Run service** 承载 Dashboard 与 API，使用 **Cloud Run job** 执行采集和分析，通过两个 **Cloud Scheduler** 工作日定时任务调度，并在部署前选择持久化托管数据存储。本地 SQLite 继续用于开发，但不会被当作 Cloud Run 上的持久化存储。
+刷新或筛选 Dashboard 只读取数据，不会消耗 Apify 额度。界面中的采集按钮会继续保持锁定，直到浏览器身份验证、CSRF 防护、云端任务触发和分布式幂等性全部完成。
 
-完整功能范围、八阶段交付路线、当前进度和完成标准，请查看 [产品与交付计划](docs/PROJECT_PLAN.md)。
-
-## 系统流程
+## 端到端架构
 
 ```mermaid
-flowchart TD
-    A["Stocktwits 上的 TSLA 讨论"] --> B["Apify 数据采集"]
-    B --> C["数据清洗与去重"]
-    C --> D["AI 情绪和话题分析"]
-    D --> E["历史数据库"]
-    E --> F["每日指标与历史基准比较"]
-    F --> G{"检测到异常？"}
-    G -- 否 --> H["保存当天结果"]
-    G -- 是 --> I["生成事件摘要"]
-    I --> J["发送邮件提醒"]
+flowchart LR
+    A["Stocktwits / TSLA"] --> B["Apify 数据采集"]
+    B --> C["Cloud Run 流水线 Job"]
+    C --> D["校验与去重"]
+    D --> E["固定版本情绪与话题分析"]
+    E --> F["指标与异常评估"]
+    F --> G["Cloud SQL PostgreSQL"]
+    G --> H["Cloud Run Dashboard 与 API"]
+    H --> I["所有者通过 IAP 访问"]
+    J["Cloud Scheduler<br/>工作日美东 09:15 与 18:00"] --> C
 ```
 
-## 第一版范围
+本地开发使用同一套应用和 SQLite。Cloud Run 的文件系统并不持久，因此生产环境不会把 SQLite 作为历史数据的最终来源。
 
-| 项目 | 决定 |
-|---|---|
-| 监控标的 | 只监控 **Tesla（TSLA）** |
-| 讨论来源 | **Stocktwits** |
-| 采集方式 | **Apify Stocktwits Scraper** |
-| 运行频率 | 大约**每天一次** |
-| 情绪分类 | 看多 · 中性 · 看空 |
-| 主要输出 | 每日舆情指标与异常提醒 |
-| 不包含 | 自动交易、股价预测和投资建议 |
+## 已完成的工作
 
-## 数据设计
+- 带成本上限的 Apify 采集、数据校验、UTC 时间标准化和 `messageId` 去重
+- 本地原始 JSON 快照和持久化结构化运行记录
+- SQLite 模式迁移历史，以及阻止旧程序打开未来数据库模式的保护
+- 与后端无关的仓库契约，以及 SQLite 和 PostgreSQL 两种实现
+- 固定模型 revision、明确置信度阈值的版本化情绪分析
+- 安全、幂等的重新分析行为和低置信度记录
+- 可复现的 36 条金融方向基准，以及有记录的 FinBERT 对比
+- 版本化、多标签的 TSLA 话题体系和代表消息排序
+- 每日情绪、讨论量、置信度和话题指标
+- 版本化的 28 天滚动中位数异常基线，并加入话题变化证据
+- 只读 REST API，以及默认禁用、受保护的采集操作契约
+- 完整的响应式 Dashboard
+- Cloud Run 服务镜像和独立的固定模型 Job 镜像
+- 事务化、可重复执行的 SQLite 到 PostgreSQL 迁移工具
+- 服务与 Job 的生产配置预检
+- 离线部署渲染器，强制不可变镜像摘要和数字化 Secret 版本
+- 两个不自动重试的工作日计划：美东 09:15 与 18:00
+- Python 3.11、3.12、两个容器和 PostgreSQL 的 GitHub Actions 验证
 
-### 采集字段
+从 PR #1 到 #29 的逐项里程碑记录，请阅读[项目历程](docs/PROJECT_HISTORY.md)。
 
-| 字段 | 说明 |
-|---|---|
-| `messageId` | Stocktwits 帖子唯一 ID，用于去重 |
-| `createdAt` | 原始发帖时间 |
-| `body` | 帖子正文 |
-| `symbols` | 帖子提到的股票或资产 |
-| `stocktwitsSentiment` | 作者主动选择的 Bullish / Bearish 标签，可为空 |
-| `username` | 作者用户名 |
-| `followers` | 作者粉丝数量 |
-| `url` | 原始帖子链接 |
+## 明确尚未完成的工作
 
-### 系统生成字段
+- 尚未创建 Google Cloud 项目或任何云资源
+- 尚未在真实项目中配置预算、IAM、Secrets、IAP、Cloud SQL、Cloud Run 和 Scheduler
+- 尚未执行生产数据迁移、备份恢复演练、可观测性检查和回滚演练
+- 浏览器触发采集仍处于禁用状态
+- 邮件或外部异常通知尚未实现
+- 当前 36 条情绪基准仍是临时基线，需要更大的人工复核数据集
+- 话题和异常阈值仍需基于有代表性的生产历史进行校准
+- Apify 原始 JSON 的云端持久归档方案尚未设计
 
-| 字段 | 说明 |
-|---|---|
-| `ai_sentiment` | 看多、中性或看空 |
-| `ai_confidence` | AI 情绪判断的置信度 |
-| `ai_model` | 生成分类结果所使用的模型 |
-| `ai_model_revision` | 用于保证结果可复现的固定模型 revision |
-| `ai_low_confidence` | 置信度是否低于配置阈值 |
-| `analysis_version` | 管线、模型、revision 与阈值的组合标识 |
-| `analyzed_at` | 完成分析时的 UTC 时间 |
+## 本地运行
 
-Stocktwits 用户标签与 AI 判断会分开保存。前者是作者自己的选择，后者是 StockPulse 对文字内容的独立分析，也可以处理原始情绪标签为空的帖子。
-
-## 每日分析与异常检测
-
-每次运行计划计算以下指标：
-
-| 指标 | 示例 |
-|---|---:|
-| 新增帖子 | 100 |
-| 看多 | 47% |
-| 中性 | 29% |
-| 看空 | 24% |
-| 每日情绪分数 | +0.23 |
-| 主要话题 | Robotaxi |
-
-积累足够历史数据后，StockPulse 会重点检测：
-
-- 讨论量突然上升
-- 看多或看空情绪出现显著变化
-- 讨论话题发生异常转移
-- 重复内容和低质量噪声
-
-## 成本控制
-
-Apify 的使用成本是项目的重要限制，因此第一版会主动保持轻量：
-
-- 只监控一个标的：**TSLA**
-- 只在**每天运行一次**左右
-- 使用 `messageId` 防止重复保存和分析
-- 只保留分析所需字段
-- 监控 Apify 用量，避免不必要的测试运行
-- MVP 验证成功后，再考虑增加频率或标的数量
-
-## 计划技术栈
-
-| 技术 | 用途 |
-|---|---|
-| Python | 核心程序和数据处理 |
-| Apify | Stocktwits 数据采集 |
-| Stocktwits | 投资者讨论数据源 |
-| Twitter-RoBERTa + Transformers | 本地情绪分类 |
-| SQLite | 第一版历史数据存储 |
-| Web API 与 Dashboard | 计划中的交互式产品界面 |
-| Docker | 应用容器化 |
-| Google Cloud Run service | 计划中的 Dashboard 与 API 托管 |
-| Google Cloud Run job | 计划中的批量采集与分析 |
-| Google Cloud Scheduler | 计划在工作日美东 9:15 与 18:00 运行 |
-| 持久化托管数据存储 | 计划中的云端历史与运行记录存储 |
-| Gmail API | 计划中的异常邮件提醒 |
-| GitHub | 版本管理和项目文档 |
-
-## 本地采集与分析命令
-
-StockPulse 会把免费的本地命令与真正启动付费 Actor 的命令分开。
+要求 Python 3.11 或 3.12。
 
 ```powershell
-# 安装轻量的数据采集与存储依赖
-python -m pip install -r requirements.txt
-
-# 使用 --analyze 前安装可选的本地 AI 依赖
-python -m pip install -r requirements-ai.txt
-
-# 让当前 PowerShell 会话能够找到 src 中的项目代码
-$env:PYTHONPATH = "src"
-
-# 预览配置，不连接 Apify
-python -m stockpulse.main
-
-# 明确启动一次带费用保护的 Actor Run
-python -m stockpulse.main --collect
-
-# 读取已经成功的 Run，不重新启动 Actor
-python -m stockpulse.main --resume-run YOUR_RUN_ID
-
-# 查看 SQLite 中的每日统计，不连接 Apify
-python -m stockpulse.main --stats
-
-# 只分析尚未生成 AI 情绪的帖子；首次运行会下载公开模型
-# 该命令不会连接 Apify
-python -m stockpulse.main --analyze
-
-# 使用当前版本强制重跑一批帖子；可用 --analysis-limit 控制批量大小
-python -m stockpulse.main --reanalyze
-
-# 查看每日 AI 情绪、平均置信度和标签一致情况
-python -m stockpulse.main --ai-stats
-
-# 查看最近的采集与分析运行记录；不会连接 Apify
-python -m stockpulse.main --runs
-
-# 使用仓库内的金融语境基准评估固定版本模型；不会连接 Apify
-python -m stockpulse.evaluation
-
-# 从已完成当前情绪分析的消息中提取版本化话题
-python -m stockpulse.main --analyze-topics
-
-# 查看话题统计或带原帖链接的代表性消息
-python -m stockpulse.main --topic-stats
-python -m stockpulse.main --topic-history
-python -m stockpulse.main --representatives "Deliveries & Demand"
-
-# Local anomaly evaluation, historical replay, and complete evaluation history
-python -m stockpulse.main --detect-anomalies
-python -m stockpulse.main --replay-anomalies
-python -m stockpulse.main --anomalies
-
-# Start the local read-only Dashboard API on http://localhost:8080.
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e .
 stockpulse-api
 ```
 
-真实 `.env`、原始 JSON 和 SQLite 数据库均不会上传到 Git。当前测试配置将单次运行限制为 **5 条消息**、**5 分钟**和 **最高 0.05 美元 Actor 费用**。
+打开：
 
-情绪分析目前是基于 `cardiffnlp/twitter-roberta-base-sentiment-latest` 的**实验性适配器**，并固定模型 revision 以保证结果可复现。模型的 Positive、Neutral 和 Negative 会分别映射为 Bullish、Neutral 和 Bearish，但该映射仍需使用更大的金融语境样本进行评估。低于默认 **0.60 置信度阈值**的结果会保留原始方向并标记为低置信度，而不会被改写成 Neutral。每条结果会保存模型 revision、阈值与分析版本；Stocktwits 用户标签始终独立保存。
+- Dashboard：`http://localhost:8080`
+- API 交互文档：`http://localhost:8080/docs`
+- 健康检查：`http://localhost:8080/api/v1/health`
 
-首个金融语境基准在 36 条平衡的合成样本上取得 **88.9% 准确率**和 **89.2% Macro F1**。这是可复现的初步基线，不代表已经达到生产标准。混淆矩阵、错误案例、局限性与扩充门槛请查看 [情绪评估文档](docs/SENTIMENT_EVALUATION.md)。
+空数据库是正常状态，页面会显示明确的空数据界面。启动 Dashboard 永远不会自动触发付费 Apify 任务。
 
-## 开发路线
+### 可选 AI 与 PostgreSQL 依赖
 
-| 阶段 | 内容 | 状态 |
-|---|---|---|
-| Phase 0 | 明确目标、选择数据源、完成真实抓取测试 | ✅ 已完成 |
-| Phase 1 | 建立本地 Python 项目并连接 GitHub | ✅ 已完成 |
-| Phase 2 | 使用 Python 采集、清洗、去重并保存数据 | ✅ 已完成 |
-| Phase 3 | AI 情绪与话题分析 | 🔄 进行中：实验性情绪适配器已实现，质量评估待完成 |
-| Phase 4 | 建立历史基准并检测异常 | ⏳ 待开始 |
-| Phase 5 | 生成事件摘要和邮件提醒 | ⏳ 待开始 |
-| Phase 6 | 自动化、Docker 和云端部署 | ⏳ 待开始 |
-
-## 当前进度
-
-> 🚧 **项目正在开发中**
-
-```text
-已完成：项目基础、持久化指标、运行记录、数据库迁移、严格验证和存储契约
-当前阶段：金融方向质量评估、话题提取和代表性帖子选择
-最终目标：部署到 Google Cloud，并提供正式 Dashboard 和完整历史记录
-交付进度：八个主要阶段中的前两个阶段已完成，剩余六个阶段
+```powershell
+python -m pip install -e ".[ai,postgres]"
 ```
 
-## 后续扩展
+只有需要采集时才把 `.env.example` 复制为不受 Git 跟踪的 `.env`。绝不要提交 API Token 或数据库密码。
 
-- 多股票与加密货币监控
-- 接入 X、Reddit 或其他讨论平台
-- 提高监控频率
-- 多平台情绪对比
-- 舆情与市场价格的相关性研究
-- 手机或聊天软件通知
+### 明确触发的采集命令
 
-## 免责声明
+```powershell
+# 只预览限制，不调用 Apify。
+stockpulse --dry-run
 
-StockPulse 是一个学习与研究项目，不提供投资建议、自动交易或有保证的价格预测。所有分析结果仅供信息参考。
+# 可能启动一个付费但有明确上限的 Actor 任务。
+stockpulse --collect
 
----
+# 分析尚未使用当前版本处理的记录。
+stockpulse --analyze
 
-<div align="center">
+# 显示最近运行历史。
+stockpulse --runs
+```
 
-### 🚀 StockPulse
+默认采集契约刻意保持很小：最多 5 条、Actor 超时 60 秒、每次运行记录的成本上限为 0.05 美元。
 
-**Detect the signal before it gets lost in the noise.**
+## 测试与验证
 
-</div>
+```powershell
+python -m pytest
+python -m compileall -q src tests
+```
+
+在当前里程碑中，本地运行结果为 **115 项测试及 7 项子测试通过**，另有 **8 项 PostgreSQL 集成测试按设计只在 CI 中运行**。GitHub Actions 会验证 Python 3.11、Python 3.12、服务镜像、AI Job 镜像和 PostgreSQL 行为。
+
+## 已批准的首个云端版本方案
+
+进入控制台前，所有者已经批准：
+
+| 决策 | 已批准值 |
+|---|---|
+| 区域 | `us-west1` |
+| 访问 | Cloud Run 直接使用 IAP，仅允许所有者 Google 账号 |
+| 服务 | 可缩容到零，初期最多一个实例 |
+| 数据库 | PostgreSQL 17、`db-f1-micro`、单区、非高可用 |
+| 备份 | 每日备份、7 天时间点恢复、删除保护和恢复演练 |
+| 计划 | 工作日 `America/New_York` 09:15 与 18:00，不自动重试 |
+| 预算 | 每月 20 美元提醒预算，阈值 50%、80%、100% |
+| 赠金 | 如果 Billing 页面确认符合条件，则使用 300 美元 Google Cloud Welcome Credit |
+| 手动采集 | 首个版本继续锁定 |
+
+赠金额度取决于具体账号，必须在已登录的 Google Cloud 控制台确认。预算提醒只负责告警，不会自动限制或停止支出。
+
+部署必须按顺序遵循 [Google Cloud 上线运行手册](docs/GOOGLE_CLOUD_RUNBOOK.md)。渲染部署文件是完全离线的，不会创建资源；应用这些文件属于另一项需要所有者明确批准的操作。
+
+## 文档导航
+
+建议从[文档指南](docs/README.md)开始。
+
+| 文档 | 用途 |
+|---|---|
+| [项目历程](docs/PROJECT_HISTORY.md) | 完整的双语里程碑与 PR 记录 |
+| [产品与交付计划](docs/PROJECT_PLAN.md) | 当前状态、剩余工作和完成标准 |
+| [Google Cloud 上线运行手册](docs/GOOGLE_CLOUD_RUNBOOK.md) | 资源配置、IAM、成本、备份、验证与回滚 |
+| [Dashboard](docs/DASHBOARD.md) | UI 视图与安全边界 |
+| [产品 API](docs/API.md) | 接口与响应契约 |
+| [PostgreSQL](docs/POSTGRESQL.md) | 生产仓库与迁移行为 |
+| [Cloud Run](docs/CLOUD_RUN.md) | 容器与运行时契约 |
+| [情绪评估](docs/SENTIMENT_EVALUATION.md) | 基准与模型对比 |
+| [话题分析](docs/TOPIC_ANALYSIS.md) | 话题体系与代表消息 |
+| [异常检测](docs/ANOMALY_DETECTION.md) | 基线、规则与历史重放 |
+
+## 仓库结构
+
+```text
+StockPulse-V2/
+├── src/stockpulse/        应用、分析、数据仓库、API 和 Web UI
+├── tests/                 单元、契约、容器、迁移和集成测试
+├── docs/                  产品、架构、分析和运维文档
+├── deploy/                已审查的离线 Google Cloud 部署模板
+├── evaluations/           可复现的情绪评估数据和结果
+├── data/                  本地运行数据，不是云端事实来源
+├── Dockerfile             Dashboard 服务镜像
+└── Dockerfile.job         固定模型的流水线 Job 镜像
+```
+
+## 许可证与免责声明
+
+本项目采用 MIT License。StockPulse 仅用于工程与信息研究，不构成投资建议。

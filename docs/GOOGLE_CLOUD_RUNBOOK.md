@@ -145,7 +145,7 @@ Expected first-release cost shape:
 |---|---|
 | Cloud SQL | Main recurring cost; runs continuously |
 | Cloud Run service | Likely very low at scale-to-zero usage |
-| Cloud Run job | Once-daily CPU/RAM usage; AI model load dominates |
+| Cloud Run job | Twice-weekday CPU/RAM usage; AI model load dominates |
 | Cloud Scheduler | Two jobs; current billing-account free allowance covers up to three jobs |
 | Artifact Registry / build | Small storage/build cost possible |
 | Secret Manager / logging / backups | Low but non-zero usage possible |
