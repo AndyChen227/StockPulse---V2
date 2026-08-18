@@ -151,7 +151,8 @@ class SentimentAnalyzer:
             from transformers import pipeline
         except ImportError as error:
             raise SentimentModelError(
-                "AI dependencies are missing. Install requirements-ai.txt first."
+                "AI dependencies are missing. Install "
+                "config/requirements/ai.txt first."
             ) from error
 
         try:

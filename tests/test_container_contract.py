@@ -9,7 +9,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 class ContainerContractTests(unittest.TestCase):
     def test_service_image_uses_cloud_run_port_and_non_root_user(self) -> None:
-        dockerfile = (PROJECT_ROOT / "Dockerfile").read_text(encoding="utf-8")
+        dockerfile = (PROJECT_ROOT / "containers" / "service.Dockerfile").read_text(
+            encoding="utf-8"
+        )
 
         self.assertIn("PORT=8080", dockerfile)
         self.assertIn('CMD ["stockpulse-api"]', dockerfile)
@@ -40,7 +42,9 @@ class ContainerContractTests(unittest.TestCase):
         self.assertIn("import psycopg, psycopg_pool", workflow)
 
     def test_daily_job_image_has_ai_postgres_and_pinned_model(self) -> None:
-        dockerfile = (PROJECT_ROOT / "Dockerfile.job").read_text(encoding="utf-8")
+        dockerfile = (PROJECT_ROOT / "containers" / "job.Dockerfile").read_text(
+            encoding="utf-8"
+        )
         workflow = (PROJECT_ROOT / ".github" / "workflows" / "tests.yml").read_text(
             encoding="utf-8"
         )

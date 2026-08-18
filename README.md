@@ -144,7 +144,7 @@ An empty database is valid and shows intentional empty states. Starting the Dash
 python -m pip install -e ".[ai,postgres]"
 ```
 
-Copy `.env.example` to an untracked `.env` only when collection is required. Never commit API tokens or database credentials.
+Copy `config/env.example` to an untracked root `.env` only when collection is required. Never commit API tokens or database credentials.
 
 ### Explicit collection commands
 
@@ -171,7 +171,7 @@ python -m pytest
 python -m compileall -q src tests
 ```
 
-At the current milestone, the local run reports **115 tests and 7 subtests passed**, with **8 PostgreSQL integration tests intentionally deferred to CI**. GitHub Actions validates Python 3.11, Python 3.12, the service image, the AI Job image, and PostgreSQL behavior.
+At the current milestone, the local run reports **119 tests and 19 subtests passed**, with **8 PostgreSQL integration tests intentionally deferred to CI**. GitHub Actions validates Python 3.11, Python 3.12, the service image, the AI Job image, and PostgreSQL behavior.
 
 ## Approved first cloud release
 
@@ -218,14 +218,14 @@ contains a short bilingual `README.md` that explains its purpose and boundaries.
 
 ```text
 StockPulse-V2/
-├── src/stockpulse/        application, analysis, repositories, API, and web UI
-├── tests/                 unit, contract, container, migration, and integration tests
-├── docs/                  product, architecture, analysis, and operations documentation
+├── config/                environment template and grouped dependency sets
+├── containers/            service and pipeline Job Docker definitions
+├── data/                  ignored local runtime data (not the cloud source of truth)
 ├── deploy/                reviewed offline Google Cloud deployment templates
+├── docs/                  product, architecture, analysis, and operations documentation
 ├── evaluations/           reproducible sentiment evaluation data and results
-├── data/                  local runtime data (not the cloud source of truth)
-├── Dockerfile             Dashboard service image
-└── Dockerfile.job         pinned-model pipeline Job image
+├── src/stockpulse/        application, analysis, repositories, API, and web UI
+└── tests/                 unit, contract, container, migration, and integration tests
 ```
 
 ## License and disclaimer
@@ -360,7 +360,7 @@ stockpulse-api
 python -m pip install -e ".[ai,postgres]"
 ```
 
-只有需要采集时才把 `.env.example` 复制为不受 Git 跟踪的 `.env`。绝不要提交 API Token 或数据库密码。
+只有需要采集时，才把 `config/env.example` 复制为根目录下不受 Git 跟踪的 `.env`。绝不要提交 API Token 或数据库密码。
 
 ### 明确触发的采集命令
 
@@ -387,7 +387,7 @@ python -m pytest
 python -m compileall -q src tests
 ```
 
-在当前里程碑中，本地运行结果为 **115 项测试及 7 项子测试通过**，另有 **8 项 PostgreSQL 集成测试按设计只在 CI 中运行**。GitHub Actions 会验证 Python 3.11、Python 3.12、服务镜像、AI Job 镜像和 PostgreSQL 行为。
+在当前里程碑中，本地运行结果为 **119 项测试及 19 项子测试通过**，另有 **8 项 PostgreSQL 集成测试按设计只在 CI 中运行**。GitHub Actions 会验证 Python 3.11、Python 3.12、服务镜像、AI Job 镜像和 PostgreSQL 行为。
 
 ## 已批准的首个云端版本方案
 
@@ -434,14 +434,14 @@ python -m compileall -q src tests
 
 ```text
 StockPulse-V2/
-├── src/stockpulse/        应用、分析、数据仓库、API 和 Web UI
-├── tests/                 单元、契约、容器、迁移和集成测试
-├── docs/                  产品、架构、分析和运维文档
+├── config/                环境模板和分类依赖集合
+├── containers/            服务与流水线 Job 的 Docker 定义
+├── data/                  被忽略的本地运行数据，不是云端事实来源
 ├── deploy/                已审查的离线 Google Cloud 部署模板
+├── docs/                  产品、架构、分析和运维文档
 ├── evaluations/           可复现的情绪评估数据和结果
-├── data/                  本地运行数据，不是云端事实来源
-├── Dockerfile             Dashboard 服务镜像
-└── Dockerfile.job         固定模型的流水线 Job 镜像
+├── src/stockpulse/        应用、分析、数据仓库、API 和 Web UI
+└── tests/                 单元、契约、容器、迁移和集成测试
 ```
 
 ## 许可证与免责声明

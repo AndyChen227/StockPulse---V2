@@ -184,7 +184,8 @@ def create_postgres_pool(
         from psycopg.rows import dict_row
     except ImportError as error:
         raise RuntimeError(
-            "PostgreSQL support is not installed. Install requirements-postgres.txt."
+            "PostgreSQL support is not installed. Install "
+            "config/requirements/postgres.txt."
         ) from error
 
     return ConnectionPool(
