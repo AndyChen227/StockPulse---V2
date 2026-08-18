@@ -27,7 +27,7 @@ jobs:
           cache: pip
 
       - name: Install test dependencies
-        run: python -m pip install -r requirements-postgres.txt
+        run: python -m pip install -r config/requirements/postgres.txt
 
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Cloud Run service image
-        run: docker build --tag stockpulse:ci .
+        run: docker build --file containers/service.Dockerfile --tag stockpulse:ci .
 
       - name: Verify production database runtime
         run: docker run --rm --entrypoint python stockpulse:ci -c "import psycopg, psycopg_pool"
@@ -97,7 +97,7 @@ jobs:
           cache: pip
 
       - name: Install PostgreSQL dependencies
-        run: python -m pip install -r requirements-postgres.txt
+        run: python -m pip install -r config/requirements/postgres.txt
 
       - name: Run PostgreSQL Dashboard integration tests
         run: python -m unittest tests.test_postgres_integration -v
@@ -110,7 +110,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build pinned AI daily job image
-        run: docker build --file Dockerfile.job --tag stockpulse-job:ci .
+        run: docker build --file containers/job.Dockerfile --tag stockpulse-job:ci .
 
       - name: Verify daily pipeline entry point and cached model
         run: |

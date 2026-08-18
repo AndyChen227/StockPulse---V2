@@ -6,7 +6,7 @@ these files do not provision or deploy Google Cloud resources.
 
 ## Service image
 
-The root `Dockerfile`:
+`containers/service.Dockerfile`:
 
 - uses Python 3.12 on a slim Linux base
 - installs the base application and PostgreSQL runtime without the optional
@@ -19,7 +19,7 @@ The root `Dockerfile`:
 GitHub Actions builds the image, starts it, and verifies both the health endpoint
 and Dashboard on every pull request. Local Docker is optional for development.
 
-The separate `Dockerfile.job` builds the daily batch image. It installs both AI
+The separate `containers/job.Dockerfile` builds the daily batch image. It installs both AI
 and PostgreSQL dependencies, downloads the exact pinned sentiment model revision
 during the image build, runs as a non-root user, and starts
 `stockpulse --daily-pipeline`. CI verifies that the image can load the tokenizer
@@ -44,7 +44,7 @@ stockpulse --check-production-config job
 Both checks require the PostgreSQL backend and keep the initial connection pool
 at four or fewer connections per instance. The Job check additionally requires
 an Apify token and verifies that the configured sentiment model and revision
-match the model cached in `Dockerfile.job`. The command never opens the database,
+match the model cached in `containers/job.Dockerfile`. The command never opens the database,
 contacts Apify, or prints secret values. Normal production service and Job
 startup enforce the same role-specific contract automatically.
 
@@ -58,7 +58,7 @@ file.
 On a computer with Docker installed:
 
 ```powershell
-docker build --tag stockpulse-service .
+docker build --file containers/service.Dockerfile --tag stockpulse-service .
 docker run --rm --publish 8080:8080 stockpulse-service
 ```
 

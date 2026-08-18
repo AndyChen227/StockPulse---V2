@@ -19,6 +19,8 @@
 | Change sentiment, topics, or anomalies | [`src/stockpulse/sentiment.py`](../src/stockpulse/sentiment.py), [`topics.py`](../src/stockpulse/topics.py), [`anomaly.py`](../src/stockpulse/anomaly.py) |
 | Change storage | [`src/stockpulse/repository.py`](../src/stockpulse/repository.py), [`storage.py`](../src/stockpulse/storage.py), and PostgreSQL modules |
 | Change the daily pipeline | [`src/stockpulse/pipeline.py`](../src/stockpulse/pipeline.py) |
+| Change containers | [`containers/`](../containers/) |
+| Change dependencies or the environment template | [`config/`](../config/) |
 | Change Google Cloud deployment | [`deploy/`](../deploy/) and [`GOOGLE_CLOUD_RUNBOOK.md`](GOOGLE_CLOUD_RUNBOOK.md) |
 | Add or fix tests | [`tests/`](../tests/) |
 | Review project decisions and progress | [`docs/`](./) |
@@ -32,20 +34,20 @@ The root contains standard entry points recognized by development and deployment
 | `README.md` | Product introduction, status, local start, and navigation | GitHub renders it on the repository home page |
 | `LICENSE` | MIT license | Standard discovery location used by GitHub and package tools |
 | `pyproject.toml` | Python package metadata, dependencies, console commands, and build configuration | Standard Python packaging entry point |
-| `requirements.txt` | Locked lightweight/base runtime dependencies | Used by local setup and familiar to Python tooling |
-| `requirements-ai.txt` | Locked optional AI runtime dependencies | Referenced by runtime guidance and dependency errors |
-| `requirements-postgres.txt` | Locked optional PostgreSQL dependencies | Referenced by CI and runtime guidance |
-| `Dockerfile` | Dashboard/API service container | Default Docker build entry point and CI contract |
-| `Dockerfile.job` | Pinned-model pipeline Job container | Explicitly referenced by CI and deployment documentation |
-| `.env.example` | Safe environment-variable template with no real secrets | Conventional local configuration template |
 | `.gitignore` | Prevents local databases, secrets, caches, and build output from being committed | Git standard |
 | `.dockerignore` | Keeps secrets, local data, tests, and development artifacts out of images | Docker standard |
+
+Dependency files, the safe environment template, and Docker definitions are
+physically grouped under `config/` and `containers/` instead of occupying the
+root. Docker builds therefore use an explicit `--file` path.
 
 ## 3. Directory map
 
 | Directory | Responsibility | Read first |
 |---|---|---|
-| `.github/` | GitHub automation and contributor-facing repository configuration | [`.github/README.md`](../.github/README.md) |
+| `.github/` | GitHub automation and contributor-facing repository configuration | [`workflows/README.md`](../.github/workflows/README.md) |
+| `config/` | Safe environment template and grouped dependency sets | [`config/README.md`](../config/README.md) |
+| `containers/` | Dashboard service and AI pipeline Job Docker definitions | [`containers/README.md`](../containers/README.md) |
 | `data/` | Ignored local runtime database and raw snapshots | [`data/README.md`](../data/README.md) |
 | `deploy/` | Offline-reviewed Cloud Run, Job, and Scheduler deployment contracts | [`deploy/README.md`](../deploy/README.md) |
 | `docs/` | Product, architecture, analysis, and operations knowledge base | [`docs/README.md`](README.md) |
@@ -114,6 +116,12 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 | `deploy/render.py` | Offline validation and rendering; never calls Google Cloud |
 | `deploy/service.yaml.tmpl` | Private Cloud Run Dashboard/API service template |
 | `deploy/job.yaml.tmpl` | Single-task, no-retry pipeline Job template |
+| `containers/service.Dockerfile` | Lightweight Dashboard/API service image |
+| `containers/job.Dockerfile` | Pinned-model pipeline Job image |
+| `config/env.example` | Safe environment-variable template with no credentials |
+| `config/requirements/base.txt` | Locked lightweight runtime dependencies |
+| `config/requirements/ai.txt` | Base plus locked AI dependencies |
+| `config/requirements/postgres.txt` | Base plus locked PostgreSQL dependencies |
 | `.github/workflows/tests.yml` | Five CI checks: two Python versions, service image, Job image, and PostgreSQL |
 
 ## 7. Evaluation and documentation file map
@@ -161,6 +169,8 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 | 修改情绪、话题或异常 | [`sentiment.py`](../src/stockpulse/sentiment.py)、[`topics.py`](../src/stockpulse/topics.py)、[`anomaly.py`](../src/stockpulse/anomaly.py) |
 | 修改存储 | [`repository.py`](../src/stockpulse/repository.py)、[`storage.py`](../src/stockpulse/storage.py) 和 PostgreSQL 模块 |
 | 修改每日流水线 | [`pipeline.py`](../src/stockpulse/pipeline.py) |
+| 修改容器 | [`containers/`](../containers/) |
+| 修改依赖或环境模板 | [`config/`](../config/) |
 | 修改 Google Cloud 部署 | [`deploy/`](../deploy/) 与[上线运行手册](GOOGLE_CLOUD_RUNBOOK.md) |
 | 增加或修复测试 | [`tests/`](../tests/) |
 | 查看项目决策和进度 | [`docs/`](./) |
@@ -174,20 +184,19 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 | `README.md` | 产品介绍、状态、本地启动和导航 | GitHub 仓库首页自动显示 |
 | `LICENSE` | MIT 许可证 | GitHub 与打包工具的标准发现位置 |
 | `pyproject.toml` | Python 包信息、依赖、命令和构建配置 | Python 标准打包入口 |
-| `requirements.txt` | 锁定的轻量基础依赖 | 本地安装和 Python 工具常用入口 |
-| `requirements-ai.txt` | 锁定的可选 AI 依赖 | 运行说明和错误提示会引用 |
-| `requirements-postgres.txt` | 锁定的 PostgreSQL 依赖 | CI 和运行说明会引用 |
-| `Dockerfile` | Dashboard/API 服务镜像 | Docker 默认入口与 CI 契约 |
-| `Dockerfile.job` | 固定模型流水线 Job 镜像 | CI 与部署文档明确引用 |
-| `.env.example` | 不包含真实 Secret 的环境变量模板 | 本地配置惯例 |
 | `.gitignore` | 阻止本地数据库、Secret、缓存和构建输出进入 Git | Git 标准文件 |
 | `.dockerignore` | 阻止 Secret、本地数据、测试和开发文件进入镜像 | Docker 标准文件 |
+
+依赖文件、安全环境模板和 Docker 定义已经实际归类到 `config/` 与
+`containers/`，不再占据根目录。Docker 构建因此需要明确指定 `--file`。
 
 ## 3. 目录地图
 
 | 目录 | 职责 | 先读 |
 |---|---|---|
-| `.github/` | GitHub 自动化与仓库配置 | [`.github/README.md`](../.github/README.md) |
+| `.github/` | GitHub 自动化与仓库配置 | [`workflows/README.md`](../.github/workflows/README.md) |
+| `config/` | 安全环境模板与分类依赖集合 | [`config/README.md`](../config/README.md) |
+| `containers/` | Dashboard 服务与 AI 流水线 Job 的 Docker 定义 | [`containers/README.md`](../containers/README.md) |
 | `data/` | 被忽略的本地数据库与原始快照 | [`data/README.md`](../data/README.md) |
 | `deploy/` | 离线审查的 Cloud Run、Job 与 Scheduler 契约 | [`deploy/README.md`](../deploy/README.md) |
 | `docs/` | 产品、架构、分析与运维知识库 | [`docs/README.md`](README.md) |
