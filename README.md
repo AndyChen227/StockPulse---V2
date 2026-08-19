@@ -9,7 +9,7 @@
 [![CI](https://github.com/AndyChen227/StockPulse---V2/actions/workflows/tests.yml/badge.svg)](https://github.com/AndyChen227/StockPulse---V2/actions)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Dashboard%20API-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Cloud](https://img.shields.io/badge/Google%20Cloud-Ready%2C%20not%20deployed-4285F4?logo=googlecloud&logoColor=white)](docs/operations/google-cloud-runbook.md)
+[![Cloud](https://img.shields.io/badge/Google%20Cloud-Dashboard%20live-4285F4?logo=googlecloud&logoColor=white)](docs/operations/google-cloud-runbook.md)
 [![License](https://img.shields.io/badge/License-MIT-2EA44F)](LICENSE)
 
 [English](#english) · [简体中文](#简体中文)
@@ -22,7 +22,7 @@
 
 # English
 
-> **Current state — 2026-08-18:** the application, Dashboard, PostgreSQL repository, containers, twice-weekday pipeline schedule, and reviewed deployment contracts are implemented and validated. **No Google Cloud resources have been created yet.** The next milestone is the owner-guided Google Cloud launch.
+> **Current state — 2026-08-19:** the production foundation is provisioned in GCP project `stockpulse-production`, and the IAP-protected Dashboard is live on Cloud Run with Cloud SQL PostgreSQL. Historical SQLite migration was skipped because no local snapshot was found. **Next: build and deploy the AI pipeline Cloud Run Job, manually validate one run, then enable Scheduler and complete final verification.**
 
 ## What StockPulse does
 
@@ -50,7 +50,7 @@ StockPulse is an informational monitoring tool. It does **not** predict prices, 
 | Production database | Cloud SQL for PostgreSQL 17 contract implemented and integration-tested |
 | Web product | Responsive FastAPI Dashboard with overview, trends, messages, and run history |
 | Cloud target | Private Cloud Run service + Cloud Run Job + two Scheduler jobs + Cloud SQL |
-| Deployment status | Ready for guided provisioning; not deployed |
+| Deployment status | Production foundation and IAP-protected Dashboard live; pipeline Job and Scheduler pending |
 
 ## Dashboard
 
@@ -109,9 +109,10 @@ The complete milestone-by-milestone record is in [Project History](docs/product/
 
 ## What is deliberately not complete
 
-- Google Cloud project and resources have not been created
-- Cloud billing budget, IAM, secrets, IAP, Cloud SQL, Cloud Run, and Scheduler have not been configured in a real project
-- Production data migration, backup restore drill, observability check, and rollback exercise have not run
+- The AI pipeline image has not yet been built and deployed as a Cloud Run Job
+- One bounded manual pipeline run must pass before Scheduler is enabled
+- Scheduler, final backup/restore verification, observability checks, and the rollback exercise remain pending
+- Historical SQLite migration was intentionally skipped because no local database snapshot was found
 - Browser-triggered collection remains disabled
 - Email or external anomaly notification delivery is not implemented
 - The first 36-example sentiment benchmark is provisional and needs a larger human-reviewed set
@@ -238,7 +239,7 @@ MIT licensed. StockPulse is for engineering and informational research only and 
 
 # 简体中文
 
-> **当前状态（2026-08-18）：** 应用程序、Dashboard、PostgreSQL 数据仓库、容器、工作日每日两次的流水线计划，以及经过审查的部署配置均已实现并验证。**目前尚未创建任何 Google Cloud 资源。** 下一里程碑是在项目所有者参与下正式部署 Google Cloud。
+> **当前状态（2026-08-19）：** GCP 项目 `stockpulse-production` 的生产基础设施已配置完成，受 IAP 保护的 Dashboard 已在 Cloud Run 上线并连接 Cloud SQL PostgreSQL。由于没有找到本地 SQLite 快照，历史迁移已跳过。**下一步：构建并部署 AI 流水线 Cloud Run Job，手动验证一次运行，然后启用 Scheduler 并完成最终验证。**
 
 ## StockPulse 是什么
 
@@ -266,7 +267,7 @@ StockPulse 只提供信息监测，不预测股价、不执行交易，也不构
 | 生产数据库 | Cloud SQL for PostgreSQL 17；契约已实现并完成集成测试 |
 | Web 产品 | 响应式 FastAPI Dashboard，包含概览、趋势、消息和运行历史 |
 | 云端目标 | 私有 Cloud Run 服务 + Cloud Run Job + 两个 Scheduler 任务 + Cloud SQL |
-| 部署状态 | 已准备进入引导式资源配置，尚未部署 |
+| 部署状态 | 生产基础设施和受 IAP 保护的 Dashboard 已上线；流水线 Job 和 Scheduler 待完成 |
 
 ## Dashboard
 
@@ -325,9 +326,10 @@ flowchart LR
 
 ## 明确尚未完成的工作
 
-- 尚未创建 Google Cloud 项目或任何云资源
-- 尚未在真实项目中配置预算、IAM、Secrets、IAP、Cloud SQL、Cloud Run 和 Scheduler
-- 尚未执行生产数据迁移、备份恢复演练、可观测性检查和回滚演练
+- AI 流水线镜像尚未构建并部署为 Cloud Run Job
+- 启用 Scheduler 前，必须先成功完成一次有明确成本上限的手动流水线运行
+- Scheduler、最终备份恢复验证、可观测性检查和回滚演练仍待完成
+- 由于没有找到本地 SQLite 数据库快照，历史迁移已明确跳过
 - 浏览器触发采集仍处于禁用状态
 - 邮件或外部异常通知尚未实现
 - 当前 36 条情绪基准仍是临时基线，需要更大的人工复核数据集

@@ -1,13 +1,44 @@
 # Google Cloud launch runbook
 
-> Status: owner-approved deployment plan; real project identifiers and pricing still required
-> Last reviewed: 2026-08-17
-> Current cloud state: no StockPulse Google Cloud resources have been created
+> Status: deployment in progress; Dashboard live, pipeline Job not yet deployed
+> Last reviewed: 2026-08-19
+> Current cloud state: production foundation and IAP-protected Dashboard deployed in `stockpulse-production`
 
-This is the pre-console source of truth for the first StockPulse cloud release.
-It records the proposed architecture, cost boundaries, permissions, deployment
-order, validation, backup, and rollback. Checking this file into Git does not
-authorize resource creation.
+This is the source of truth for the first StockPulse cloud release. It records
+the deployed state, remaining work, architecture, cost boundaries, permissions,
+validation, backup, and rollback. Secret values and database credentials must
+never be recorded here.
+
+## 0. Deployment progress
+
+Completed on 2026-08-19:
+
+- created GCP project `stockpulse-production` under the `uw.edu` organization
+- attached billing with the USD 300 trial credit and configured a USD 20 budget
+  with alerts
+- enabled the required Google Cloud APIs
+- created dedicated service accounts `stockpulse-service`,
+  `stockpulse-pipeline`, and `stockpulse-scheduler`
+- created Artifact Registry repository `stockpulse` in `us-west1`
+- provisioned Cloud SQL for PostgreSQL 17, Enterprise edition, `db-f1-micro`,
+  single-zone, with 10 GB SSD storage, backups, point-in-time recovery, and
+  deletion protection
+- created application database `stockpulse` and a least-privilege application
+  role/user
+- created Secret Manager secrets `stockpulse-database-url` and
+  `stockpulse-apify-token`, with access scoped to the service accounts that need
+  each secret; no secret values are stored in this repository
+- built the Dashboard image and deployed it to Cloud Run
+- configured the managed Cloud SQL connection, runtime environment, and direct
+  IAP requirement for the Dashboard
+- verified that the Dashboard UI is live and accessible through the intended
+  protected path
+- skipped historical SQLite migration because no local database snapshot was
+  found; production history will begin with new pipeline runs
+
+**Next step:** build and deploy the AI pipeline Cloud Run Job from
+`containers/job.Dockerfile`, then manually validate one bounded run. Only after
+that run passes, configure Scheduler and complete final launch verification.
 
 ## 1. Recommended first-release architecture
 
@@ -210,28 +241,32 @@ Reference: https://docs.cloud.google.com/sql/docs/postgres/best-practices
 
 ## 6. Provisioning and deployment order
 
-No step below begins until the owner approves region, authentication, expected
-monthly cost, and billing project.
-
-1. Create or select a dedicated Google Cloud project and attach billing.
-2. Create the budget and alerts.
-3. Record the region and naming convention.
-4. Enable only the required APIs.
-5. Create dedicated service accounts and narrow IAM grants.
-6. Create Artifact Registry and publish images by immutable digest.
-7. Create Cloud SQL with deletion protection and backup/PITR policy.
-8. Create the application database/user and Secret Manager values.
-9. Deploy the private Dashboard service with PostgreSQL readiness verification.
-10. Migrate a disposable copy of SQLite history; compare the verification
-    report and Dashboard aggregates.
-11. Deploy the pipeline job without a schedule; run one zero/lowest-cost manual
-    validation.
-12. Configure direct Cloud Run IAP and grant only the approved Google account.
-13. Validate login, data reads, logs, failures, and rollback.
-14. Create the two weekday Scheduler triggers only after the manual Job passes.
-15. Take the final SQLite snapshot, perform final idempotent migration, and
-    verify counts and history.
-16. Enable the guarded Dashboard action only after IAP identity and CSRF tests.
+1. [x] Create the dedicated `stockpulse-production` project under `uw.edu` and
+   attach billing with the trial credit.
+2. [x] Create the USD 20 budget and alerts.
+3. [x] Select `us-west1` and record the naming convention.
+4. [x] Enable the required APIs.
+5. [x] Create dedicated service accounts and narrow IAM and secret grants.
+6. [x] Create the `stockpulse` Artifact Registry repository and publish the
+   Dashboard image.
+7. [x] Create Cloud SQL with deletion protection and backup/PITR policy.
+8. [x] Create the application database, least-privilege role/user, and scoped
+   Secret Manager values.
+9. [x] Deploy the IAP-protected Dashboard service with its Cloud SQL connection
+   and production runtime configuration; verify the UI is live.
+10. [x] Resolve historical migration: skipped because no local SQLite snapshot
+    was found. Do not manufacture or migrate placeholder history.
+11. [ ] **Next:** build the AI pipeline image from
+    `containers/job.Dockerfile`, deploy the Cloud Run Job without a schedule,
+    and manually validate one bounded run.
+12. [ ] Validate the manual run's database writes, run record, logs, timeout,
+    memory use, idempotency, and paid collection limits.
+13. [ ] Create the two weekday Scheduler triggers only after the manual Job
+    passes.
+14. [ ] Complete final access, data, backup/restore, observability, and rollback
+    verification.
+15. [ ] Enable the guarded Dashboard action only after IAP identity and CSRF
+    tests; it remains locked for the first release.
 
 ## 7. Launch verification
 
@@ -276,15 +311,16 @@ or deleted. Export required data before any destructive cleanup.
 
 ## 9. Remaining launch gates
 
-Before console provisioning, record all owner decisions in section 10. The
-offline renderer then requires that approval plus immutable image digests,
-numeric secret versions, same-project identities, and an approved region.
+The production foundation and Dashboard are deployed. Before enabling
+Scheduler, build and deploy the pinned-model Job from
+`containers/job.Dockerfile`, measure its cold-start time and peak memory on
+Cloud Run, execute one lowest-cost manual validation, and verify the durable run
+record and database output. Then create the two Scheduler triggers and complete
+the launch-verification checklist.
 
-Before enabling Scheduler, measure the pinned-model Job cold-start time and peak
-memory on Cloud Run, execute one lowest-cost manual validation, and verify the
-durable run record. Manual Dashboard execution remains disabled in the first
-release; enabling it later requires a Cloud Run Jobs dispatcher, distributed
-action idempotency, verified IAP identity, and CSRF protection.
+Manual Dashboard execution remains disabled in the first release; enabling it
+later requires a Cloud Run Jobs dispatcher, distributed action idempotency,
+verified IAP identity, and CSRF protection.
 
 Deployment templates and role-specific production preflights are implemented
 and tested. Rendering them is offline and does not authorize applying them.
