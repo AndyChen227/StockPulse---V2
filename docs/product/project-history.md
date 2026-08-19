@@ -1,12 +1,12 @@
 # StockPulse Project History / StockPulse 项目历程
 
-> Snapshot: 2026-08-18
+> Snapshot: 2026-08-19
 >
 > Repository: [AndyChen227/StockPulse---V2](https://github.com/AndyChen227/StockPulse---V2)
 >
-> Scope: merged work through pull request #32
+> Scope: merged work through pull request #34 plus the 2026-08-19 production deployment record
 >
-> Cloud state: no Google Cloud resources have been created
+> Cloud state: production foundation and IAP-protected Dashboard deployed; pipeline Job and Scheduler pending
 
 This is the durable engineering record for StockPulse. It separates completed implementation, validation evidence, approved decisions, and remaining work. The English record appears first; the complete Chinese record follows.
 
@@ -22,7 +22,7 @@ The product is deliberately narrow: one symbol, one discussion source, controlle
 
 ## 2. Current milestone
 
-The repository has completed the full pre-cloud engineering path:
+The repository has completed the pre-cloud engineering path and the first production deployment phase:
 
 - The local end-to-end application works with SQLite.
 - The Dashboard and read API work against stored history.
@@ -31,9 +31,11 @@ The repository has completed the full pre-cloud engineering path:
 - Production configuration fails safely when incomplete.
 - Deployment templates are rendered offline and reject mutable or unsafe inputs.
 - Two weekday schedules are encoded for 09:15 and 18:00 Eastern.
-- The pre-console architecture, cost, IAM, backup, and rollback plan is owner-approved.
+- The project, cost controls, IAM, secrets, Artifact Registry, and Cloud SQL foundation are provisioned in `us-west1`.
+- The Dashboard is live on Cloud Run with direct IAP and managed Cloud SQL connectivity.
+- Historical SQLite migration was skipped because no local snapshot was found.
 
-The project is **cloud-ready, not cloud-deployed**. The next step is real Google Cloud provisioning with the owner present.
+The project is **partially deployed**. The next step is to build and deploy the AI pipeline Cloud Run Job, validate one bounded manual run, then create Scheduler triggers and complete launch verification.
 
 ## 3. Milestone timeline
 
@@ -71,6 +73,9 @@ The project is **cloud-ready, not cloud-deployed**. The next step is real Google
 | [#30](https://github.com/AndyChen227/StockPulse---V2/pull/30) | Documentation refresh | Rebuilt the English-first bilingual README, project plan, history, and documentation index |
 | [#31](https://github.com/AndyChen227/StockPulse---V2/pull/31) | Repository navigation | Added the repository file map and local directory guides; the later layout correction removes the conflicting `.github/README.md` |
 | [#32](https://github.com/AndyChen227/StockPulse---V2/pull/32) | Repository organization | Restored the product README, grouped configuration and container files, updated every runtime reference, and added layout regression tests |
+| [#33](https://github.com/AndyChen227/StockPulse---V2/pull/33) | Documentation organization | Organized documentation by product, architecture, analysis, operations, reference, and decision domains |
+| [#34](https://github.com/AndyChen227/StockPulse---V2/pull/34) | Dashboard redesign | Delivered the TSLA telemetry-inspired production Dashboard visual system |
+| [`48bfb15`](https://github.com/AndyChen227/StockPulse---V2/commit/48bfb15) | Production deployment record | Recorded the live Dashboard, deployed Google Cloud foundation, skipped SQLite migration, and remaining Job/Scheduler work |
 
 ## 4. End-to-end behavior today
 
@@ -100,9 +105,9 @@ Each change is checked across five surfaces:
 
 The current local result is 121 tests and 37 subtests passed, with 8 PostgreSQL integration tests intentionally skipped locally and executed in CI.
 
-### Cloud path prepared but not yet executed
+### Cloud path partially executed
 
-The repository can render reviewed service, Job, and Scheduler artifacts after real project values and owner approval are supplied. It has not authenticated to a Google Cloud project, created resources, uploaded images, read secrets, migrated production data, or incurred Google Cloud charges.
+The production project and supporting resources now exist, the Dashboard image has been published and deployed, and Cloud SQL is the live service datastore. Secret values remain outside Git. No SQLite production import occurred because no local source snapshot was available.
 
 ## 5. Major engineering decisions
 
@@ -168,26 +173,16 @@ The browser collection control is visible but locked. Production configuration r
 - Recovery: daily backups, seven-day PITR, deletion protection, restore drill
 - Scheduling: weekdays 09:15 and 18:00 Eastern, two jobs, no retries
 - Budget: USD 20 monthly alerts at 50%, 80%, and 100%
-- Credits: use the USD 300 Welcome Credit only if the authenticated Billing page confirms eligibility
+- Credits: USD 300 Google Cloud trial credit confirmed and attached
 - First release: manual Dashboard collection remains locked
 
-## 9. Remaining path to deployment
+## 9. Remaining path to launch completion
 
-1. Confirm Welcome Credit eligibility and billing-account status in the console.
-2. Create a dedicated Google Cloud project and attach billing.
-3. Create the budget alerts before sustained resources.
-4. Confirm calculator pricing and approve the final monthly estimate.
-5. Enable only required APIs and create separate least-privilege service accounts.
-6. Create Secret Manager entries without exposing values in Git, chat, screenshots, or shell history.
-7. Create Cloud SQL, its application database/user, backups, PITR, and deletion protection.
-8. Build and push both images; record immutable `sha256` digests.
-9. Render and inspect the deployment bundle using real non-secret identifiers.
-10. Deploy the private service and unscheduled Job.
-11. Run preflight, health, database, migration, and one bounded manual pipeline verification.
-12. Create both Scheduler triggers only after the Job succeeds.
-13. Enable owner-only IAP access, verify unauthenticated denial, and test Dashboard history.
-14. Complete backup restore, rollback, logging, and budget-alert verification.
-15. Record the live URL, resource inventory, release digest, and operating instructions.
+1. Build and publish the AI pipeline image from `containers/job.Dockerfile`.
+2. Deploy the pipeline as an unscheduled Cloud Run Job with its dedicated identity and scoped secrets.
+3. Run one bounded pipeline Job manually and inspect database, run-history, log, cost-limit, timeout, memory, and idempotency evidence.
+4. Create both Scheduler triggers only after the manual Job succeeds.
+5. Verify scheduled operation, Dashboard data, restore, rollback, observability, and cost evidence.
 
 ---
 
@@ -201,7 +196,7 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 
 ## 2. 当前里程碑
 
-仓库已经完成正式上云前的整套工程准备：
+仓库已经完成正式上云前的整套工程准备和第一阶段生产部署：
 
 - 使用 SQLite 的本地端到端应用可以运行。
 - Dashboard 和只读 API 可以读取完整历史。
@@ -210,9 +205,11 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 - 生产配置不完整时会安全地提前失败。
 - 部署模板完全离线渲染，并拒绝可变或不安全的输入。
 - 已编码工作日美东 09:15 与 18:00 两个时间计划。
-- 控制台操作前的架构、成本、IAM、备份和回滚方案已由所有者批准。
+- 项目、成本控制、IAM、Secret、Artifact Registry 和 Cloud SQL 基础设施已在 `us-west1` 配置完成。
+- Dashboard 已在 Cloud Run 上线，并配置直接 IAP 和托管 Cloud SQL 连接。
+- 因未找到本地快照，历史 SQLite 迁移已跳过。
 
-项目目前是**已经具备上云条件，但尚未上云**。下一步是在所有者参与下配置真实 Google Cloud 资源。
+项目目前是**部分完成生产部署**。下一步是构建并部署 AI 流水线 Cloud Run Job，手动验证一次有界运行，然后创建 Scheduler 触发器并完成最终上线验收。
 
 ## 3. 里程碑时间线
 
@@ -250,6 +247,9 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 | [#30](https://github.com/AndyChen227/StockPulse---V2/pull/30) | 文档更新 | 重建英语在前的双语 README、项目计划、项目历程和文档导航 |
 | [#31](https://github.com/AndyChen227/StockPulse---V2/pull/31) | 仓库导航 | 增加文件地图和目录说明；后续布局修复会删除冲突的 `.github/README.md` |
 | [#32](https://github.com/AndyChen227/StockPulse---V2/pull/32) | 仓库整理 | 恢复产品 README，归类配置与容器文件，更新所有运行引用，并加入布局回归测试 |
+| [#33](https://github.com/AndyChen227/StockPulse---V2/pull/33) | 文档整理 | 按产品、架构、分析、运维、参考和决策领域整理文档 |
+| [#34](https://github.com/AndyChen227/StockPulse---V2/pull/34) | Dashboard 重构 | 交付 TSLA 遥测风格的生产 Dashboard 视觉系统 |
+| [`48bfb15`](https://github.com/AndyChen227/StockPulse---V2/commit/48bfb15) | 生产部署记录 | 记录已上线 Dashboard、Google Cloud 基础设施、跳过的 SQLite 迁移和待完成的 Job/Scheduler |
 
 ## 4. 当前端到端能力
 
@@ -273,9 +273,9 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 
 当前本地结果为 121 项测试及 37 项子测试通过；另有 8 项 PostgreSQL 集成测试按设计在本地跳过、由 CI 执行。
 
-### 已准备但尚未执行的云端流程
+### 已部分执行的云端流程
 
-填写真实项目值并获得所有者批准后，仓库可以渲染经过审查的服务、Job 和 Scheduler 文件。它尚未登录 Google Cloud 项目、创建资源、上传镜像、读取 Secret、迁移生产数据或产生 Google Cloud 费用。
+生产项目及其配套资源已经存在，Dashboard 镜像已发布并部署，Cloud SQL 已成为线上服务数据库。Secret 值仍保留在 Git 之外。因为没有可用的本地源快照，本次没有执行 SQLite 生产导入。
 
 ## 5. 主要工程决策
 
@@ -319,23 +319,13 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 - 恢复：每日备份、7 天时间点恢复、删除保护和恢复演练
 - 时间：工作日美东 09:15 与 18:00，两个任务、不重试
 - 预算：每月 20 美元，在 50%、80%、100% 提醒
-- 赠金：仅在已登录 Billing 页面确认符合条件时使用 300 美元 Welcome Credit
+- 赠金：已确认并关联 300 美元 Google Cloud 试用额度
 - 首版：Dashboard 手动采集继续锁定
 
-## 9. 部署前剩余步骤
+## 9. 完成上线的剩余步骤
 
-1. 在控制台确认 Welcome Credit 与 Billing 账号状态。
-2. 创建专用 Google Cloud 项目并关联 Billing。
-3. 在持续性资源之前先创建预算提醒。
-4. 确认价格计算器结果并批准最终月度估算。
-5. 只启用必要 API，并创建相互分离的最小权限服务账号。
-6. 创建 Secret Manager 条目，不在 Git、聊天、截图或命令历史中暴露值。
-7. 创建 Cloud SQL、应用数据库/用户、备份、PITR 和删除保护。
-8. 构建并上传两个镜像，记录不可变 `sha256` 摘要。
-9. 使用真实的非敏感标识渲染并检查部署包。
-10. 部署私有服务和暂不定时的 Job。
-11. 执行预检、健康、数据库、迁移和一次有界手动流水线验证。
-12. 只有 Job 成功后才创建两个 Scheduler 触发器。
-13. 启用仅所有者 IAP，验证匿名访问被拒绝，并检查 Dashboard 历史。
-14. 完成备份恢复、回滚、日志和预算提醒验证。
-15. 记录线上 URL、资源清单、发布摘要和日常运维说明。
+1. 从 `containers/job.Dockerfile` 构建并发布 AI 流水线镜像。
+2. 使用专用身份和限定范围的 Secret，部署暂不定时的 Cloud Run Job。
+3. 手动执行一次有界 Job，检查数据库、运行历史、日志、成本限制、超时、内存和幂等性证据。
+4. 只有手动 Job 成功后才创建两个 Scheduler 触发器。
+5. 验证计划运行、Dashboard 数据、恢复、回滚、可观测性和成本证据。

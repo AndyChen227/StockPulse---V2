@@ -222,13 +222,14 @@ history, screenshots, or this runbook.
 
 ## 5. Backup and recovery policy
 
-First release proposal:
+First release policy:
 
 - automated daily backup
 - point-in-time recovery with seven-day initial log retention
 - on-demand backup before every destructive schema or data migration
 - deletion protection enabled
-- final pre-migration SQLite file retained read-only outside the container
+- retain any future approved SQLite migration source read-only outside the
+  container; this launch had no source snapshot
 - logical PostgreSQL export after launch verification and on a documented
   schedule
 - restore drill before declaring launch complete
@@ -300,8 +301,8 @@ record and external Apify run identifier first.
 Prefer forward-compatible application rollback when the schema is backward
 compatible. Before destructive changes, take an on-demand backup. For data
 loss, restore to a new Cloud SQL instance, validate it privately, then switch
-both service and job together. Keep the final SQLite snapshot read-only during
-the rollback window.
+both service and job together. If a future migration uses a SQLite snapshot,
+keep that source read-only during the rollback window.
 
 ### Cost emergency
 
@@ -337,8 +338,9 @@ Approved on 2026-08-17:
 - weekday collection at 9:15 AM and 6:00 PM in `America/New_York`
 - two Scheduler jobs with no automatic retries
 - manual Dashboard collection remains locked for the first release
-- use eligible $300/90-day Welcome Credit while retaining all cost controls
+- use the confirmed USD 300 trial credit while retaining all cost controls
 
-Before resource creation, the authenticated console must still confirm Welcome
-Credit eligibility, the dedicated project ID, billing attachment, and the live
-region-specific price estimate. Approval does not authorize secret disclosure.
+The authenticated console confirmed the dedicated project, billing attachment,
+and USD 300 trial credit during provisioning. The USD 20 budget alerts and all
+other cost controls remain active. Deployment approval never authorizes secret
+disclosure.

@@ -1,8 +1,9 @@
 # Cloud Run service preparation
 
 StockPulse has separate container images for the Dashboard/read API and the
-pinned-model analysis pipeline. Cloud readiness is implemented and validated;
-these files do not provision or deploy Google Cloud resources.
+pinned-model analysis pipeline. The Dashboard image is deployed to Cloud Run;
+the AI pipeline image and Cloud Run Job are the next deployment step. Container
+definitions themselves do not provision Google Cloud resources.
 
 ## Service image
 
@@ -67,36 +68,37 @@ The Dashboard is then available at `http://localhost:8080`.
 The default image has no historical database. Its liveness endpoint and UI can
 start, while `/api/v1/ready` correctly reports that durable data is not ready.
 
-## Production boundary
+## Production state and boundary
 
-Do not deploy this image as the final production service with SQLite as its
-source of truth. A Cloud Run instance filesystem is disposable and cannot hold
-shared history. The image contains the complete PostgreSQL repository and
-driver needed for the approved Cloud SQL direction. Production still requires:
+The production Dashboard uses Cloud SQL PostgreSQL rather than its disposable
+container filesystem. It is deployed with a dedicated service account, scoped
+database secret access, the managed Cloud SQL connection, production runtime
+configuration, and direct IAP. The live UI has been verified.
 
-1. verified SQLite export and PostgreSQL import
-2. Secret Manager integration and a dedicated service account
-3. authentication for the Dashboard and action endpoints
-4. backup, restore, logging, and rollback procedures
-5. explicit approval before provisioning resources with recurring cost
+Historical SQLite import was skipped because no local source snapshot was
+found. The remaining production boundary is the pipeline Job: build the image
+from `containers/job.Dockerfile`, deploy it with the pipeline identity and only
+its required secrets, then validate one bounded run before enabling Scheduler.
 
 Apify credentials, local `.env` files, raw snapshots, SQLite files, tests, and
 development artifacts are excluded from the container build context.
 
 ## Deployment gate
 
-The first real Cloud Run deployment should happen only after migration and
-authentication are verified and the user has approved the Google Cloud project,
-region, access policy, and expected cost. Until then, this image is a
-reproducible deployment artifact and CI smoke-test target.
+The Dashboard deployment gate has passed: project, region, cost controls,
+database, secrets, authentication, and service readiness are configured. The
+Job gate remains open until its image is published, the unscheduled Job is
+deployed, and one bounded manual run succeeds. Scheduler must not be enabled
+before that evidence exists.
 
 Reviewed, offline-rendered service, Job, and Scheduler contracts now live under
 [`deploy/`](../../deploy/README.md). The renderer rejects mutable image tags,
 unversioned secrets, unapproved regions, and configurations without a recorded
 owner decision. Rendering never contacts Google Cloud; applying the output is a
-separate deployment action performed only after the full pre-console review.
+separate deployment action performed only through the approved rollout.
 
 PostgreSQL configuration, bounded pooling, ordered schema migrations, and the
 full shared read/write repository contract are implemented and tested against
-PostgreSQL 17 in CI. The service is not switched to PostgreSQL until historical
-data migration verification passes. See [PostgreSQL implementation](postgresql.md).
+PostgreSQL 17 in CI. The deployed service now uses PostgreSQL. Historical data
+migration was not applicable because no SQLite snapshot was available. See
+[PostgreSQL implementation](postgresql.md).

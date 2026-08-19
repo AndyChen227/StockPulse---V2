@@ -48,11 +48,12 @@ invented sample data. Collection is still a separate, explicit command.
 
 ## Remaining work before and after cloud launch
 
+- The Dashboard is live on Cloud Run with direct IAP and Cloud SQL PostgreSQL.
+- Historical migration was skipped because no local SQLite snapshot was found;
+  visible production history will begin after successful pipeline runs.
 - Review the interface with representative production history and refine chart
   and table details after an observation period
 - Add a focused run-detail view for error and retry information
-- Configure owner-only IAP authentication in the real Google Cloud project
-- Migrate approved history into the implemented PostgreSQL repository
-- Add deployment-time security headers, monitoring, restore, and rollback checks
+- Complete monitoring, restore, and rollback checks
 - Add verified IAP identity, CSRF protection, cloud Job dispatch, and distributed
   idempotency before unlocking bounded, confirmed collection actions

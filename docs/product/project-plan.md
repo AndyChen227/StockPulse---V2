@@ -1,8 +1,8 @@
 # StockPulse Product and Delivery Plan / StockPulse 产品与交付计划
 
-> Last updated: 2026-08-18
+> Last updated: 2026-08-19
 >
-> Status: pre-cloud engineering complete; Google Cloud deployment pending
+> Status: production foundation and Dashboard deployed; pipeline Job and Scheduler pending
 > Product target: a private, cost-controlled Google Cloud Dashboard with complete history
 
 This is the source of truth for present status, remaining priorities, and launch acceptance. Historical implementation detail belongs in [Project History](project-history.md). English appears first; Chinese follows.
@@ -28,7 +28,7 @@ The product does not predict prices, trade, or provide financial advice.
 | 5. Product API | Read APIs, filters, pagination, guarded actions | Read path complete; browser write action locked |
 | 6. Dashboard | Responsive overview, trends, messages, and run history | Complete for first read-only release |
 | 7. Cloud readiness | PostgreSQL, containers, pipeline, preflight, deployment contracts | Complete and CI-validated |
-| 8. Google Cloud launch | Real resources, migration, IAP, schedule, operations | **Next milestone** |
+| 8. Google Cloud launch | Real resources, migration decision, IAP, schedule, operations | **In progress: Dashboard live; Job and Scheduler pending** |
 | 9. Post-launch hardening | Observation, threshold calibration, alerts, action enablement | Pending after stable launch |
 
 ## 3. First-release user experience
@@ -61,35 +61,27 @@ Manual collection remains visibly locked. The initial production system is opera
 
 ## 5. Exact next steps
 
-### Gate A — account and cost
+### Completed production foundation
 
-1. Confirm Google Cloud Welcome Credit and billing-account eligibility.
-2. Create a dedicated project and attach billing.
-3. Create budget alerts before sustained resources.
-4. Confirm a region-specific Pricing Calculator estimate.
+1. [x] Created `stockpulse-production` under the `uw.edu` organization and attached billing with the USD 300 trial credit.
+2. [x] Configured the USD 20 budget alerts, enabled required APIs, and created the service, pipeline, and Scheduler service accounts.
+3. [x] Created the `stockpulse` Artifact Registry repository in `us-west1`.
+4. [x] Provisioned Cloud SQL PostgreSQL 17 with the approved database, least-privilege role/user, backups, PITR, and deletion protection.
+5. [x] Created narrowly scoped database and Apify secrets.
+6. [x] Built and deployed the Dashboard image with Cloud SQL runtime settings and direct IAP, then verified that the UI is live.
+7. [x] Closed the history-migration gate: no local SQLite snapshot was found, so migration was skipped and no placeholder history was manufactured.
 
-### Gate B — identity and data
+### Next — pipeline validation
 
-5. Enable only required APIs.
-6. Create separate service, pipeline, and Scheduler service accounts.
-7. Create database and Apify secrets with narrow version access.
-8. Create Cloud SQL with the approved recovery controls.
+8. [ ] Build the AI image from `containers/job.Dockerfile` and publish an immutable image reference.
+9. [ ] Deploy the pipeline as an unscheduled Cloud Run Job using `stockpulse-pipeline` and only its required secrets.
+10. [ ] Execute one bounded manual run and verify its database writes, durable run record, logs, timeout, memory, idempotency, and paid collection limits.
 
-### Gate C — release
+### Then — automation and final verification
 
-9. Build service and Job images and record immutable digests.
-10. Render and review the deployment bundle.
-11. Deploy the private service and an unscheduled Job.
-12. Run production preflight and database readiness.
-13. Preview and execute the history migration if source data is approved.
-14. Execute one bounded pipeline run and inspect all outputs.
-
-### Gate D — automation and operations
-
-15. Create both Scheduler jobs only after manual Job validation.
-16. Verify IAP allow/deny behavior and the complete Dashboard.
-17. Verify logs, budget notifications, backup restore, and rollback.
-18. Record the production URL, resource inventory, image digests, and operating notes.
+11. [ ] Create both Scheduler jobs only after the manual Job passes.
+12. [ ] Verify scheduled execution, duplicate-run protection, Dashboard data, structured logs, budget notifications, backup restore, and rollback.
+13. [ ] Record immutable image references and final operating evidence without recording secrets, credentials, or private URLs.
 
 ## 6. Launch definition of done
 
@@ -150,7 +142,7 @@ StockPulse 将成为一个私有、可解释的 TSLA 投资者情绪监测产品
 | 5. 产品 API | 读取接口、筛选、分页和受保护操作 | 读取完成；浏览器写操作锁定 |
 | 6. Dashboard | 响应式概览、趋势、消息和运行历史 | 首个只读版本已完成 |
 | 7. 云端准备 | PostgreSQL、容器、流水线、预检和部署契约 | 已完成并通过 CI |
-| 8. Google Cloud 上线 | 真实资源、迁移、IAP、计划任务和运维 | **下一里程碑** |
+| 8. Google Cloud 上线 | 真实资源、迁移决策、IAP、计划任务和运维 | **进行中：Dashboard 已上线；Job 和 Scheduler 待完成** |
 | 9. 上线后加固 | 观察、阈值校准、提醒和操作解锁 | 稳定上线后进行 |
 
 ## 3. 首个版本的用户体验
@@ -183,35 +175,27 @@ StockPulse 将成为一个私有、可解释的 TSLA 投资者情绪监测产品
 
 ## 5. 准确的下一步
 
-### 阶段 A：账号与成本
+### 已完成的生产基础设施
 
-1. 确认 Google Cloud Welcome Credit 和 Billing 账号资格。
-2. 创建专用项目并关联 Billing。
-3. 在创建持续资源前设置预算提醒。
-4. 确认对应区域的价格计算器估算。
+1. [x] 已在 `uw.edu` 组织下创建 `stockpulse-production`，关联 Billing 和 300 美元试用额度。
+2. [x] 已配置 20 美元预算提醒、启用必要 API，并创建服务、流水线和 Scheduler 服务账号。
+3. [x] 已在 `us-west1` 创建 `stockpulse` Artifact Registry 仓库。
+4. [x] 已创建 Cloud SQL PostgreSQL 17、应用数据库、最小权限角色/用户，并启用备份、PITR 和删除保护。
+5. [x] 已创建并按使用者范围授权数据库和 Apify Secret。
+6. [x] 已构建并部署 Dashboard 镜像，配置 Cloud SQL、生产运行环境和直接 IAP，并验证 UI 已上线。
+7. [x] 已关闭历史迁移门槛：未找到本地 SQLite 快照，因此跳过迁移，且不制造占位历史数据。
 
-### 阶段 B：身份与数据
+### 下一步：流水线验证
 
-5. 只启用必要 API。
-6. 分别创建服务、流水线和 Scheduler 服务账号。
-7. 创建数据库和 Apify Secret，并严格限制版本访问权限。
-8. 按已批准的恢复策略创建 Cloud SQL。
+8. [ ] 从 `containers/job.Dockerfile` 构建 AI 镜像并发布不可变镜像引用。
+9. [ ] 使用 `stockpulse-pipeline` 及其必需 Secret，部署暂不定时的 Cloud Run Job。
+10. [ ] 手动执行一次有明确上限的运行，验证数据库写入、持久运行记录、日志、超时、内存、幂等性和付费采集限制。
 
-### 阶段 C：发布
+### 然后：自动化与最终验证
 
-9. 构建服务与 Job 镜像，记录不可变摘要。
-10. 渲染并审查部署包。
-11. 部署私有服务和暂不定时的 Job。
-12. 执行生产预检与数据库就绪检查。
-13. 如果源数据获得批准，预览并执行历史迁移。
-14. 执行一次有界流水线，并检查全部结果。
-
-### 阶段 D：自动化与运维
-
-15. 只有手动 Job 验证成功后才创建两个 Scheduler 任务。
-16. 验证 IAP 允许/拒绝行为和完整 Dashboard。
-17. 验证日志、预算通知、备份恢复和回滚。
-18. 记录生产 URL、资源清单、镜像摘要和运维说明。
+11. [ ] 只有手动 Job 成功后才创建两个 Scheduler 任务。
+12. [ ] 验证计划执行、防重复运行、Dashboard 数据、结构化日志、预算提醒、备份恢复和回滚。
+13. [ ] 记录不可变镜像引用和最终运维证据，但不记录 Secret、凭证或私有 URL。
 
 ## 6. 上线完成标准
 

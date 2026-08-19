@@ -4,6 +4,11 @@ These files prepare the first Google Cloud release without creating or changing
 any cloud resource. They follow the official Cloud Run service and Job YAML
 schemas and the Cloud Scheduler Jobs API trigger pattern.
 
+> Production status — 2026-08-19: the Dashboard is deployed with Cloud SQL and
+> direct IAP. The pipeline Job and Scheduler are not yet deployed. These
+> templates remain the reviewed contract for reproducibility, audit, rollback,
+> and the remaining Job/Scheduler rollout.
+
 ## Safety gate
 
 Copy `config.example.json` to an untracked file outside the repository only

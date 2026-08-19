@@ -47,7 +47,7 @@ StockPulse is an informational monitoring tool. It does **not** predict prices, 
 | Analysis | Pinned Twitter-RoBERTa sentiment, versioned topics, explainable anomaly rules |
 | History | Messages, runs, metrics, topics, anomalies, versions, errors, and external IDs |
 | Local database | SQLite |
-| Production database | Cloud SQL for PostgreSQL 17 contract implemented and integration-tested |
+| Production database | Cloud SQL for PostgreSQL 17 deployed and connected to the live Dashboard |
 | Web product | Responsive FastAPI Dashboard with overview, trends, messages, and run history |
 | Cloud target | Private Cloud Run service + Cloud Run Job + two Scheduler jobs + Cloud SQL |
 | Deployment status | Production foundation and IAP-protected Dashboard live; pipeline Job and Scheduler pending |
@@ -176,7 +176,7 @@ At the current milestone, the local run reports **121 tests and 37 subtests pass
 
 ## Approved first cloud release
 
-The owner-approved pre-console plan is:
+The deployed first-release configuration and remaining boundaries are:
 
 | Decision | Approved value |
 |---|---|
@@ -187,10 +187,10 @@ The owner-approved pre-console plan is:
 | Backups | Daily backup, 7-day PITR, deletion protection, restore drill |
 | Schedule | Weekdays 09:15 and 18:00 `America/New_York`; no retries |
 | Budget | USD 20 monthly alert budget at 50%, 80%, and 100% |
-| Credits | Use an eligible Google Cloud USD 300 Welcome Credit if shown in Billing |
+| Credits | USD 300 Google Cloud trial credit confirmed and attached |
 | Manual collection | Locked in the first release |
 
-Credit eligibility is account-specific and must be confirmed in the authenticated Google Cloud console. A budget alert warns about spend; it does not automatically cap or stop resources.
+The trial credit and billing attachment were confirmed in the authenticated Google Cloud console. A budget alert warns about spend; it does not automatically cap or stop resources.
 
 Follow [Google Cloud Launch Runbook](docs/operations/google-cloud-runbook.md) in order. Rendering deployment files is offline and does not create resources; applying them is a separate owner-approved action.
 
@@ -264,7 +264,7 @@ StockPulse 只提供信息监测，不预测股价、不执行交易，也不构
 | 分析 | 固定版本的 Twitter-RoBERTa、版本化话题和可解释异常规则 |
 | 历史 | 消息、任务、指标、话题、异常、版本、错误和外部运行 ID |
 | 本地数据库 | SQLite |
-| 生产数据库 | Cloud SQL for PostgreSQL 17；契约已实现并完成集成测试 |
+| 生产数据库 | Cloud SQL for PostgreSQL 17 已部署并连接线上 Dashboard |
 | Web 产品 | 响应式 FastAPI Dashboard，包含概览、趋势、消息和运行历史 |
 | 云端目标 | 私有 Cloud Run 服务 + Cloud Run Job + 两个 Scheduler 任务 + Cloud SQL |
 | 部署状态 | 生产基础设施和受 IAP 保护的 Dashboard 已上线；流水线 Job 和 Scheduler 待完成 |
@@ -393,7 +393,7 @@ python -m compileall -q src tests
 
 ## 已批准的首个云端版本方案
 
-进入控制台前，所有者已经批准：
+首个云端版本已经部署的配置和剩余边界如下：
 
 | 决策 | 已批准值 |
 |---|---|
@@ -404,10 +404,10 @@ python -m compileall -q src tests
 | 备份 | 每日备份、7 天时间点恢复、删除保护和恢复演练 |
 | 计划 | 工作日 `America/New_York` 09:15 与 18:00，不自动重试 |
 | 预算 | 每月 20 美元提醒预算，阈值 50%、80%、100% |
-| 赠金 | 如果 Billing 页面确认符合条件，则使用 300 美元 Google Cloud Welcome Credit |
+| 赠金 | 已确认并关联 300 美元 Google Cloud 试用额度 |
 | 手动采集 | 首个版本继续锁定 |
 
-赠金额度取决于具体账号，必须在已登录的 Google Cloud 控制台确认。预算提醒只负责告警，不会自动限制或停止支出。
+试用额度和 Billing 关联已在登录后的 Google Cloud 控制台确认。预算提醒只负责告警，不会自动限制或停止支出。
 
 部署必须按顺序遵循 [Google Cloud 上线运行手册](docs/operations/google-cloud-runbook.md)。渲染部署文件是完全离线的，不会创建资源；应用这些文件属于另一项需要所有者明确批准的操作。
 

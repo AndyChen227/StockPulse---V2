@@ -1,8 +1,9 @@
 # PostgreSQL implementation
 
-StockPulse keeps SQLite as the zero-cost local backend and uses the implemented
-PostgreSQL repository as the production contract. No Cloud SQL resource was
-needed to validate the configuration, schema, reads, writes, and migration.
+StockPulse keeps SQLite as the zero-cost local backend and uses PostgreSQL as
+the production system of record. The live Dashboard connects to Cloud SQL for
+PostgreSQL 17 in `stockpulse-production` through the managed Cloud Run
+integration and a bounded application pool.
 
 ## Current foundation
 
@@ -37,7 +38,7 @@ The default remains:
 STOCKPULSE_DATABASE_BACKEND=sqlite
 ```
 
-Future PostgreSQL deployments will provide the following values through runtime
+Production PostgreSQL deployments provide the following values through runtime
 configuration and Secret Manager, not a committed `.env` file:
 
 ```text
@@ -58,6 +59,11 @@ SQLite remains the zero-cost default.
 
 ## Historical data migration
 
+The migration tool remains available for any approved SQLite source. For the
+first production launch, no local `stockpulse.db` snapshot was found, so this
+step was intentionally skipped. Production history begins with new pipeline
+runs; no placeholder data should be manufactured.
+
 Preview the source inventory without connecting to or writing PostgreSQL:
 
 ```powershell
@@ -77,11 +83,18 @@ verification share one transaction, so a failed verification rolls back the
 entire attempt. Primary-key conflicts are skipped, making a verified rerun
 idempotent.
 
-## Remaining production sequence
+## Current production state and remaining sequence
 
-1. Validate the migration against the final production snapshot and record the
-   verification report.
-2. Create the approved Secret Manager and Cloud SQL resources and supply the
-   existing runtime configuration through narrowly scoped identities.
-3. Run production readiness, import, query, backup, restore, and rollback
-   checks.
+Completed:
+
+- Cloud SQL PostgreSQL 17 Enterprise, `db-f1-micro`, single-zone, 10 GB SSD
+- application database `stockpulse` and least-privilege role/user
+- backups, PITR, deletion protection, and managed Cloud Run connectivity
+- database URL secret access scoped to the service identities that require it
+- Dashboard PostgreSQL readiness and live UI verification
+
+Remaining:
+
+1. Deploy the pipeline Cloud Run Job and validate one bounded write path.
+2. Verify the resulting messages, metrics, topics, anomalies, and run history.
+3. Complete backup restore, rollback, and ongoing operational checks.
