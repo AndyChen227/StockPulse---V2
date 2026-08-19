@@ -10,10 +10,23 @@
 <body>
   <a class="skip-link" href="#main-content">Skip to dashboard</a>
   <div class="app-shell">
+    <div class="space-atmosphere" aria-hidden="true">
+      <div class="star-field"></div>
+      <div class="horizon-grid"></div>
+      <svg class="background-rocket" viewBox="0 0 300 820" role="presentation">
+        <path class="rocket-halo" d="M150 22C82 155 70 302 91 503h118c21-201 9-348-59-481Z"/>
+        <path class="rocket-body" d="M150 22c-52 99-65 217-44 443h88c21-226 8-344-44-443Z"/>
+        <path class="rocket-body" d="M107 336 54 463v92l60-46M193 336l53 127v92l-60-46M123 465l-16 95h86l-16-95"/>
+        <ellipse class="rocket-window" cx="150" cy="186" rx="22" ry="34"/>
+        <path class="rocket-flame flame-one" d="M125 562c2 102 23 176 25 226 2-50 23-124 25-226Z"/>
+        <path class="rocket-flame flame-two" d="M139 562c1 72 10 126 11 164 1-38 10-92 11-164Z"/>
+      </svg>
+      <div class="cursor-aura"></div>
+    </div>
     <aside class="sidebar" aria-label="Primary navigation">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">SP</span>
-        <div><strong>StockPulse</strong><small>Market intelligence</small></div>
+        <span class="brand-mark" aria-hidden="true"><i></i></span>
+        <div><strong>StockPulse</strong><small>Mobility intelligence</small></div>
       </div>
       <nav>
         <a class="nav-link active" href="#overview"><span>01</span> Overview</a>
@@ -29,10 +42,23 @@
 
     <main id="main-content">
       <header class="topbar">
-        <div>
-          <div class="market-line"><p class="eyebrow">TSLA / SOCIAL SENTIMENT</p><span class="live-chip">Live workspace</span></div>
-          <h1>Market intelligence</h1>
-          <p class="subtitle">Sentiment, discussion drivers, and pipeline health in one operational view.</p>
+        <div class="hero-copy">
+          <div class="market-line"><p class="eyebrow">TESLA, INC. / NASDAQ: TSLA</p><span class="live-chip">Live intelligence</span></div>
+          <h1>Stock<span>Pulse.</span></h1>
+          <div class="analysis-identity"><strong>TSLA STOCK ANALYSIS</strong><i></i><span>Social sentiment · market signals · anomaly detection</span></div>
+          <p class="subtitle">A focused intelligence cockpit for understanding the conversation moving Tesla stock.</p>
+        </div>
+        <div class="hero-vehicle" aria-hidden="true">
+          <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+          <svg viewBox="0 0 520 150" role="presentation">
+            <path class="speed-line line-a" d="M8 105h185"/><path class="speed-line line-b" d="M42 124h118"/>
+            <path class="vehicle-glow" d="M145 105c27-2 53-6 78-22l40-28c17-11 37-17 58-17h44c17 0 31 6 43 17l41 38 40 10c13 3 23 14 23 28H113c3-14 14-24 32-26Z"/>
+            <path class="vehicle-line" d="M112 130h37c5-23 23-38 48-38 24 0 43 15 48 38h139c5-23 23-38 48-38 24 0 43 15 48 38h37M145 105c27-2 53-6 78-22l40-28c17-11 37-17 58-17h44c17 0 31 6 43 17l41 38 40 10"/>
+            <path class="vehicle-line thin" d="M255 61h145M316 39l-24 55M389 43l23 49"/>
+            <circle class="wheel" cx="197" cy="130" r="24"/><circle class="wheel-hub" cx="197" cy="130" r="7"/>
+            <circle class="wheel" cx="432" cy="130" r="24"/><circle class="wheel-hub" cx="432" cy="130" r="7"/>
+          </svg>
+          <div class="telemetry"><span>ELECTRIC ERA</span><strong>∞</strong><small>signal horizon</small></div>
         </div>
         <div class="toolbar" aria-label="Dashboard controls">
           <label class="field compact"><span>Range</span>
@@ -43,7 +69,7 @@
               <option value="all">All history</option>
             </select>
           </label>
-          <button class="button secondary" id="refresh-button" type="button">Refresh data</button>
+          <button class="button secondary scan-button" id="refresh-button" type="button"><i aria-hidden="true"></i><span>Refresh data</span></button>
           <button class="button primary locked" type="button" disabled title="Available after authentication and confirmation controls">Run collection <span>Locked</span></button>
         </div>
       </header>
@@ -51,15 +77,30 @@
       <div id="global-error" class="alert error" role="alert" hidden></div>
 
       <section id="overview" aria-labelledby="overview-title">
+        <svg class="overview-launch-system" viewBox="0 0 1200 470" aria-hidden="true" role="presentation">
+          <g class="launch-plume"><path d="M993 240c83 22 137 52 197 105-78-25-143-27-215-16Z"/><path d="M985 252c57 33 91 66 120 116-46-27-88-39-143-40Z"/></g>
+          <g class="launch-craft">
+            <path class="craft-shell" d="M194 254 308 176h503l143 62-143 64H308Z"/>
+            <path class="craft-shell" d="m194 254-72-46v92Z"/>
+            <path class="craft-detail" d="M308 176v126M355 176v126M756 176v126M811 176v126M255 214h605M255 274h605"/>
+            <path class="craft-detail dash" d="M391 197h330M391 281h330"/>
+            <path class="craft-fin" d="m686 176 95-79h70l-40 79M686 302l95 78h70l-40-78"/>
+            <path class="craft-fin" d="m355 176-52-67h-48l53 67M355 302l-52 66h-48l53-66"/>
+            <ellipse class="craft-port" cx="491" cy="238" rx="46" ry="28"/><ellipse class="craft-port" cx="603" cy="238" rx="46" ry="28"/>
+            <path class="craft-core" d="M473 238h148M547 212v52"/>
+            <path class="engine" d="m811 192 154 21v50l-154 23ZM965 213l47 9v32l-47 9"/>
+          </g>
+          <g class="launch-label"><path d="M472 142v-35h148"/><circle cx="472" cy="142" r="4"/><text x="628" y="111">TSLA SIGNAL LAUNCH SYSTEM</text><text x="628" y="128">SOCIAL TELEMETRY / LIVE</text></g>
+        </svg>
         <div class="section-heading">
           <div><p class="eyebrow">LIVE SNAPSHOT</p><h2 id="overview-title">Overview</h2></div>
           <p id="freshness" class="freshness">Loading latest data…</p>
         </div>
         <div class="metric-grid">
-          <article class="metric-card hero-metric"><span>Sentiment score</span><strong id="sentiment-score">—</strong><small id="sentiment-label">Awaiting data</small></article>
-          <article class="metric-card"><span>Discussion volume</span><strong id="message-volume">—</strong><small>Analyzed messages</small></article>
-          <article class="metric-card"><span>Average confidence</span><strong id="confidence">—</strong><small id="low-confidence">— low-confidence</small></article>
-          <article class="metric-card anomaly-card"><span>Anomaly status</span><strong id="anomaly-status">—</strong><small id="anomaly-summary">Awaiting evaluation</small></article>
+          <article class="metric-card hero-metric" data-tilt><div class="metric-index">01 / SENTIMENT DRIVE</div><div class="metric-copy"><span>Sentiment score</span><strong id="sentiment-score">—</strong><small id="sentiment-label">Awaiting data</small></div><svg class="instrument sentiment-dial" viewBox="0 0 150 150" aria-hidden="true"><circle class="dial-track" cx="75" cy="75" r="57"/><circle class="dial-progress" cx="75" cy="75" r="57"/><g class="dial-ticks"><path d="M75 8v10M109 17l-5 9M133 42l-9 5M142 75h-10M133 108l-9-5M109 133l-5-9M41 133l5-9M17 108l9-5M8 75h10M17 42l9 5M41 17l5 9"/></g><path class="dial-needle" d="m75 75 35-24"/><circle class="dial-hub" cx="75" cy="75" r="7"/><text x="75" y="122">−1  NEUTRAL  +1</text></svg></article>
+          <article class="metric-card" data-tilt><div class="metric-index">02 / DISCUSSION ARRAY</div><div class="metric-copy"><span>Discussion volume</span><strong id="message-volume">—</strong><small>Analyzed messages</small></div><svg class="instrument signal-array" viewBox="0 0 150 150" aria-hidden="true"><path class="scope-grid" d="M17 30h116M17 60h116M17 90h116M17 120h116M30 17v116M60 17v116M90 17v116M120 17v116"/><path class="signal-line" d="M12 90h14l7-29 10 56 12-38 10 11h13l8-51 11 78 10-42 9 15h22"/><circle class="signal-node" cx="86" cy="39" r="4"/><text x="18" y="145">LIVE INPUT / Hz</text></svg></article>
+          <article class="metric-card" data-tilt><div class="metric-index">03 / MODEL LOCK</div><div class="metric-copy"><span>Average confidence</span><strong id="confidence">—</strong><small id="low-confidence">— low-confidence</small></div><svg class="instrument lock-target" viewBox="0 0 150 150" aria-hidden="true"><circle cx="75" cy="75" r="54"/><circle cx="75" cy="75" r="39"/><circle cx="75" cy="75" r="22"/><path d="M75 8v28M75 114v28M8 75h28M114 75h28"/><path class="target-bracket" d="M35 50V35h15M100 35h15v15M115 100v15h-15M50 115H35v-15"/><circle class="target-core" cx="75" cy="75" r="6"/><text x="75" y="101">LOCKED</text></svg></article>
+          <article class="metric-card anomaly-card" data-tilt><div class="metric-index">04 / ANOMALY RADAR</div><div class="metric-copy"><span>Anomaly status</span><strong id="anomaly-status">—</strong><small id="anomaly-summary">Awaiting evaluation</small></div><svg class="instrument anomaly-radar" viewBox="0 0 150 150" aria-hidden="true"><circle cx="75" cy="75" r="57"/><circle cx="75" cy="75" r="39"/><circle cx="75" cy="75" r="20"/><path d="M75 18v114M18 75h114M35 35l80 80M115 35l-80 80"/><path class="radar-beam" d="M75 75 44 27a57 57 0 0 1 63 1Z"/><circle class="radar-contact contact-one" cx="103" cy="54" r="3"/><circle class="radar-contact contact-two" cx="49" cy="93" r="2"/></svg></article>
         </div>
         <div class="sentiment-strip" aria-label="Current sentiment distribution">
           <div class="strip-label"><span>Bullish</span><strong id="bullish-count">—</strong></div>
@@ -75,6 +116,7 @@
             <div class="panel-head"><div><h3>Sentiment & volume</h3><p>Daily score and analyzed discussion</p></div><div class="legend"><span><i class="line-key"></i>Sentiment</span><span><i class="bar-key"></i>Volume</span></div></div>
             <div id="chart-empty" class="empty-state" hidden>No historical metrics in this range.</div>
             <canvas id="trend-chart" role="img" aria-label="Daily sentiment and message volume chart"></canvas>
+            <div id="chart-tooltip" class="chart-tooltip" hidden></div>
           </article>
           <article class="panel topics-panel">
             <div class="panel-head"><div><h3>Discussion drivers</h3><p>Most active topics in the current taxonomy</p></div></div>
