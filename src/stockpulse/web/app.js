@@ -1,8 +1,9 @@
-const state = { days: 30, messageCursor: null, messageHasMore: false, failedRunsOnly: false, metrics: [] };
+const state = { days: 30, messageCursor: null, messageHasMore: false, failedRunsOnly: false, metrics: [], chartPoints: [] };
 const $ = (id) => document.getElementById(id);
 
 document.addEventListener("DOMContentLoaded", () => {
   setupMotion();
+  setupExperience();
   $("range-select").addEventListener("change", (event) => {
     state.days = event.target.value === "all" ? null : Number(event.target.value);
     loadDashboard();
@@ -25,6 +26,41 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("resize", debounce(() => drawTrendChart(state.metrics), 120));
   loadDashboard();
 });
+
+function setupExperience() {
+  const aura = document.querySelector(".cursor-aura");
+  if (aura && window.matchMedia("(pointer:fine)").matches) {
+    window.addEventListener("pointermove", (event) => {
+      aura.style.left = `${event.clientX}px`;
+      aura.style.top = `${event.clientY}px`;
+    }, { passive: true });
+  }
+
+  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    document.querySelectorAll("[data-tilt]").forEach((card) => {
+      card.addEventListener("pointermove", (event) => {
+        const rect = card.getBoundingClientRect();
+        const x = (event.clientX - rect.left) / rect.width - .5;
+        const y = (event.clientY - rect.top) / rect.height - .5;
+        card.style.transform = `perspective(700px) rotateX(${-y * 4}deg) rotateY(${x * 5}deg) translateY(-3px)`;
+      });
+      card.addEventListener("pointerleave", () => { card.style.transform = ""; });
+    });
+  }
+
+  const sections = [...document.querySelectorAll("main > section[id]")];
+  const links = [...document.querySelectorAll(".nav-link")];
+  const navObserver = new IntersectionObserver((entries) => {
+    const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+    if (!visible) return;
+    links.forEach((link) => link.classList.toggle("active", link.hash === `#${visible.target.id}`));
+  }, { rootMargin: "-20% 0px -65%", threshold: [0, .2, .5] });
+  sections.forEach((section) => navObserver.observe(section));
+
+  const canvas = $("trend-chart");
+  canvas.addEventListener("pointermove", showChartTooltip);
+  canvas.addEventListener("pointerleave", () => { $("chart-tooltip").hidden = true; });
+}
 
 function setupMotion() {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -95,10 +131,10 @@ function renderOverview(data) {
     return;
   }
   const score = Number(metric.sentiment_score || 0);
-  $("sentiment-score").textContent = signed(score);
+  animateMetric($("sentiment-score"), score, signed);
   $("sentiment-label").textContent = score > .1 ? "Bullish direction" : score < -.1 ? "Bearish direction" : "Balanced direction";
-  $("message-volume").textContent = number(metric.analyzed_count);
-  $("confidence").textContent = percent(metric.average_confidence);
+  animateMetric($("message-volume"), Number(metric.analyzed_count || 0), (value) => number(Math.round(value)));
+  animateMetric($("confidence"), Number(metric.average_confidence || 0), percent);
   $("low-confidence").textContent = `${number(metric.low_confidence_count)} low-confidence`;
   $("bullish-count").textContent = number(metric.bullish_count);
   $("bearish-count").textContent = number(metric.bearish_count);
@@ -221,7 +257,7 @@ function renderRuns(rows) {
 function drawTrendChart(rows) {
   const canvas = $("trend-chart");
   const empty = $("chart-empty");
-  if (!rows.length) { canvas.hidden = true; empty.hidden = false; return; }
+  if (!rows.length) { canvas.hidden = true; empty.hidden = false; state.chartPoints = []; return; }
   canvas.hidden = false; empty.hidden = true;
   const rect = canvas.getBoundingClientRect();
   const ratio = Math.min(window.devicePixelRatio || 1, 2);
@@ -243,15 +279,32 @@ function drawTrendChart(rows) {
     ctx.fillStyle = "rgba(127,151,143,.18)";
     ctx.fillRect(pad.left + index * step + step * .18, pad.top + chartH - barH, Math.max(2, step * .64), barH);
   });
-  ctx.strokeStyle = "#6ea8fe"; ctx.lineWidth = 2; ctx.beginPath();
+  const lineGradient = ctx.createLinearGradient(pad.left, 0, width - pad.right, 0);
+  lineGradient.addColorStop(0, "#f04444"); lineGradient.addColorStop(.55, "#ff7272"); lineGradient.addColorStop(1, "#8ebdff");
+  ctx.strokeStyle = lineGradient; ctx.lineWidth = 2; ctx.beginPath();
+  state.chartPoints = [];
   rows.forEach((row, index) => {
     const x = pad.left + step * (index + .5);
     const y = pad.top + (1 - (Number(row.sentiment_score || 0) + 1) / 2) * chartH;
+    state.chartPoints.push({ x, y, row });
     index ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
   });
   ctx.stroke();
+  state.chartPoints.forEach(({ x, y }) => { ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fillStyle = "#f4f7fb"; ctx.fill(); });
   const labels = rows.length > 4 ? [0, Math.floor((rows.length - 1) / 2), rows.length - 1] : rows.map((_, i) => i);
   labels.forEach((index) => { const text = String(rows[index].stat_date).slice(5); const x = pad.left + step * (index + .5); ctx.fillStyle = "#6f837c"; ctx.fillText(text, x - 13, height - 7); });
+}
+
+function showChartTooltip(event) {
+  if (!state.chartPoints.length) return;
+  const canvas = $("trend-chart"), rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const point = state.chartPoints.reduce((best, candidate) => Math.abs(candidate.x - x) < Math.abs(best.x - x) ? candidate : best);
+  const tooltip = $("chart-tooltip");
+  tooltip.innerHTML = `<strong>${escapeHtml(formatDate(point.row.stat_date))}</strong>Sentiment ${escapeHtml(signed(point.row.sentiment_score))}<br>${escapeHtml(number(point.row.analyzed_count))} messages`;
+  tooltip.style.left = `${point.x}px`;
+  tooltip.style.top = `${point.y + 64}px`;
+  tooltip.hidden = false;
 }
 
 function populateTopicFilter(rows) {
@@ -275,7 +328,18 @@ function title(value) { return String(value || "").replaceAll("_", " ").replace(
 function duration(start, end) { if (!start || !end) return "In progress"; const seconds = Math.max(0, (new Date(end) - new Date(start)) / 1000); return seconds < 60 ? `${Math.round(seconds)}s` : `${Math.round(seconds / 60)}m`; }
 function safeUrl(value) { try { const url = new URL(value); return url.protocol === "https:" ? url.href : ""; } catch { return ""; } }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char])); }
-function setBusy(value) { $("refresh-button").disabled = value; $("refresh-button").textContent = value ? "Refreshing…" : "Refresh data"; }
+function animateMetric(element, target, formatter) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { element.textContent = formatter(target); return; }
+  const start = performance.now(), durationMs = 650;
+  const frame = (now) => {
+    const progress = Math.min(1, (now - start) / durationMs);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    element.textContent = formatter(target * eased);
+    if (progress < 1) requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+function setBusy(value) { const button = $("refresh-button"); button.disabled = value; button.classList.toggle("is-busy", value); button.querySelector("span").textContent = value ? "Scanning…" : "Refresh data"; }
 function showError(message) { const box = $("global-error"); box.hidden = false; box.textContent = message; }
 function clearError() { $("global-error").hidden = true; $("global-error").textContent = ""; }
 function debounce(fn, delay) { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay); }; }
