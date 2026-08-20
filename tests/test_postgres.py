@@ -18,7 +18,10 @@ from stockpulse.postgres import (  # noqa: E402
     apply_postgres_migrations,
     create_postgres_pool,
 )
-from stockpulse.postgres_repository import PostgresDashboardRepository  # noqa: E402
+from stockpulse.postgres_repository import (  # noqa: E402
+    PostgresDashboardRepository,
+    PostgresRepository,
+)
 
 
 class FakeResult:
@@ -52,6 +55,34 @@ class FakeConnection:
 
 
 class PostgresFoundationTests(unittest.TestCase):
+    def test_pipeline_guard_holds_and_releases_one_session_lock(self) -> None:
+        connection = MagicMock()
+        connection.execute.side_effect = [
+            FakeResult({"acquired": True}),
+            FakeResult(),
+        ]
+        pool = MagicMock()
+        pool.connection.return_value.__enter__.return_value = connection
+
+        with PostgresRepository(pool).pipeline_guard() as acquired:
+            self.assertTrue(acquired)
+
+        self.assertIn("pg_try_advisory_lock", connection.execute.call_args_list[0].args[0])
+        self.assertIn("pg_advisory_unlock", connection.execute.call_args_list[1].args[0])
+        connection.commit.assert_called_once()
+
+    def test_pipeline_guard_reports_an_existing_holder_without_unlocking(self) -> None:
+        connection = MagicMock()
+        connection.execute.return_value = FakeResult({"acquired": False})
+        pool = MagicMock()
+        pool.connection.return_value.__enter__.return_value = connection
+
+        with PostgresRepository(pool).pipeline_guard() as acquired:
+            self.assertFalse(acquired)
+
+        self.assertEqual(connection.execute.call_count, 1)
+        connection.commit.assert_not_called()
+
     def test_migrations_are_ordered_and_use_native_postgres_types(self) -> None:
         self.assertEqual(
             [migration.version for migration in POSTGRES_MIGRATIONS],

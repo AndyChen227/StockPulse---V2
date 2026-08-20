@@ -6,6 +6,7 @@ from typing import Any
 
 POSTGRES_SCHEMA_VERSION = 6
 MIGRATION_LOCK_ID = 7_389_241_106
+PIPELINE_LOCK_ID = 7_389_241_107
 
 
 @dataclass(frozen=True)

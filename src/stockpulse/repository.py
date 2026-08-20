@@ -1,8 +1,9 @@
 """Storage contracts shared by local SQLite and future PostgreSQL backends."""
 
 from dataclasses import dataclass
+from contextlib import nullcontext
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, ContextManager, Protocol
 
 from stockpulse.storage import (
     MessageAnalysis,
@@ -38,6 +39,8 @@ class StockPulseRepository(Protocol):
     """Persistence operations required by current application workflows."""
 
     def store_messages(self, messages: list[dict[str, Any]]) -> StorageResult: ...
+
+    def pipeline_guard(self) -> ContextManager[bool]: ...
 
     def get_daily_stats(self) -> list[dict[str, Any]]: ...
 
@@ -141,6 +144,11 @@ class SQLiteRepository:
     """Local repository backed by one SQLite database file."""
 
     database_path: Path
+
+    def pipeline_guard(self) -> ContextManager[bool]:
+        """Local workflows do not need the production PostgreSQL guard."""
+
+        return nullcontext(True)
 
     def store_messages(self, messages: list[dict[str, Any]]) -> StorageResult:
         return store_messages(messages, database_path=self.database_path)

@@ -3,12 +3,13 @@
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from contextlib import contextmanager
 import json
-from typing import Any
+from typing import Any, Iterator
 from uuid import UUID, uuid4
 
 from stockpulse.anomaly import AnomalyResult
-from stockpulse.postgres import POSTGRES_SCHEMA_VERSION
+from stockpulse.postgres import PIPELINE_LOCK_ID, POSTGRES_SCHEMA_VERSION
 from stockpulse.storage import (
     MessageAnalysis,
     MessageTopic,
@@ -28,6 +29,26 @@ class PostgresRepository:
     """Complete repository implementation backed by a bounded Psycopg pool."""
 
     pool: Any
+
+    @contextmanager
+    def pipeline_guard(self) -> Iterator[bool]:
+        """Hold one session-level lock across the paid production pipeline."""
+
+        with self.pool.connection() as connection:
+            row = connection.execute(
+                "SELECT pg_try_advisory_lock(%s) AS acquired",
+                (PIPELINE_LOCK_ID,),
+            ).fetchone()
+            acquired = bool(_value(row, "acquired", 0))
+            try:
+                yield acquired
+            finally:
+                if acquired:
+                    connection.execute(
+                        "SELECT pg_advisory_unlock(%s)",
+                        (PIPELINE_LOCK_ID,),
+                    )
+                    connection.commit()
 
     def store_messages(self, messages: list[dict[str, Any]]) -> StorageResult:
         validate_messages(messages)

@@ -14,6 +14,10 @@ from stockpulse.storage import MessageAnalysis, MessageTopic, RunResult, save_ra
 from stockpulse.topics import TOPIC_ANALYSIS_VERSION, extract_topics
 
 
+class PipelineAlreadyRunningError(RuntimeError):
+    """Raised before collection when another production pipeline holds the lock."""
+
+
 def run_daily_pipeline(
     repository: StockPulseRepository,
     settings: Settings,
@@ -26,6 +30,36 @@ def run_daily_pipeline(
     raw_writer: Callable[..., Path] = save_raw_messages,
 ) -> str:
     """Collect and materialize all current-version daily analytics once."""
+
+    with repository.pipeline_guard() as acquired:
+        if not acquired:
+            raise PipelineAlreadyRunningError(
+                "Another StockPulse pipeline is already running; collection was not started."
+            )
+        return _run_daily_pipeline_unlocked(
+            repository,
+            settings,
+            output_dir=output_dir,
+            analysis_limit=analysis_limit,
+            topic_limit=topic_limit,
+            collector=collector,
+            analyzer_factory=analyzer_factory,
+            raw_writer=raw_writer,
+        )
+
+
+def _run_daily_pipeline_unlocked(
+    repository: StockPulseRepository,
+    settings: Settings,
+    *,
+    output_dir: Path,
+    analysis_limit: int,
+    topic_limit: int,
+    collector: Callable[[Settings], CollectionBatch],
+    analyzer_factory: Callable[..., Any],
+    raw_writer: Callable[..., Path],
+) -> str:
+    """Run the pipeline after its cross-execution guard has been acquired."""
 
     analysis_version = build_analysis_version(
         settings.sentiment_model,

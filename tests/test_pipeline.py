@@ -1,6 +1,7 @@
 """Tests for the complete bounded daily pipeline."""
 
 from pathlib import Path
+from contextlib import nullcontext
 import sys
 from types import SimpleNamespace
 import unittest
@@ -11,7 +12,10 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from stockpulse.collector.apify_client import CollectionBatch  # noqa: E402
 from stockpulse.config import Settings  # noqa: E402
-from stockpulse.pipeline import run_daily_pipeline  # noqa: E402
+from stockpulse.pipeline import (  # noqa: E402
+    PipelineAlreadyRunningError,
+    run_daily_pipeline,
+)
 from stockpulse.sentiment import (  # noqa: E402
     DEFAULT_MODEL_NAME, DEFAULT_MODEL_REVISION, SentimentResult,
     build_analysis_version,
@@ -22,6 +26,7 @@ from stockpulse.storage import PendingMessage, RunResult, TopicCandidate  # noqa
 class DailyPipelineTests(unittest.TestCase):
     def test_pipeline_materializes_every_stage_and_records_one_run(self) -> None:
         repository = MagicMock()
+        repository.pipeline_guard.return_value = nullcontext(True)
         repository.start_run.return_value = "pipeline-run-1"
         repository.store_messages.return_value = SimpleNamespace(inserted=1, duplicates=0)
         repository.get_unanalyzed_messages.return_value = [
@@ -68,6 +73,7 @@ class DailyPipelineTests(unittest.TestCase):
 
     def test_pipeline_failure_is_audited_and_propagated(self) -> None:
         repository = MagicMock()
+        repository.pipeline_guard.return_value = nullcontext(True)
         repository.start_run.return_value = "pipeline-run-2"
 
         with self.assertRaisesRegex(RuntimeError, "collector failed"):
@@ -85,6 +91,21 @@ class DailyPipelineTests(unittest.TestCase):
                 error_message="collector failed",
             ),
         )
+
+    def test_overlapping_pipeline_stops_before_paid_collection(self) -> None:
+        repository = MagicMock()
+        repository.pipeline_guard.return_value = nullcontext(False)
+        collector = MagicMock()
+
+        with self.assertRaisesRegex(PipelineAlreadyRunningError, "already running"):
+            run_daily_pipeline(
+                repository,
+                Settings(api_token="test-token"),
+                collector=collector,
+            )
+
+        collector.assert_not_called()
+        repository.start_run.assert_not_called()
 
 
 if __name__ == "__main__":
