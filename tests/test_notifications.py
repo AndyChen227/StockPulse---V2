@@ -13,10 +13,12 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from stockpulse.anomaly import evaluate_anomaly  # noqa: E402
 from stockpulse.config import Settings  # noqa: E402
 from stockpulse.notifications import (  # noqa: E402
+    NotificationTestError,
     SMTPEmailSender,
     anomaly_alert_email,
     daily_summary_email,
     failure_alert_email,
+    send_notification_smoke_test,
     should_send_daily_summary,
 )
 from stockpulse.repository import SQLiteRepository  # noqa: E402
@@ -123,6 +125,41 @@ class NotificationTests(unittest.TestCase):
         self.assertTrue(
             should_send_daily_summary(self.settings, datetime(2026, 8, 20, 15, 0))
         )
+
+    def test_smoke_tests_are_obvious_and_use_detailed_alert_templates(self) -> None:
+        for kind, expected in (
+            ("anomaly", "Evidence"),
+            ("failure", "Failed stage: notification smoke test"),
+        ):
+            with self.subTest(kind=kind):
+                sender = MagicMock()
+                send_notification_smoke_test(
+                    self.settings,
+                    kind,
+                    sender=sender,
+                )
+
+                subject = sender.send.call_args.kwargs["subject"]
+                body = sender.send.call_args.kwargs["body"]
+                self.assertTrue(subject.startswith("[TEST] [StockPulse"))
+                self.assertTrue(body.startswith("TEST ONLY"))
+                self.assertIn(expected, body)
+
+    def test_smoke_test_transport_failure_is_secret_safe(self) -> None:
+        sender = MagicMock()
+        sender.send.side_effect = RuntimeError("application-secret")
+
+        with self.assertRaisesRegex(
+            NotificationTestError,
+            "Test email delivery failed: RuntimeError",
+        ) as context:
+            send_notification_smoke_test(
+                self.settings,
+                "failure",
+                sender=sender,
+            )
+
+        self.assertNotIn("application-secret", str(context.exception))
 
     def test_delivery_key_is_claimed_once_and_failed_send_can_retry(self) -> None:
         with TemporaryDirectory() as directory:

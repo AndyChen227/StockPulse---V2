@@ -8,7 +8,7 @@ from email.message import EmailMessage
 import smtplib
 from typing import Any, Protocol
 
-from stockpulse.anomaly import AnomalyResult
+from stockpulse.anomaly import AnomalyResult, evaluate_anomaly
 from stockpulse.config import Settings
 
 
@@ -16,6 +16,10 @@ class EmailSender(Protocol):
     """Small interface that keeps SMTP out of pipeline tests."""
 
     def send(self, *, subject: str, body: str) -> None: ...
+
+
+class NotificationTestError(RuntimeError):
+    """Raised when an explicit notification smoke test cannot be delivered."""
 
 
 @dataclass(frozen=True)
@@ -44,6 +48,70 @@ class SMTPEmailSender:
                 self.settings.smtp_app_password,
             )
             client.send_message(message)
+
+
+def send_notification_smoke_test(
+    settings: Settings,
+    kind: str,
+    *,
+    sender: EmailSender | None = None,
+) -> None:
+    """Send an obvious test alert without Apify, database access, or deduplication."""
+
+    if kind not in {"anomaly", "failure"}:
+        raise ValueError("Notification test kind must be 'anomaly' or 'failure'.")
+    if not settings.has_email_config:
+        raise ValueError("Email delivery is not fully configured.")
+
+    run_id = "notification-smoke-test"
+    if kind == "anomaly":
+        metrics = [
+            {
+                "stat_date": f"2026-08-{day:02d}",
+                "analysis_version": "notification-test",
+                "analyzed_count": 10,
+                "sentiment_score": 0.0,
+            }
+            for day in range(1, 8)
+        ] + [
+            {
+                "stat_date": "2026-08-08",
+                "analysis_version": "notification-test",
+                "analyzed_count": 25,
+                "sentiment_score": -0.5,
+            }
+        ]
+        subject, body = anomaly_alert_email(
+            settings=settings,
+            run_id=run_id,
+            result=evaluate_anomaly(metrics),
+        )
+    else:
+        subject, body = failure_alert_email(
+            settings=settings,
+            run_id=run_id,
+            stage="notification smoke test",
+            error=RuntimeError("Synthetic failure used to verify alert delivery."),
+            run_counts={
+                "messages": 0,
+                "inserted": 0,
+                "duplicates": 0,
+                "analyzed": 0,
+            },
+            external_run_id=None,
+        )
+
+    test_subject = f"[TEST] {subject}"
+    test_body = (
+        "TEST ONLY — no production anomaly or pipeline failure occurred.\n\n" + body
+    )
+    transport = sender or SMTPEmailSender(settings)
+    try:
+        transport.send(subject=test_subject, body=test_body)
+    except Exception as error:
+        raise NotificationTestError(
+            f"Test email delivery failed: {type(error).__name__}"
+        ) from error
 
 
 def daily_summary_email(

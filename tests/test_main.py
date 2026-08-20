@@ -81,6 +81,34 @@ class MainTests(unittest.TestCase):
         self.assertIn("configuration is valid", output)
         self.assertNotIn("database-secret", output)
 
+    def test_notification_smoke_test_skips_database_and_apify(self) -> None:
+        settings = Settings(
+            environment="production",
+            database_backend="postgresql",
+            database_url="postgresql://user:database-secret@db/stockpulse",
+            email_enabled=True,
+            smtp_username="owner@gmail.com",
+            smtp_app_password="application-secret",
+            email_from="owner@gmail.com",
+            email_to="owner@gmail.com",
+        )
+        with patch("stockpulse.main.load_settings", return_value=settings), patch(
+            "stockpulse.main.send_notification_smoke_test"
+        ) as notification_mock, patch(
+            "stockpulse.main.create_postgres_pool"
+        ) as pool_mock, patch(
+            "stockpulse.main.SQLiteRepository"
+        ) as sqlite_mock, patch(
+            "stockpulse.main.collect_messages"
+        ) as collect_mock:
+            exit_code = main(["--test-notification", "failure"])
+
+        self.assertEqual(exit_code, 0)
+        notification_mock.assert_called_once_with(settings, "failure")
+        pool_mock.assert_not_called()
+        sqlite_mock.assert_not_called()
+        collect_mock.assert_not_called()
+
     def test_stats_mode_does_not_collect(self) -> None:
         daily_stats = [
             {
