@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 import os
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from dotenv import load_dotenv
 
@@ -37,6 +38,18 @@ class Settings:
     database_pool_max_size: int = 4
     action_api_token: str | None = field(default=None, repr=False)
     environment: str = "development"
+    email_enabled: bool = False
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_timeout_seconds: int = 20
+    smtp_username: str | None = None
+    smtp_app_password: str | None = field(default=None, repr=False)
+    email_from: str | None = None
+    email_to: str | None = None
+    daily_email_after_hour: int = 14
+    email_timezone: str = "America/Los_Angeles"
+    dashboard_url: str | None = None
+    cloud_run_job_url: str | None = None
 
     @property
     def has_api_token(self) -> bool:
@@ -47,6 +60,16 @@ class Settings:
     @property
     def has_action_api_token(self) -> bool:
         return bool(self.action_api_token)
+
+    @property
+    def has_email_config(self) -> bool:
+        return bool(
+            self.email_enabled
+            and self.smtp_username
+            and self.smtp_app_password
+            and self.email_from
+            and self.email_to
+        )
 
 
 def load_settings(
@@ -79,6 +102,27 @@ def load_settings(
     pool_max_text = os.getenv("STOCKPULSE_DATABASE_POOL_MAX_SIZE", "4").strip()
     action_api_token = _clean_secret(os.getenv("STOCKPULSE_ACTION_API_TOKEN"))
     environment = os.getenv("STOCKPULSE_ENVIRONMENT", "development").strip().lower()
+    email_enabled = _parse_bool(
+        os.getenv("STOCKPULSE_EMAIL_ENABLED", "false"),
+        "STOCKPULSE_EMAIL_ENABLED",
+    )
+    smtp_host = os.getenv("STOCKPULSE_SMTP_HOST", "smtp.gmail.com").strip()
+    smtp_port_text = os.getenv("STOCKPULSE_SMTP_PORT", "587").strip()
+    smtp_timeout_text = os.getenv("STOCKPULSE_SMTP_TIMEOUT_SECONDS", "20").strip()
+    smtp_username = _clean_secret(os.getenv("STOCKPULSE_SMTP_USERNAME"))
+    smtp_app_password = _clean_secret(os.getenv("STOCKPULSE_SMTP_APP_PASSWORD"))
+    if smtp_app_password:
+        smtp_app_password = "".join(smtp_app_password.split())
+    email_from = _clean_secret(os.getenv("STOCKPULSE_EMAIL_FROM"))
+    email_to = _clean_secret(os.getenv("STOCKPULSE_EMAIL_TO"))
+    daily_email_hour_text = os.getenv(
+        "STOCKPULSE_DAILY_EMAIL_AFTER_HOUR", "14"
+    ).strip()
+    email_timezone = os.getenv(
+        "STOCKPULSE_EMAIL_TIMEZONE", "America/Los_Angeles"
+    ).strip()
+    dashboard_url = _clean_secret(os.getenv("STOCKPULSE_DASHBOARD_URL"))
+    cloud_run_job_url = _clean_secret(os.getenv("STOCKPULSE_CLOUD_RUN_JOB_URL"))
 
     if environment not in ENVIRONMENTS:
         raise ValueError(
@@ -164,6 +208,42 @@ def load_settings(
     if action_api_token and len(action_api_token) < 32:
         raise ValueError("STOCKPULSE_ACTION_API_TOKEN must contain at least 32 characters.")
 
+    try:
+        smtp_port = int(smtp_port_text)
+        smtp_timeout_seconds = int(smtp_timeout_text)
+        daily_email_after_hour = int(daily_email_hour_text)
+    except ValueError as error:
+        raise ValueError(
+            "SMTP port, timeout, and daily email hour must be whole numbers."
+        ) from error
+    if not 1 <= smtp_port <= 65535:
+        raise ValueError("STOCKPULSE_SMTP_PORT must be between 1 and 65535.")
+    if not 1 <= smtp_timeout_seconds <= 120:
+        raise ValueError("STOCKPULSE_SMTP_TIMEOUT_SECONDS must be between 1 and 120.")
+    if not 0 <= daily_email_after_hour <= 23:
+        raise ValueError("STOCKPULSE_DAILY_EMAIL_AFTER_HOUR must be between 0 and 23.")
+    try:
+        ZoneInfo(email_timezone)
+    except ZoneInfoNotFoundError as error:
+        raise ValueError("STOCKPULSE_EMAIL_TIMEZONE is not a valid timezone.") from error
+    email_values = {
+        "STOCKPULSE_SMTP_USERNAME": smtp_username,
+        "STOCKPULSE_SMTP_APP_PASSWORD": smtp_app_password,
+        "STOCKPULSE_EMAIL_FROM": email_from,
+        "STOCKPULSE_EMAIL_TO": email_to,
+    }
+    if email_enabled:
+        missing = [name for name, value in email_values.items() if not value]
+        if missing:
+            raise ValueError(
+                "Email is enabled but required settings are missing: "
+                + ", ".join(missing)
+            )
+        if "@" not in str(email_from) or "@" not in str(email_to):
+            raise ValueError("Email sender and recipient must be valid email addresses.")
+    if not smtp_host:
+        raise ValueError("STOCKPULSE_SMTP_HOST cannot be empty.")
+
     return Settings(
         api_token=api_token,
         actor_id=actor_id,
@@ -179,6 +259,18 @@ def load_settings(
         database_pool_max_size=database_pool_max_size,
         action_api_token=action_api_token,
         environment=environment,
+        email_enabled=email_enabled,
+        smtp_host=smtp_host,
+        smtp_port=smtp_port,
+        smtp_timeout_seconds=smtp_timeout_seconds,
+        smtp_username=smtp_username,
+        smtp_app_password=smtp_app_password,
+        email_from=email_from,
+        email_to=email_to,
+        daily_email_after_hour=daily_email_after_hour,
+        email_timezone=email_timezone,
+        dashboard_url=dashboard_url,
+        cloud_run_job_url=cloud_run_job_url,
     )
 
 
@@ -215,6 +307,14 @@ def validate_runtime_settings(settings: Settings, role: str) -> tuple[str, ...]:
                 "Production job model and revision must match the model pinned in its image."
             )
         checks.extend(("apify_token=configured", "sentiment_model=pinned"))
+        if settings.email_enabled:
+            if not settings.has_email_config:
+                raise ValueError(
+                    "Production job email delivery is enabled but incomplete."
+                )
+            checks.append("email=enabled")
+        else:
+            checks.append("email=disabled")
     else:
         checks.append(
             "action_api=enabled" if settings.has_action_api_token else "action_api=disabled"
@@ -234,3 +334,12 @@ def _clean_secret(value: str | None) -> str | None:
         return None
 
     return cleaned
+
+
+def _parse_bool(value: str, name: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be true or false.")

@@ -25,6 +25,7 @@ SERVICE_ACCOUNT_PATTERN = re.compile(
     r"^[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z][a-z0-9-]{4,28}[a-z0-9]"
     r"\.iam\.gserviceaccount\.com$"
 )
+EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
 def validate_config(config: dict[str, Any]) -> None:
@@ -45,7 +46,7 @@ def validate_config(config: dict[str, Any]) -> None:
         raise ValueError("project_number must be a numeric Google Cloud project number.")
     if region not in ALLOWED_REGIONS:
         raise ValueError("region must be the reviewed us-west1 or us-west2 value.")
-    if config.get("cloud_sql_connection") != f"{project_id}:{region}:stockpulse-postgres":
+    if config.get("cloud_sql_connection") != f"{project_id}:{region}:stockpulse-db":
         raise ValueError("cloud_sql_connection does not match the reviewed resource name.")
 
     for key in ("service_image", "job_image"):
@@ -68,10 +69,23 @@ def validate_config(config: dict[str, Any]) -> None:
         ):
             raise ValueError(f"{key} must be a service account in the configured project.")
 
-    for key in ("database_secret_version", "apify_secret_version"):
+    for key in (
+        "database_secret_version",
+        "apify_secret_version",
+        "gmail_secret_version",
+    ):
         version = str(config.get(key, ""))
         if not version.isdigit() or int(version) < 1:
             raise ValueError(f"{key} must be a pinned positive numeric version.")
+
+    notification_email = str(config.get("notification_email", ""))
+    if not EMAIL_PATTERN.fullmatch(notification_email) or notification_email.endswith(
+        "@example.com"
+    ):
+        raise ValueError("notification_email must be the approved real mailbox.")
+    dashboard_url = str(config.get("dashboard_url", ""))
+    if not dashboard_url.startswith("https://") or ".run.app" not in dashboard_url:
+        raise ValueError("dashboard_url must be the deployed HTTPS run.app URL.")
 
     schedules = config.get("schedules")
     if not isinstance(schedules, list) or len(schedules) != 2:
@@ -106,6 +120,14 @@ def render(config_path: Path, output_dir: Path) -> tuple[Path, ...]:
         "JOB_IMAGE": str(config["job_image"]),
         "DATABASE_SECRET_VERSION": str(config["database_secret_version"]),
         "APIFY_SECRET_VERSION": str(config["apify_secret_version"]),
+        "GMAIL_SECRET_VERSION": str(config["gmail_secret_version"]),
+        "NOTIFICATION_EMAIL": str(config["notification_email"]),
+        "DASHBOARD_URL": str(config["dashboard_url"]),
+        "CLOUD_RUN_JOB_URL": (
+            "https://console.cloud.google.com/run/jobs/details/"
+            f"{config['region']}/stockpulse-daily-pipeline/executions"
+            f"?project={config['project_id']}"
+        ),
     }
     output_dir.mkdir(parents=True, exist_ok=True)
     rendered: list[Path] = []

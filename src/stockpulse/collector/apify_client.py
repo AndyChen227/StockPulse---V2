@@ -50,7 +50,7 @@ def collect_messages(
             run_input=build_run_input(settings),
             max_items=settings.max_messages,
             max_total_charge_usd=settings.max_total_charge_usd,
-            run_timeout=timedelta(minutes=5),
+            run_timeout=timedelta(seconds=60),
         )
     except (ApifyClientError, RequestError, TimeoutError) as error:
         raise CollectionError(

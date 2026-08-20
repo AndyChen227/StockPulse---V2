@@ -1,8 +1,8 @@
 # Google Cloud launch runbook
 
-> Status: deployment in progress; Dashboard live, pipeline Job not yet deployed
-> Last reviewed: 2026-08-19
-> Current cloud state: production foundation and IAP-protected Dashboard deployed in `stockpulse-production`
+> Status: deployment in progress; Dashboard and pipeline Job live, Scheduler pending
+> Last reviewed: 2026-08-20
+> Current cloud state: IAP-protected Dashboard and manually validated pipeline Job deployed in `stockpulse-production`
 
 This is the source of truth for the first StockPulse cloud release. It records
 the deployed state, remaining work, architecture, cost boundaries, permissions,
@@ -35,10 +35,15 @@ Completed on 2026-08-19:
   protected path
 - skipped historical SQLite migration because no local database snapshot was
   found; production history will begin with new pipeline runs
+- built and deployed `stockpulse-daily-pipeline` from the pinned AI Job image
+- completed one bounded manual Job execution and verified five messages,
+  sentiment analysis, PostgreSQL writes, run history, and successful exit
+- created `stockpulse-gmail-app-password` version 1 and granted only the
+  pipeline service account Secret Accessor permission
 
-**Next step:** build and deploy the AI pipeline Cloud Run Job from
-`containers/job.Dockerfile`, then manually validate one bounded run. Only after
-that run passes, configure Scheduler and complete final launch verification.
+**Next step:** publish and deploy the email-enabled Job image, verify one real
+daily-summary email, then configure Scheduler and complete final launch
+verification.
 
 ## 1. Recommended first-release architecture
 
@@ -214,6 +219,7 @@ Secrets:
 
 - `stockpulse-database-url`
 - `stockpulse-apify-token`
+- `stockpulse-gmail-app-password`
 - action/confirmation secret only if retained after IAP integration
 
 Grant access to individual secret versions only to the identity that consumes
@@ -257,13 +263,13 @@ Reference: https://docs.cloud.google.com/sql/docs/postgres/best-practices
    and production runtime configuration; verify the UI is live.
 10. [x] Resolve historical migration: skipped because no local SQLite snapshot
     was found. Do not manufacture or migrate placeholder history.
-11. [ ] **Next:** build the AI pipeline image from
+11. [x] Build the AI pipeline image from
     `containers/job.Dockerfile`, deploy the Cloud Run Job without a schedule,
     and manually validate one bounded run.
-12. [ ] Validate the manual run's database writes, run record, logs, timeout,
+12. [x] Validate the manual run's database writes, run record, logs, timeout,
     memory use, idempotency, and paid collection limits.
-13. [ ] Create the two weekday Scheduler triggers only after the manual Job
-    passes.
+13. [ ] Deploy and validate Gmail notification delivery, then create the two
+    weekday Scheduler triggers after the email smoke test passes.
 14. [ ] Complete final access, data, backup/restore, observability, and rollback
     verification.
 15. [ ] Enable the guarded Dashboard action only after IAP identity and CSRF
@@ -312,12 +318,11 @@ or deleted. Export required data before any destructive cleanup.
 
 ## 9. Remaining launch gates
 
-The production foundation and Dashboard are deployed. Before enabling
-Scheduler, build and deploy the pinned-model Job from
-`containers/job.Dockerfile`, measure its cold-start time and peak memory on
-Cloud Run, execute one lowest-cost manual validation, and verify the durable run
-record and database output. Then create the two Scheduler triggers and complete
-the launch-verification checklist.
+The production foundation, Dashboard, and pinned-model Job are deployed, and
+one lowest-cost manual execution has passed. Before enabling Scheduler, deploy
+the email-enabled image, verify a real Gmail delivery without exposing its App
+Password, and confirm the notification deduplication migration. Then create the
+two Scheduler triggers and complete the launch-verification checklist.
 
 Manual Dashboard execution remains disabled in the first release; enabling it
 later requires a Cloud Run Jobs dispatcher, distributed action idempotency,

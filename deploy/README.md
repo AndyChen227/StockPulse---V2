@@ -4,10 +4,11 @@ These files prepare the first Google Cloud release without creating or changing
 any cloud resource. They follow the official Cloud Run service and Job YAML
 schemas and the Cloud Scheduler Jobs API trigger pattern.
 
-> Production status — 2026-08-19: the Dashboard is deployed with Cloud SQL and
-> direct IAP. The pipeline Job and Scheduler are not yet deployed. These
-> templates remain the reviewed contract for reproducibility, audit, rollback,
-> and the remaining Job/Scheduler rollout.
+> Production status — 2026-08-20: the Dashboard and bounded pipeline Job are
+> deployed with Cloud SQL; the first manual Job execution succeeded. Gmail
+> notification delivery and the two Scheduler triggers are the remaining
+> rollout work. These templates remain the reviewed contract for reproducible
+> updates, audit, and rollback.
 
 ## Safety gate
 
@@ -41,7 +42,9 @@ unversioned secrets, mismatched Cloud SQL names, and malformed schedules.
 ## First-release boundaries
 
 - The Dashboard service receives the database secret only.
-- The Job receives the database and Apify secrets.
+- The Job receives the database, Apify, and Gmail App Password secrets.
+- Gmail delivery sends one later-run daily summary plus detailed anomaly and
+  failure alerts, with durable duplicate suppression in PostgreSQL.
 - Secret values never enter these files.
 - Manual Dashboard collection remains disabled. Scheduler is the only deployed
   Job trigger until IAP identity propagation, CSRF protection, and distributed

@@ -1,6 +1,8 @@
 """Tests for the complete bounded daily pipeline."""
 
 from pathlib import Path
+from contextlib import nullcontext
+from datetime import datetime
 import sys
 from types import SimpleNamespace
 import unittest
@@ -11,7 +13,10 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from stockpulse.collector.apify_client import CollectionBatch  # noqa: E402
 from stockpulse.config import Settings  # noqa: E402
-from stockpulse.pipeline import run_daily_pipeline  # noqa: E402
+from stockpulse.pipeline import (  # noqa: E402
+    PipelineAlreadyRunningError,
+    run_daily_pipeline,
+)
 from stockpulse.sentiment import (  # noqa: E402
     DEFAULT_MODEL_NAME, DEFAULT_MODEL_REVISION, SentimentResult,
     build_analysis_version,
@@ -22,6 +27,7 @@ from stockpulse.storage import PendingMessage, RunResult, TopicCandidate  # noqa
 class DailyPipelineTests(unittest.TestCase):
     def test_pipeline_materializes_every_stage_and_records_one_run(self) -> None:
         repository = MagicMock()
+        repository.pipeline_guard.return_value = nullcontext(True)
         repository.start_run.return_value = "pipeline-run-1"
         repository.store_messages.return_value = SimpleNamespace(inserted=1, duplicates=0)
         repository.get_unanalyzed_messages.return_value = [
@@ -68,6 +74,7 @@ class DailyPipelineTests(unittest.TestCase):
 
     def test_pipeline_failure_is_audited_and_propagated(self) -> None:
         repository = MagicMock()
+        repository.pipeline_guard.return_value = nullcontext(True)
         repository.start_run.return_value = "pipeline-run-2"
 
         with self.assertRaisesRegex(RuntimeError, "collector failed"):
@@ -84,6 +91,72 @@ class DailyPipelineTests(unittest.TestCase):
                 status="failed", error_type="RuntimeError",
                 error_message="collector failed",
             ),
+        )
+
+    def test_overlapping_pipeline_stops_before_paid_collection(self) -> None:
+        repository = MagicMock()
+        repository.pipeline_guard.return_value = nullcontext(False)
+        collector = MagicMock()
+
+        with self.assertRaisesRegex(PipelineAlreadyRunningError, "already running"):
+            run_daily_pipeline(
+                repository,
+                Settings(api_token="test-token"),
+                collector=collector,
+            )
+
+        collector.assert_not_called()
+        repository.start_run.assert_not_called()
+
+    def test_later_run_sends_one_deduplicated_daily_summary(self) -> None:
+        repository = MagicMock()
+        repository.pipeline_guard.return_value = nullcontext(True)
+        repository.start_run.return_value = "pipeline-run-email"
+        repository.store_messages.return_value = SimpleNamespace(inserted=0, duplicates=1)
+        repository.get_unanalyzed_messages.return_value = []
+        repository.get_topic_candidates.return_value = []
+        repository.get_topic_daily_stats.return_value = []
+        repository.get_ai_daily_stats.return_value = [{
+            "stat_date": "2026-08-20",
+            "analysis_version": "v1",
+            "analyzed_count": 5,
+            "bullish_count": 3,
+            "neutral_count": 2,
+            "bearish_count": 0,
+            "average_confidence": 0.68,
+            "sentiment_score": 0.6,
+        }]
+        repository.claim_notification.return_value = True
+        sender = MagicMock()
+        settings = Settings(
+            api_token="test-token",
+            email_enabled=True,
+            smtp_username="owner@gmail.com",
+            smtp_app_password="application-secret",
+            email_from="owner@gmail.com",
+            email_to="owner@gmail.com",
+        )
+
+        run_daily_pipeline(
+            repository,
+            settings,
+            collector=MagicMock(
+                return_value=CollectionBatch([{"messageId": 1}], "apify-1", "dataset-1")
+            ),
+            raw_writer=MagicMock(return_value=Path("raw.json")),
+            notification_sender=sender,
+            now_factory=lambda: datetime(2026, 8, 20, 15, 0),
+        )
+
+        repository.claim_notification.assert_called_once_with(
+            "daily:TSLA:2026-08-20",
+            "daily_summary",
+            run_id="pipeline-run-email",
+        )
+        sender.send.assert_called_once()
+        self.assertIn("[StockPulse Daily]", sender.send.call_args.kwargs["subject"])
+        repository.finish_notification.assert_called_once_with(
+            "daily:TSLA:2026-08-20", delivered=True
         )
 
 

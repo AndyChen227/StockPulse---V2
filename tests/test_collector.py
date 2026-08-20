@@ -1,6 +1,7 @@
 """Tests for cost-capped Apify collection without making network requests."""
 
 from decimal import Decimal
+from datetime import timedelta
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -89,6 +90,7 @@ class CollectorTests(unittest.TestCase):
         call_kwargs = client.actor_client.call_kwargs or {}
         self.assertEqual(call_kwargs["max_items"], 5)
         self.assertEqual(call_kwargs["max_total_charge_usd"], Decimal("0.05"))
+        self.assertEqual(call_kwargs["run_timeout"], timedelta(seconds=60))
         self.assertEqual(
             call_kwargs["run_input"],
             {

@@ -193,6 +193,32 @@ class SettingsTests(unittest.TestCase):
         self.assertTrue(settings.has_action_api_token)
         self.assertNotIn(secret, repr(settings))
 
+    def test_email_requires_complete_configuration_and_hides_app_password(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"STOCKPULSE_EMAIL_ENABLED": "true"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(ValueError, "required settings are missing"):
+                load_settings(load_env_file=False)
+
+        secret = "gmail-application-password"
+        with patch.dict(
+            os.environ,
+            {
+                "STOCKPULSE_EMAIL_ENABLED": "true",
+                "STOCKPULSE_SMTP_USERNAME": "owner@gmail.com",
+                "STOCKPULSE_SMTP_APP_PASSWORD": secret,
+                "STOCKPULSE_EMAIL_FROM": "owner@gmail.com",
+                "STOCKPULSE_EMAIL_TO": "owner@gmail.com",
+            },
+            clear=True,
+        ):
+            settings = load_settings(load_env_file=False)
+
+        self.assertTrue(settings.has_email_config)
+        self.assertNotIn(secret, repr(settings))
+
 
 if __name__ == "__main__":
     unittest.main()

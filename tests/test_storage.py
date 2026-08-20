@@ -82,7 +82,7 @@ class StorageTests(unittest.TestCase):
                     "SELECT MAX(version) FROM schema_migrations"
                 ).fetchone()[0]
 
-        self.assertEqual(latest, 6)
+        self.assertEqual(latest, 7)
         self.assertTrue(
             {
                 "topic_version",
@@ -218,6 +218,7 @@ class StorageTests(unittest.TestCase):
                 (4, "versioned_message_topics"),
                 (5, "versioned_anomaly_results"),
                 (6, "anomaly_topic_shift_metrics"),
+                (7, "notification_delivery_deduplication"),
             ],
         )
 

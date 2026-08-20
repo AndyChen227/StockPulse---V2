@@ -1,8 +1,9 @@
 """Storage contracts shared by local SQLite and future PostgreSQL backends."""
 
 from dataclasses import dataclass
+from contextlib import nullcontext
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, ContextManager, Protocol
 
 from stockpulse.storage import (
     MessageAnalysis,
@@ -12,6 +13,7 @@ from stockpulse.storage import (
     StorageResult,
     TopicCandidate,
     finish_run,
+    finish_notification,
     check_database_ready,
     get_ai_daily_stats,
     get_anomaly_history,
@@ -25,6 +27,7 @@ from stockpulse.storage import (
     get_topic_summary,
     get_unanalyzed_messages,
     start_run,
+    claim_notification,
     store_message_analyses,
     store_anomaly_results,
     store_messages,
@@ -38,6 +41,8 @@ class StockPulseRepository(Protocol):
     """Persistence operations required by current application workflows."""
 
     def store_messages(self, messages: list[dict[str, Any]]) -> StorageResult: ...
+
+    def pipeline_guard(self) -> ContextManager[bool]: ...
 
     def get_daily_stats(self) -> list[dict[str, Any]]: ...
 
@@ -82,6 +87,14 @@ class StockPulseRepository(Protocol):
     ) -> str: ...
 
     def finish_run(self, run_id: str, result: RunResult) -> None: ...
+
+    def claim_notification(
+        self, dedupe_key: str, kind: str, *, run_id: str | None = None
+    ) -> bool: ...
+
+    def finish_notification(
+        self, dedupe_key: str, *, delivered: bool, error_message: str | None = None
+    ) -> None: ...
 
     def get_run_history(
         self,
@@ -141,6 +154,11 @@ class SQLiteRepository:
     """Local repository backed by one SQLite database file."""
 
     database_path: Path
+
+    def pipeline_guard(self) -> ContextManager[bool]:
+        """Local workflows do not need the production PostgreSQL guard."""
+
+        return nullcontext(True)
 
     def store_messages(self, messages: list[dict[str, Any]]) -> StorageResult:
         return store_messages(messages, database_path=self.database_path)
@@ -229,6 +247,26 @@ class SQLiteRepository:
 
     def finish_run(self, run_id: str, result: RunResult) -> None:
         finish_run(run_id, result, database_path=self.database_path)
+
+    def claim_notification(
+        self, dedupe_key: str, kind: str, *, run_id: str | None = None
+    ) -> bool:
+        return claim_notification(
+            dedupe_key,
+            kind,
+            run_id=run_id,
+            database_path=self.database_path,
+        )
+
+    def finish_notification(
+        self, dedupe_key: str, *, delivered: bool, error_message: str | None = None
+    ) -> None:
+        finish_notification(
+            dedupe_key,
+            delivered=delivered,
+            error_message=error_message,
+            database_path=self.database_path,
+        )
 
     def get_run_history(
         self,
