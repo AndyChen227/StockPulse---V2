@@ -10,7 +10,7 @@ spec:
     metadata:
       annotations:
         run.googleapis.com/cloudsql-instances: "{{CLOUD_SQL_CONNECTION}}"
-        run.googleapis.com/secrets: database-url:projects/{{PROJECT_NUMBER}}/secrets/stockpulse-database-url,apify-token:projects/{{PROJECT_NUMBER}}/secrets/stockpulse-apify-token
+        run.googleapis.com/secrets: database-url:projects/{{PROJECT_NUMBER}}/secrets/stockpulse-database-url,apify-token:projects/{{PROJECT_NUMBER}}/secrets/stockpulse-apify-token,gmail-app-password:projects/{{PROJECT_NUMBER}}/secrets/stockpulse-gmail-app-password
     spec:
       parallelism: 1
       taskCount: 1
@@ -35,6 +35,26 @@ spec:
                   value: "5"
                 - name: APIFY_MAX_TOTAL_CHARGE_USD
                   value: "0.05"
+                - name: STOCKPULSE_EMAIL_ENABLED
+                  value: "true"
+                - name: STOCKPULSE_SMTP_HOST
+                  value: smtp.gmail.com
+                - name: STOCKPULSE_SMTP_PORT
+                  value: "587"
+                - name: STOCKPULSE_SMTP_USERNAME
+                  value: "{{NOTIFICATION_EMAIL}}"
+                - name: STOCKPULSE_EMAIL_FROM
+                  value: "{{NOTIFICATION_EMAIL}}"
+                - name: STOCKPULSE_EMAIL_TO
+                  value: "{{NOTIFICATION_EMAIL}}"
+                - name: STOCKPULSE_DAILY_EMAIL_AFTER_HOUR
+                  value: "14"
+                - name: STOCKPULSE_EMAIL_TIMEZONE
+                  value: America/Los_Angeles
+                - name: STOCKPULSE_DASHBOARD_URL
+                  value: "{{DASHBOARD_URL}}"
+                - name: STOCKPULSE_CLOUD_RUN_JOB_URL
+                  value: "{{CLOUD_RUN_JOB_URL}}"
                 - name: STOCKPULSE_DATABASE_URL
                   valueFrom:
                     secretKeyRef:
@@ -45,6 +65,11 @@ spec:
                     secretKeyRef:
                       key: "{{APIFY_SECRET_VERSION}}"
                       name: apify-token
+                - name: STOCKPULSE_SMTP_APP_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: "{{GMAIL_SECRET_VERSION}}"
+                      name: gmail-app-password
               resources:
                 limits:
                   cpu: "2"

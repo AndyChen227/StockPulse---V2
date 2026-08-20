@@ -180,6 +180,63 @@ class PostgresRepository:
         if cursor.rowcount != 1:
             raise ValueError(f"Run is missing or already finished: {run_id}")
 
+    def claim_notification(
+        self, dedupe_key: str, kind: str, *, run_id: str | None = None
+    ) -> bool:
+        """Claim a stable delivery key, retrying only a prior failed send."""
+
+        if not dedupe_key.strip() or not kind.strip():
+            raise ValueError("Notification key and kind cannot be empty.")
+        with self.pool.connection() as connection:
+            row = connection.execute(
+                """
+                INSERT INTO notification_deliveries (
+                    dedupe_key, kind, status, run_id, claimed_at
+                ) VALUES (%s, %s, 'pending', %s, %s)
+                ON CONFLICT (dedupe_key) DO UPDATE SET
+                    kind = EXCLUDED.kind,
+                    status = 'pending',
+                    run_id = EXCLUDED.run_id,
+                    claimed_at = EXCLUDED.claimed_at,
+                    error_message = NULL
+                WHERE notification_deliveries.status = 'failed'
+                RETURNING dedupe_key
+                """,
+                (dedupe_key, kind, run_id, datetime.now(timezone.utc)),
+            ).fetchone()
+            connection.commit()
+        return row is not None
+
+    def finish_notification(
+        self,
+        dedupe_key: str,
+        *,
+        delivered: bool,
+        error_message: str | None = None,
+    ) -> None:
+        """Mark one claimed email delivered or retryable after a send failure."""
+
+        cleaned_error = " ".join((error_message or "").split())[:1000] or None
+        with self.pool.connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE notification_deliveries
+                SET status=%s, sent_at=%s, error_message=%s
+                WHERE dedupe_key=%s AND status='pending'
+                """,
+                (
+                    "delivered" if delivered else "failed",
+                    datetime.now(timezone.utc) if delivered else None,
+                    None if delivered else cleaned_error,
+                    dedupe_key,
+                ),
+            )
+            connection.commit()
+        if cursor.rowcount != 1:
+            raise ValueError(
+                f"Notification is missing or already finished: {dedupe_key}"
+            )
+
     def check_ready(self) -> bool:
         try:
             with self.pool.connection() as connection:

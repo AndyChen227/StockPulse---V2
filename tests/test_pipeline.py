@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from contextlib import nullcontext
+from datetime import datetime
 import sys
 from types import SimpleNamespace
 import unittest
@@ -106,6 +107,57 @@ class DailyPipelineTests(unittest.TestCase):
 
         collector.assert_not_called()
         repository.start_run.assert_not_called()
+
+    def test_later_run_sends_one_deduplicated_daily_summary(self) -> None:
+        repository = MagicMock()
+        repository.pipeline_guard.return_value = nullcontext(True)
+        repository.start_run.return_value = "pipeline-run-email"
+        repository.store_messages.return_value = SimpleNamespace(inserted=0, duplicates=1)
+        repository.get_unanalyzed_messages.return_value = []
+        repository.get_topic_candidates.return_value = []
+        repository.get_topic_daily_stats.return_value = []
+        repository.get_ai_daily_stats.return_value = [{
+            "stat_date": "2026-08-20",
+            "analysis_version": "v1",
+            "analyzed_count": 5,
+            "bullish_count": 3,
+            "neutral_count": 2,
+            "bearish_count": 0,
+            "average_confidence": 0.68,
+            "sentiment_score": 0.6,
+        }]
+        repository.claim_notification.return_value = True
+        sender = MagicMock()
+        settings = Settings(
+            api_token="test-token",
+            email_enabled=True,
+            smtp_username="owner@gmail.com",
+            smtp_app_password="application-secret",
+            email_from="owner@gmail.com",
+            email_to="owner@gmail.com",
+        )
+
+        run_daily_pipeline(
+            repository,
+            settings,
+            collector=MagicMock(
+                return_value=CollectionBatch([{"messageId": 1}], "apify-1", "dataset-1")
+            ),
+            raw_writer=MagicMock(return_value=Path("raw.json")),
+            notification_sender=sender,
+            now_factory=lambda: datetime(2026, 8, 20, 15, 0),
+        )
+
+        repository.claim_notification.assert_called_once_with(
+            "daily:TSLA:2026-08-20",
+            "daily_summary",
+            run_id="pipeline-run-email",
+        )
+        sender.send.assert_called_once()
+        self.assertIn("[StockPulse Daily]", sender.send.call_args.kwargs["subject"])
+        repository.finish_notification.assert_called_once_with(
+            "daily:TSLA:2026-08-20", delivered=True
+        )
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ from stockpulse.storage import (
     StorageResult,
     TopicCandidate,
     finish_run,
+    finish_notification,
     check_database_ready,
     get_ai_daily_stats,
     get_anomaly_history,
@@ -26,6 +27,7 @@ from stockpulse.storage import (
     get_topic_summary,
     get_unanalyzed_messages,
     start_run,
+    claim_notification,
     store_message_analyses,
     store_anomaly_results,
     store_messages,
@@ -85,6 +87,14 @@ class StockPulseRepository(Protocol):
     ) -> str: ...
 
     def finish_run(self, run_id: str, result: RunResult) -> None: ...
+
+    def claim_notification(
+        self, dedupe_key: str, kind: str, *, run_id: str | None = None
+    ) -> bool: ...
+
+    def finish_notification(
+        self, dedupe_key: str, *, delivered: bool, error_message: str | None = None
+    ) -> None: ...
 
     def get_run_history(
         self,
@@ -237,6 +247,26 @@ class SQLiteRepository:
 
     def finish_run(self, run_id: str, result: RunResult) -> None:
         finish_run(run_id, result, database_path=self.database_path)
+
+    def claim_notification(
+        self, dedupe_key: str, kind: str, *, run_id: str | None = None
+    ) -> bool:
+        return claim_notification(
+            dedupe_key,
+            kind,
+            run_id=run_id,
+            database_path=self.database_path,
+        )
+
+    def finish_notification(
+        self, dedupe_key: str, *, delivered: bool, error_message: str | None = None
+    ) -> None:
+        finish_notification(
+            dedupe_key,
+            delivered=delivered,
+            error_message=error_message,
+            database_path=self.database_path,
+        )
 
     def get_run_history(
         self,

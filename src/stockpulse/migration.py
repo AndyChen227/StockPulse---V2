@@ -13,6 +13,7 @@ from uuid import UUID
 
 from stockpulse.config import load_settings
 from stockpulse.postgres import apply_postgres_migrations, create_postgres_pool
+from stockpulse.storage import CURRENT_SCHEMA_VERSION
 
 
 TABLE_COLUMNS: dict[str, tuple[str, ...]] = {
@@ -128,8 +129,11 @@ def _validate_source(source: sqlite3.Connection) -> None:
     version = source.execute(
         "SELECT COALESCE(MAX(version), 0) FROM schema_migrations"
     ).fetchone()[0]
-    if int(version) != 6:
-        raise ValueError(f"SQLite schema version 6 is required; found {version}.")
+    if int(version) != CURRENT_SCHEMA_VERSION:
+        raise ValueError(
+            f"SQLite schema version {CURRENT_SCHEMA_VERSION} is required; "
+            f"found {version}."
+        )
 
 
 def _insert_rows(target: Any, table: str, rows: list[sqlite3.Row]) -> int:

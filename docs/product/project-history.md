@@ -1,12 +1,12 @@
 # StockPulse Project History / StockPulse 项目历程
 
-> Snapshot: 2026-08-19
+> Snapshot: 2026-08-20
 >
 > Repository: [AndyChen227/StockPulse---V2](https://github.com/AndyChen227/StockPulse---V2)
 >
 > Scope: merged work through pull request #34 plus the 2026-08-19 production deployment record
 >
-> Cloud state: production foundation and IAP-protected Dashboard deployed; pipeline Job and Scheduler pending
+> Cloud state: Dashboard and pipeline Job deployed; manual Job run passed; email rollout and Scheduler pending
 
 This is the durable engineering record for StockPulse. It separates completed implementation, validation evidence, approved decisions, and remaining work. The English record appears first; the complete Chinese record follows.
 
@@ -34,8 +34,13 @@ The repository has completed the pre-cloud engineering path and the first produc
 - The project, cost controls, IAM, secrets, Artifact Registry, and Cloud SQL foundation are provisioned in `us-west1`.
 - The Dashboard is live on Cloud Run with direct IAP and managed Cloud SQL connectivity.
 - Historical SQLite migration was skipped because no local snapshot was found.
+- The bounded pipeline Job is deployed and its first production execution
+  completed successfully with five analyzed messages.
+- Daily summary and detailed anomaly/failure email delivery is implemented and
+  locally validated with durable duplicate suppression; production rollout is
+  pending the updated image.
 
-The project is **partially deployed**. The next step is to build and deploy the AI pipeline Cloud Run Job, validate one bounded manual run, then create Scheduler triggers and complete launch verification.
+The project is **partially deployed**. The next step is to publish the email-enabled Job image, verify one real email, then create Scheduler triggers and complete launch verification.
 
 ## 3. Milestone timeline
 
@@ -103,7 +108,7 @@ Each change is checked across five surfaces:
 4. Pinned-model pipeline Job image build and model-load smoke test
 5. PostgreSQL integration behavior
 
-The current local result is 121 tests and 37 subtests passed, with 8 PostgreSQL integration tests intentionally skipped locally and executed in CI.
+The current local result is 140 tests passed, with 8 PostgreSQL integration tests intentionally skipped locally and executed in CI.
 
 ### Cloud path partially executed
 
@@ -159,7 +164,8 @@ The browser collection control is visible but locked. Production configuration r
 4. The configured Apify cost ceiling is recorded, but actual settled spend is not retrieved into run history.
 5. Raw JSON snapshots are local artifacts; durable cloud archival is not yet specified.
 6. Browser-triggered collection still needs verified IAP identity, CSRF protection, distributed idempotency, and a Cloud Run Jobs dispatcher.
-7. Email/external alert delivery is not implemented. Anomaly detection currently records results for the Dashboard.
+7. Email delivery is implemented but still requires production image rollout
+   and a real Gmail smoke test before Scheduler is enabled.
 8. The initial shared-core Cloud SQL plan has no SLA and is intentionally non-HA.
 9. Production restore, rollback, and incident drills cannot be completed until real resources exist.
 10. Historical price correlation, additional symbols, and additional social sources are outside V1 scope.
@@ -178,10 +184,10 @@ The browser collection control is visible but locked. Production configuration r
 
 ## 9. Remaining path to launch completion
 
-1. Build and publish the AI pipeline image from `containers/job.Dockerfile`.
-2. Deploy the pipeline as an unscheduled Cloud Run Job with its dedicated identity and scoped secrets.
-3. Run one bounded pipeline Job manually and inspect database, run-history, log, cost-limit, timeout, memory, and idempotency evidence.
-4. Create both Scheduler triggers only after the manual Job succeeds.
+1. Commit and publish the email-enabled AI pipeline image.
+2. Update the existing Job with the pinned Gmail secret and non-secret mail settings.
+3. Run one bounded email smoke test and verify daily-summary delivery and deduplication.
+4. Create both Scheduler triggers only after the email smoke test succeeds.
 5. Verify scheduled operation, Dashboard data, restore, rollback, observability, and cost evidence.
 
 ---

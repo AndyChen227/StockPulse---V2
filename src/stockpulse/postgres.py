@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 
-POSTGRES_SCHEMA_VERSION = 6
+POSTGRES_SCHEMA_VERSION = 7
 MIGRATION_LOCK_ID = 7_389_241_106
 PIPELINE_LOCK_ID = 7_389_241_107
 
@@ -161,6 +161,23 @@ POSTGRES_MIGRATIONS = (
         ALTER TABLE anomaly_results ADD COLUMN current_topic_share DOUBLE PRECISION;
         ALTER TABLE anomaly_results ADD COLUMN baseline_topic_share DOUBLE PRECISION;
         ALTER TABLE anomaly_results ADD COLUMN topic_share_shift DOUBLE PRECISION;
+        """,
+    ),
+    PostgresMigration(
+        7,
+        "notification_delivery_deduplication",
+        """
+        CREATE TABLE notification_deliveries (
+            dedupe_key TEXT PRIMARY KEY,
+            kind TEXT NOT NULL,
+            status TEXT NOT NULL,
+            run_id UUID REFERENCES runs(run_id),
+            claimed_at TIMESTAMPTZ NOT NULL,
+            sent_at TIMESTAMPTZ,
+            error_message TEXT
+        );
+        CREATE INDEX idx_notification_deliveries_status
+            ON notification_deliveries(status, claimed_at);
         """,
     ),
 )

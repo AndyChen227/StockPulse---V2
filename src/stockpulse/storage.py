@@ -18,7 +18,7 @@ RUN_ACTIONS = frozenset(
     {"collect", "resume", "analyze", "reanalyze", "topics", "anomalies", "pipeline"}
 )
 RUN_STATUSES = frozenset({"running", "succeeded", "partial", "failed"})
-CURRENT_SCHEMA_VERSION = 6
+CURRENT_SCHEMA_VERSION = 7
 
 
 @dataclass(frozen=True)
@@ -962,6 +962,73 @@ def finish_run(
                 raise ValueError(f"Run is missing or already finished: {run_id}")
 
 
+def claim_notification(
+    dedupe_key: str,
+    kind: str,
+    *,
+    run_id: str | None = None,
+    database_path: Path = Path("data/stockpulse.db"),
+    claimed_at: datetime | None = None,
+) -> bool:
+    """Claim one notification key, allowing a previously failed send to retry."""
+
+    if not dedupe_key.strip() or not kind.strip():
+        raise ValueError("Notification key and kind cannot be empty.")
+    timestamp = (claimed_at or datetime.now(timezone.utc)).isoformat()
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    with closing(sqlite3.connect(database_path)) as connection:
+        with connection:
+            _create_schema(connection)
+            cursor = connection.execute(
+                """
+                INSERT INTO notification_deliveries (
+                    dedupe_key, kind, status, run_id, claimed_at
+                ) VALUES (?, ?, 'pending', ?, ?)
+                ON CONFLICT(dedupe_key) DO UPDATE SET
+                    kind = excluded.kind,
+                    status = 'pending',
+                    run_id = excluded.run_id,
+                    claimed_at = excluded.claimed_at,
+                    error_message = NULL
+                WHERE notification_deliveries.status = 'failed'
+                """,
+                (dedupe_key, kind, run_id, timestamp),
+            )
+    return cursor.rowcount == 1
+
+
+def finish_notification(
+    dedupe_key: str,
+    *,
+    delivered: bool,
+    error_message: str | None = None,
+    database_path: Path = Path("data/stockpulse.db"),
+    finished_at: datetime | None = None,
+) -> None:
+    """Mark a claimed notification delivered or retryable after failure."""
+
+    timestamp = (finished_at or datetime.now(timezone.utc)).isoformat()
+    cleaned_error = _clean_error_message(error_message)
+    with closing(sqlite3.connect(database_path)) as connection:
+        with connection:
+            _create_schema(connection)
+            cursor = connection.execute(
+                """
+                UPDATE notification_deliveries
+                SET status = ?, sent_at = ?, error_message = ?
+                WHERE dedupe_key = ? AND status = 'pending'
+                """,
+                (
+                    "delivered" if delivered else "failed",
+                    timestamp if delivered else None,
+                    None if delivered else cleaned_error,
+                    dedupe_key,
+                ),
+            )
+    if cursor.rowcount != 1:
+        raise ValueError(f"Notification is missing or already finished: {dedupe_key}")
+
+
 def get_run_history(
     *,
     database_path: Path = Path("data/stockpulse.db"),
@@ -1198,6 +1265,19 @@ def _create_schema(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_anomaly_results_date
             ON anomaly_results(stat_date DESC, status);
 
+        CREATE TABLE IF NOT EXISTS notification_deliveries (
+            dedupe_key TEXT PRIMARY KEY,
+            kind TEXT NOT NULL,
+            status TEXT NOT NULL,
+            run_id TEXT,
+            claimed_at TEXT NOT NULL,
+            sent_at TEXT,
+            error_message TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_notification_deliveries_status
+            ON notification_deliveries(status, claimed_at);
+
         """
     )
 
@@ -1267,6 +1347,7 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             (4, "versioned_message_topics", applied_at),
             (5, "versioned_anomaly_results", applied_at),
             (6, "anomaly_topic_shift_metrics", applied_at),
+            (7, "notification_delivery_deduplication", applied_at),
         ),
     )
 

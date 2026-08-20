@@ -21,12 +21,15 @@ class DeploymentContractTests(unittest.TestCase):
             "project_id": "stockpulse-prod1",
             "project_number": "123456789012",
             "region": "us-west1",
-            "cloud_sql_connection": "stockpulse-prod1:us-west1:stockpulse-postgres",
+            "cloud_sql_connection": "stockpulse-prod1:us-west1:stockpulse-db",
             "service_account": "stockpulse-service@stockpulse-prod1.iam.gserviceaccount.com",
             "job_service_account": "stockpulse-job@stockpulse-prod1.iam.gserviceaccount.com",
             "scheduler_service_account": "stockpulse-scheduler@stockpulse-prod1.iam.gserviceaccount.com",
             "database_secret_version": "3",
             "apify_secret_version": "2",
+            "gmail_secret_version": "1",
+            "notification_email": "owner@gmail.com",
+            "dashboard_url": "https://stockpulse-dashboard-123.us-west1.run.app",
             "service_image": f"us-west1-docker.pkg.dev/stockpulse-prod1/stockpulse/service@sha256:{digest}",
             "job_image": f"us-west1-docker.pkg.dev/stockpulse-prod1/stockpulse/job@sha256:{digest}",
             "schedules": [
@@ -107,8 +110,12 @@ class DeploymentContractTests(unittest.TestCase):
         self.assertIn('autoscaling.knative.dev/maxScale: "1"', service)
         self.assertNotIn("APIFY_API_TOKEN", service)
         self.assertIn("APIFY_API_TOKEN", job)
+        self.assertIn("STOCKPULSE_SMTP_APP_PASSWORD", job)
+        self.assertIn("stockpulse-gmail-app-password", job)
+        self.assertIn("owner@gmail.com", job)
         self.assertIn('key: "3"', service)
         self.assertIn('key: "2"', job)
+        self.assertIn('key: "1"', job)
         self.assertNotIn("key: latest", service + job)
         self.assertIn("maxRetries: 0", job)
         self.assertIn('timeoutSeconds: "900"', job)
