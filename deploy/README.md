@@ -55,3 +55,27 @@ unversioned secrets, mismatched Cloud SQL names, and malformed schedules.
 Applying any rendered file or running the Scheduler command is a separate,
 explicitly approved deployment action. See `docs/operations/google-cloud-runbook.md` for
 the required provisioning order, IAM, cost, backup, validation, and rollback.
+
+## Notification smoke tests
+
+After the image is deployed, an operator with permission to execute a Job with
+overrides can validate the two detailed alert templates without contacting
+Apify, opening the database, or changing the saved Job definition:
+
+```powershell
+gcloud run jobs execute stockpulse-daily-pipeline `
+  --project stockpulse-production `
+  --region us-west1 `
+  --args=--test-notification,anomaly `
+  --wait
+
+gcloud run jobs execute stockpulse-daily-pipeline `
+  --project stockpulse-production `
+  --region us-west1 `
+  --args=--test-notification,failure `
+  --wait
+```
+
+Both messages start with `[TEST]` and state that no production incident
+occurred. Each execution sends exactly one message through the configured SMTP
+transport and exits without an Apify request or database write.

@@ -12,6 +12,10 @@ from stockpulse.collector.apify_client import (
     retrieve_run_messages,
 )
 from stockpulse.config import load_settings, validate_runtime_settings
+from stockpulse.notifications import (
+    NotificationTestError,
+    send_notification_smoke_test,
+)
 from stockpulse.postgres import apply_postgres_migrations, create_postgres_pool
 from stockpulse.postgres_repository import PostgresRepository
 from stockpulse.pipeline import run_daily_pipeline
@@ -64,6 +68,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--daily-pipeline",
         action="store_true",
         help="Run the complete bounded daily collection and analysis workflow.",
+    )
+    action_group.add_argument(
+        "--test-notification",
+        choices=("anomaly", "failure"),
+        metavar="KIND",
+        help=(
+            "Send an explicit TEST alert without Apify or database access "
+            "(anomaly or failure)."
+        ),
     )
     action_group.add_argument(
         "--collect",
@@ -188,6 +201,13 @@ def main(
             print(
                 f"Production {args.check_production_config} configuration is valid: "
                 + ", ".join(checks)
+            )
+            return 0
+        if args.test_notification:
+            send_notification_smoke_test(settings, args.test_notification)
+            print(
+                f"Test {args.test_notification} email delivered. "
+                "No Apify request or database write was made."
             )
             return 0
         if args.daily_pipeline and settings.environment == "production":
@@ -582,7 +602,12 @@ def main(
         if messages:
             print(f"Returned fields: {', '.join(sorted(messages[0]))}")
         return 0
-    except (CollectionError, SentimentModelError, ValueError) as error:
+    except (
+        CollectionError,
+        NotificationTestError,
+        SentimentModelError,
+        ValueError,
+    ) as error:
         if application_run_id is not None:
             try:
                 storage.finish_run(
