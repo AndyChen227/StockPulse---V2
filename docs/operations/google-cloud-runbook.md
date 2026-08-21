@@ -398,3 +398,30 @@ Recovery baseline:
 - backup description: `post-v3-production-acceptance-2026-08-21`
 - a restore drill to a separate temporary instance remains required before
   launch gate 14 can be marked complete
+
+## 12. Operational follow-up — 2026-08-21
+
+Infrastructure-level failure alerting is enabled independently of application
+email:
+
+- alert policy: `StockPulse Pipeline execution failure`
+- alert policy ID: `15668922176435779223`
+- notification channel: `StockPulse Operations Email`
+- notification channel ID: `458967596138340345`
+- the policy matches error-level Cloud Run Job logs for
+  `stockpulse-daily-pipeline` in `us-west1`
+- notifications are rate-limited to one per five minutes and incidents
+  auto-close after 24 hours without another matching event
+
+Restore drill status:
+
+- an isolated restore from backup `1787294067917` was attempted with target
+  `stockpulse-restore-drill-20260821`
+- the Cloud SQL API rejected the restore with HTTP 403 before creating the
+  target instance
+- a follow-up instance listing confirmed that no temporary instance or ongoing
+  restore-drill cost was created
+- automated backups, seven-day point-in-time recovery, and the successful
+  on-demand backup remain active
+- the isolated restore drill is explicitly deferred; launch gate 14 remains
+  open until a restore to a separate instance is completed and validated
