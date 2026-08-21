@@ -1,8 +1,8 @@
 # Google Cloud launch runbook
 
-> Status: deployment in progress; Dashboard and pipeline Job live, Scheduler pending
-> Last reviewed: 2026-08-20
-> Current cloud state: IAP-protected Dashboard and manually validated pipeline Job deployed in `stockpulse-production`
+> Status: production launch accepted; Dashboard, Pipeline v3, Gmail notifications, and Scheduler live
+> Last reviewed: 2026-08-21
+> Current cloud state: production Dashboard, Pipeline v3 Job, Gmail notifications, and two weekday Scheduler triggers live in `stockpulse-production`
 
 This is the source of truth for the first StockPulse cloud release. It records
 the deployed state, remaining work, architecture, cost boundaries, permissions,
@@ -268,7 +268,7 @@ Reference: https://docs.cloud.google.com/sql/docs/postgres/best-practices
     and manually validate one bounded run.
 12. [x] Validate the manual run's database writes, run record, logs, timeout,
     memory use, idempotency, and paid collection limits.
-13. [ ] Deploy and validate Gmail notification delivery, then create the two
+13. [x] Deploy and validate Gmail notification delivery, then create the two
     weekday Scheduler triggers after the email smoke test passes.
 14. [ ] Complete final access, data, backup/restore, observability, and rollback
     verification.
@@ -349,3 +349,52 @@ The authenticated console confirmed the dedicated project, billing attachment,
 and USD 300 trial credit during provisioning. The USD 20 budget alerts and all
 other cost controls remain active. Deployment approval never authorizes secret
 disclosure.
+
+## 11. Production acceptance record — 2026-08-21
+
+Production acceptance completed for project `stockpulse-production` in
+`us-west1`.
+
+Pinned release artifacts:
+
+- Pipeline v3 image:
+  `us-west1-docker.pkg.dev/stockpulse-production/stockpulse/job@sha256:77c9874838cae740e68f09748409dc4649e78c01d32adc5b2daacd16618bbab2`
+- Dashboard source commit and image tag: `781d6760ae59`
+- Dashboard image:
+  `us-west1-docker.pkg.dev/stockpulse-production/stockpulse/stockpulse-service@sha256:26639af9174f3633137d495e3c18daf5c0d325aad2cd409accbd3f8fef3f4f6e`
+- Active Dashboard revision at acceptance:
+  `stockpulse-dashboard-00004-99r`
+
+Acceptance evidence:
+
+- execution `stockpulse-daily-pipeline-fdkln` completed successfully
+- durable pipeline run ID:
+  `8046cb618a2a4166a7c12919f95c558e`
+- the bounded Apify run collected five TSLA messages within the configured
+  `$0.05` maximum charge
+- PostgreSQL writes, sentiment analysis, Dashboard reads, fixed Dashboard URL,
+  Gmail notifications, and both weekday Scheduler triggers were validated
+- the active Dashboard revision produced no error-level logs after live access
+- the Dashboard action remains locked for the first release
+
+Incident note:
+
+- execution `stockpulse-daily-pipeline-4rc5h` failed before container startup
+  with `Resource readiness deadline exceeded`
+- `ResourcesAvailable`, `Started`, and `Completed` were false, with no container
+  application logs
+- one controlled retry succeeded; the failure was classified as transient
+  Cloud Run resource provisioning rather than application or database failure
+- the first Dashboard v3 deployment initially retained traffic on the old
+  revision; `gcloud run services update-traffic stockpulse-dashboard
+  --to-latest` moved traffic to the compatible revision
+
+Recovery baseline:
+
+- automated daily backups are enabled at `22:00 UTC`
+- seven backups and seven days of transaction logs are retained
+- point-in-time recovery is enabled
+- successful on-demand backup ID: `1787294067917`
+- backup description: `post-v3-production-acceptance-2026-08-21`
+- a restore drill to a separate temporary instance remains required before
+  launch gate 14 can be marked complete
