@@ -4,8 +4,8 @@
 
 ## Purpose and safety boundary
 
-The first API surface gives the future Dashboard access to versioned local
-history. It intentionally exposes no collection, reanalysis, overwrite, email,
+The V1 API gives the deployed Dashboard access to versioned local or production
+history. Its read endpoints intentionally expose no collection, reanalysis, overwrite, email,
 or cloud-provisioning action. Opening or refreshing a Dashboard cannot spend
 Apify credits through these endpoints.
 
@@ -90,11 +90,11 @@ The separate readiness endpoint returns HTTP 503 until the configured database
 exists, is reachable, and has a supported schema. Cloud Run can therefore stop
 routing traffic without confusing a database failure with a crashed process.
 
-## Remaining Stage 5 work
+## Post-V1 guarded action work
 
-- choose and configure browser authentication before cloud launch
-- connect the guarded collection endpoint to the deployment-specific job dispatcher
-- add structured error responses and readiness checks for PostgreSQL
+- propagate and verify the signed-in IAP identity at the application boundary
+- add browser CSRF protection and a deployment-specific Cloud Run Jobs dispatcher
+- provide distributed confirmation/idempotency storage for multiple instances
 
 ## Guarded manual action contract
 
@@ -111,5 +111,6 @@ application-injected job dispatcher exist.
 4. Dispatch failures finish that run as failed with a bounded error summary.
 
 No production dispatcher exists yet, so the default service cannot start Apify
-or a cloud job. Browser login and multi-instance idempotency remain explicit
-pre-console architecture decisions.
+or a cloud job. Direct Cloud Run IAP protects the deployed read-only Dashboard,
+while browser CSRF, verified identity propagation, and multi-instance
+idempotency remain explicit requirements before the action can be unlocked.

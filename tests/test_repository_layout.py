@@ -103,6 +103,31 @@ class RepositoryLayoutTests(unittest.TestCase):
 
         self.assertEqual(failures, [], "Broken Markdown links:\n" + "\n".join(failures))
 
+    def test_v1_documentation_baseline_has_no_prelaunch_markers(self) -> None:
+        core_documents = {
+            "README.md": "**Current state — 2026-08-21:** V1 is live",
+            "docs/product/project-plan.md": "Status: V1 operational launch accepted",
+            "docs/operations/google-cloud-runbook.md": (
+                "Status: production launch accepted"
+            ),
+        }
+        stale_markers = (
+            "pipeline Job and Scheduler pending",
+            "Job and Scheduler pending",
+            "email rollout and Scheduler pending",
+            "The AI pipeline image has not yet been built",
+            "Job 和 Scheduler 待完成",
+            "邮件/外部提醒尚未实现",
+        )
+
+        for relative_path, expected_marker in core_documents.items():
+            text = (PROJECT_ROOT / relative_path).read_text(encoding="utf-8")
+            with self.subTest(path=relative_path, expected=expected_marker):
+                self.assertIn(expected_marker, text)
+            for stale_marker in stale_markers:
+                with self.subTest(path=relative_path, stale=stale_marker):
+                    self.assertNotIn(stale_marker, text)
+
 
 if __name__ == "__main__":
     unittest.main()

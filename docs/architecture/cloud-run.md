@@ -1,9 +1,9 @@
 # Cloud Run service preparation
 
 StockPulse has separate container images for the Dashboard/read API and the
-pinned-model analysis pipeline. The Dashboard image is deployed to Cloud Run;
-the AI pipeline image and Cloud Run Job are the next deployment step. Container
-definitions themselves do not provision Google Cloud resources.
+pinned-model analysis pipeline. Both images are deployed in `us-west1`: the
+Dashboard runs as a Cloud Run service and Pipeline v3 runs as a Cloud Run Job.
+Container definitions themselves do not provision Google Cloud resources.
 
 ## Service image
 
@@ -76,20 +76,22 @@ database secret access, the managed Cloud SQL connection, production runtime
 configuration, and direct IAP. The live UI has been verified.
 
 Historical SQLite import was skipped because no local source snapshot was
-found. The remaining production boundary is the pipeline Job: build the image
-from `containers/job.Dockerfile`, deploy it with the pipeline identity and only
-its required secrets, then validate one bounded run before enabling Scheduler.
+found. Pipeline v3 is deployed by immutable digest with the pipeline identity
+and only its required secrets. A bounded production run collected five TSLA
+messages, completed the full analysis path, wrote PostgreSQL history, and exited
+successfully. Daily-summary, anomaly-test, and failure-test Gmail delivery were
+verified before the two no-retry weekday Scheduler triggers were enabled.
 
 Apify credentials, local `.env` files, raw snapshots, SQLite files, tests, and
 development artifacts are excluded from the container build context.
 
 ## Deployment gate
 
-The Dashboard deployment gate has passed: project, region, cost controls,
-database, secrets, authentication, and service readiness are configured. The
-Job gate remains open until its image is published, the unscheduled Job is
-deployed, and one bounded manual run succeeds. Scheduler must not be enabled
-before that evidence exists.
+The V1 deployment gate has passed: project, region, cost controls, database,
+secrets, authentication, service readiness, Pipeline v3, Gmail delivery, and
+both Scheduler triggers are configured and validated. The Dashboard action
+remains intentionally locked; scheduled Job execution is the only production
+collection path in the first release.
 
 Reviewed, offline-rendered service, Job, and Scheduler contracts now live under
 [`deploy/`](../../deploy/README.md). The renderer rejects mutable image tags,
@@ -99,6 +101,9 @@ separate deployment action performed only through the approved rollout.
 
 PostgreSQL configuration, bounded pooling, ordered schema migrations, and the
 full shared read/write repository contract are implemented and tested against
-PostgreSQL 17 in CI. The deployed service now uses PostgreSQL. Historical data
-migration was not applicable because no SQLite snapshot was available. See
+PostgreSQL 17 in CI. The deployed service and Job both use PostgreSQL.
+Historical data migration was not applicable because no SQLite snapshot was
+available. Production acceptance evidence, immutable image digests, the
+transient resource-readiness incident, and rollback instructions are recorded
+in the [Google Cloud runbook](../operations/google-cloud-runbook.md). See also
 [PostgreSQL implementation](postgresql.md).

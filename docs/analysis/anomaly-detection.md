@@ -1,11 +1,11 @@
 # Anomaly Detection
 
-> Status: experimental, versioned, and suitable for replay; not yet calibrated for production alerts
+> Status: experimental, versioned, replayable, and connected to production notifications; thresholds remain provisional
 
 ## Purpose
 
 StockPulse compares each daily AI metric with history that was available before
-that date. The result is explainable and stored independently from future email
+that date. The result is explainable and stored independently from notification
 delivery, so the Dashboard can show normal days, insufficient-history days, and
 anomalies without implying that every evaluation sent an alert.
 
@@ -59,15 +59,18 @@ python -m stockpulse.main --replay-anomalies
 python -m stockpulse.main --anomalies
 ```
 
-## Limitations before production alerts
+## Production notification state and limitations
 
 - thresholds are engineering defaults and need calibration on representative history
 - missing collection days are not imputed
 - the current rule detects volume spikes, not unusually low volume
 - topic-share counts are multi-label assignments, not unique-message market share
 - message duplication and coordinated low-quality content need a separate signal
-- no email is sent in this stage
+- detailed anomaly email delivery is enabled with durable duplicate suppression;
+  a separate test mode verifies the template without creating an incident
 
-Before enabling notifications, replay results should be manually reviewed, false
-positive and missed-event rates should be recorded, and alert cooldown behavior
-should be tested independently from evaluation storage.
+Daily-summary, anomaly-test, and failure-test delivery were verified during V1
+production acceptance. As representative twice-daily history accumulates,
+replay results should still be manually reviewed, false-positive and
+missed-event rates should be recorded, and notification signal/cooldown behavior
+should be tuned independently from evaluation storage.

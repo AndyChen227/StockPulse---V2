@@ -185,7 +185,7 @@ def main(
     *,
     repository: StockPulseRepository | None = None,
 ) -> int:
-    """Preview configuration or explicitly run the Phase 2 collector."""
+    """Preview configuration or explicitly run the bounded collector."""
 
     args = build_parser().parse_args(argv)
     storage = repository

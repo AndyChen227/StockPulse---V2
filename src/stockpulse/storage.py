@@ -1134,7 +1134,7 @@ def check_database_ready(
 
 
 def _create_schema(connection: sqlite3.Connection) -> None:
-    """Create the schema and migrate older Phase 2 databases in place."""
+    """Create the schema and migrate older StockPulse databases in place."""
 
     connection.execute(
         """

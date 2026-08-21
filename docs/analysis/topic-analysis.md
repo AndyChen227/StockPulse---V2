@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Sentiment shows direction but not cause. StockPulse topic analysis adds reviewable categories so the future Dashboard can explain whether a shift is associated with deliveries, margins, autonomy, regulation, competition, or another tracked theme.
+Sentiment shows direction but not cause. StockPulse topic analysis adds reviewable categories so the Dashboard can explain whether a shift is associated with deliveries, margins, autonomy, regulation, competition, or another tracked theme.
 
 Topic output is multi-label and stored separately from messages and sentiment. Changing the taxonomy creates a new topic version; it never silently rewrites earlier results.
 

@@ -83,7 +83,7 @@ verification share one transaction, so a failed verification rolls back the
 entire attempt. Primary-key conflicts are skipped, making a verified rerun
 idempotent.
 
-## Current production state and remaining sequence
+## Current production state and recovery follow-up
 
 Completed:
 
@@ -92,9 +92,17 @@ Completed:
 - backups, PITR, deletion protection, and managed Cloud Run connectivity
 - database URL secret access scoped to the service identities that require it
 - Dashboard PostgreSQL readiness and live UI verification
+- Pipeline v3 writes verified through a successful bounded production run
+- successful on-demand backup `1787294067917`, daily backups at `22:00 UTC`,
+  seven-day PITR, and deletion protection
 
-Remaining:
+Follow-up:
 
-1. Deploy the pipeline Cloud Run Job and validate one bounded write path.
-2. Verify the resulting messages, metrics, topics, anomalies, and run history.
-3. Complete backup restore, rollback, and ongoing operational checks.
+1. Complete an isolated restore to a separate temporary instance and validate
+   the restored schema and data. The 2026-08-21 attempt was rejected by the
+   Cloud SQL API with HTTP 403 before an instance was created, so this drill is
+   explicitly deferred rather than represented as successful.
+2. Continue verifying scheduled writes, backup health, storage growth, and
+   connection-pool behavior during normal production operation.
+3. Keep application and Job rollback coordinated whenever a future schema
+   change is not backward compatible.

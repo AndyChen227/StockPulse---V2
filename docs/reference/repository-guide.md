@@ -3,6 +3,8 @@
 > Purpose: make every tracked area discoverable without changing runtime paths
 >
 > Rule: keep standard tool entry points at the repository root; organize understanding through stable folders, local READMEs, and this file map
+>
+> Reviewed: 2026-08-21 against the V1 production and test baseline
 
 ---
 
@@ -19,6 +21,7 @@
 | Change sentiment, topics, or anomalies | [`src/stockpulse/sentiment.py`](../../src/stockpulse/sentiment.py), [`topics.py`](../../src/stockpulse/topics.py), [`anomaly.py`](../../src/stockpulse/anomaly.py) |
 | Change storage | [`src/stockpulse/repository.py`](../../src/stockpulse/repository.py), [`storage.py`](../../src/stockpulse/storage.py), and PostgreSQL modules |
 | Change the daily pipeline | [`src/stockpulse/pipeline.py`](../../src/stockpulse/pipeline.py) |
+| Change email notifications | [`src/stockpulse/notifications.py`](../../src/stockpulse/notifications.py) |
 | Change containers | [`containers/`](../../containers/) |
 | Change dependencies or the environment template | [`config/`](../../config/) |
 | Change Google Cloud deployment | [`deploy/`](../../deploy/) and [Google Cloud runbook](../operations/google-cloud-runbook.md) |
@@ -77,6 +80,7 @@ All installable code lives under `src/stockpulse/`.
 | `topics.py` | Versioned TSLA topic taxonomy, assignment, summaries, and representatives |
 | `anomaly.py` | Versioned historical baseline, anomaly rules, replay, and explanations |
 | `pipeline.py` | One bounded collect-to-anomaly orchestration path for the scheduled Job |
+| `notifications.py` | SMTP delivery, notification content, and durable duplicate suppression |
 | `actions.py` | Guarded collection action request, confirmation, and idempotency contract |
 | `api.py` | FastAPI application, REST endpoints, errors, and static Dashboard serving |
 | `web/index.html` | Dashboard semantic page structure |
@@ -101,6 +105,7 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 | `test_topics.py` | Topic assignment, history, and representative ranking |
 | `test_anomaly.py` | Baseline, thresholds, replay identity, and topic-shift signals |
 | `test_pipeline.py` | Complete bounded daily orchestration and failure recording |
+| `test_notifications.py` | Daily summary, anomaly/failure messages, SMTP behavior, and deduplication |
 | `test_actions.py` | Confirmation, limits, idempotency, and disabled action behavior |
 | `test_api.py` | API responses, validation, filters, pagination, errors, and UI serving |
 | `test_main.py` | CLI routing and mutually exclusive command behavior |
@@ -170,6 +175,7 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 | 修改情绪、话题或异常 | [`sentiment.py`](../../src/stockpulse/sentiment.py)、[`topics.py`](../../src/stockpulse/topics.py)、[`anomaly.py`](../../src/stockpulse/anomaly.py) |
 | 修改存储 | [`repository.py`](../../src/stockpulse/repository.py)、[`storage.py`](../../src/stockpulse/storage.py) 和 PostgreSQL 模块 |
 | 修改每日流水线 | [`pipeline.py`](../../src/stockpulse/pipeline.py) |
+| 修改邮件通知 | [`notifications.py`](../../src/stockpulse/notifications.py) |
 | 修改容器 | [`containers/`](../../containers/) |
 | 修改依赖或环境模板 | [`config/`](../../config/) |
 | 修改 Google Cloud 部署 | [`deploy/`](../../deploy/) 与[上线运行手册](../operations/google-cloud-runbook.md) |
@@ -227,6 +233,7 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 | `topics.py` | TSLA 话题体系、分配、汇总和代表消息 |
 | `anomaly.py` | 历史基线、异常规则、重放和解释 |
 | `pipeline.py` | Scheduler Job 使用的有界端到端流水线 |
+| `notifications.py` | SMTP 投递、通知内容和持久化去重 |
 | `actions.py` | 受保护采集请求、确认和幂等契约 |
 | `api.py` | FastAPI、REST 接口、错误和 Dashboard 静态资源 |
 | `web/index.html` | Dashboard 语义页面结构 |
@@ -235,7 +242,7 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 
 ## 5. 测试文件地图
 
-测试文件名与产品边界一一对应：配置、采集、存储、仓库、PostgreSQL、迁移、情绪、评估、话题、异常、流水线、操作、API、CLI、容器和部署。完整的逐文件保护范围见本页英文表格与 [`tests/README.md`](../../tests/README.md)。
+测试文件名与产品边界一一对应：配置、采集、存储、仓库、PostgreSQL、迁移、情绪、评估、话题、异常、流水线、通知、操作、API、CLI、容器和部署。完整的逐文件保护范围见本页英文表格与 [`tests/README.md`](../../tests/README.md)。
 
 ## 6. 修改位置规则
 

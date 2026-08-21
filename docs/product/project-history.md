@@ -1,12 +1,12 @@
 # StockPulse Project History / StockPulse 项目历程
 
-> Snapshot: 2026-08-20
+> Snapshot: 2026-08-21
 >
 > Repository: [AndyChen227/StockPulse---V2](https://github.com/AndyChen227/StockPulse---V2)
 >
-> Scope: merged work through pull request #34 plus the 2026-08-19 production deployment record
+> Scope: merged work through pull request #34 plus V1 production acceptance and operational follow-up records
 >
-> Cloud state: Dashboard and pipeline Job deployed; manual Job run passed; email rollout and Scheduler pending
+> Cloud state: V1 Dashboard, Pipeline v3, Gmail notifications, both weekday Scheduler triggers, external failure alert, and backup controls live
 
 This is the durable engineering record for StockPulse. It separates completed implementation, validation evidence, approved decisions, and remaining work. The English record appears first; the complete Chinese record follows.
 
@@ -16,13 +16,13 @@ This is the durable engineering record for StockPulse. It separates completed im
 
 ## 1. Why the project exists
 
-StockPulse began as a small TSLA sentiment experiment and has developed into a cloud-ready monitoring product. Its purpose is to collect bounded Stocktwits discussions, preserve a trustworthy history, analyze sentiment and topics reproducibly, detect unusual changes, and make the evidence understandable in a polished Dashboard.
+StockPulse began as a small TSLA sentiment experiment and has developed into an operational cloud monitoring product. Its purpose is to collect bounded Stocktwits discussions, preserve a trustworthy history, analyze sentiment and topics reproducibly, detect unusual changes, and make the evidence understandable in a polished Dashboard.
 
 The product is deliberately narrow: one symbol, one discussion source, controlled collection frequency, no trading, and no price prediction. This keeps operating cost, evaluation scope, and failure behavior understandable before expansion.
 
 ## 2. Current milestone
 
-The repository has completed the pre-cloud engineering path and the first production deployment phase:
+The repository has completed the V1 engineering and production rollout path:
 
 - The local end-to-end application works with SQLite.
 - The Dashboard and read API work against stored history.
@@ -36,11 +36,17 @@ The repository has completed the pre-cloud engineering path and the first produc
 - Historical SQLite migration was skipped because no local snapshot was found.
 - The bounded pipeline Job is deployed and its first production execution
   completed successfully with five analyzed messages.
-- Daily summary and detailed anomaly/failure email delivery is implemented and
-  locally validated with durable duplicate suppression; production rollout is
-  pending the updated image.
+- Daily summary and detailed anomaly/failure Gmail delivery is production
+  validated with durable duplicate suppression.
+- Both no-retry weekday Scheduler triggers are live and end-to-end validated.
+- Cloud Monitoring provides an independent email alert for Job errors that
+  occur before application-level failure mail can be sent.
+- Daily backups, seven-day PITR, deletion protection, and a successful
+  on-demand acceptance backup are active.
 
-The project is **partially deployed**. The next step is to publish the email-enabled Job image, verify one real email, then create Scheduler triggers and complete launch verification.
+The project has reached **V1 operational acceptance**. The isolated Cloud SQL
+restore drill is the documented exception: the 2026-08-21 attempt received HTTP
+403 before instance creation and is explicitly deferred.
 
 ## 3. Milestone timeline
 
@@ -81,6 +87,8 @@ The project is **partially deployed**. The next step is to publish the email-ena
 | [#33](https://github.com/AndyChen227/StockPulse---V2/pull/33) | Documentation organization | Organized documentation by product, architecture, analysis, operations, reference, and decision domains |
 | [#34](https://github.com/AndyChen227/StockPulse---V2/pull/34) | Dashboard redesign | Delivered the TSLA telemetry-inspired production Dashboard visual system |
 | [`48bfb15`](https://github.com/AndyChen227/StockPulse---V2/commit/48bfb15) | Production deployment record | Recorded the live Dashboard, deployed Google Cloud foundation, skipped SQLite migration, and remaining Job/Scheduler work |
+| [`762d487`](https://github.com/AndyChen227/StockPulse---V2/commit/762d487) | V1 production acceptance | Recorded Pipeline v3, Gmail and Scheduler validation, compatible Dashboard release, immutable artifacts, backup evidence, and the transient readiness incident |
+| [`e3986e9`](https://github.com/AndyChen227/StockPulse---V2/commit/e3986e9) | Operational follow-up | Recorded the independent Cloud Monitoring failure alert and the explicitly deferred isolated restore drill |
 
 ## 4. End-to-end behavior today
 
@@ -108,11 +116,18 @@ Each change is checked across five surfaces:
 4. Pinned-model pipeline Job image build and model-load smoke test
 5. PostgreSQL integration behavior
 
-The current local result is 140 tests passed, with 8 PostgreSQL integration tests intentionally skipped locally and executed in CI.
+The 2026-08-21 local baseline ran 144 tests: 136 passed and 8 PostgreSQL
+integration tests were intentionally skipped locally and are executed with
+PostgreSQL 17 in CI.
 
-### Cloud path partially executed
+### Cloud path in production
 
-The production project and supporting resources now exist, the Dashboard image has been published and deployed, and Cloud SQL is the live service datastore. Secret values remain outside Git. No SQLite production import occurred because no local source snapshot was available.
+The production project and supporting resources are live. The Dashboard and
+Pipeline v3 are pinned by immutable image digests, Cloud SQL is the system of
+record, Gmail notifications and both Scheduler triggers are validated, and an
+independent Cloud Monitoring policy covers Cloud Run Job errors. Secret values
+remain outside Git. No SQLite production import occurred because no local
+source snapshot was available.
 
 ## 5. Major engineering decisions
 
@@ -164,10 +179,12 @@ The browser collection control is visible but locked. Production configuration r
 4. The configured Apify cost ceiling is recorded, but actual settled spend is not retrieved into run history.
 5. Raw JSON snapshots are local artifacts; durable cloud archival is not yet specified.
 6. Browser-triggered collection still needs verified IAP identity, CSRF protection, distributed idempotency, and a Cloud Run Jobs dispatcher.
-7. Email delivery is implemented but still requires production image rollout
-   and a real Gmail smoke test before Scheduler is enabled.
+7. Notification delivery now needs ongoing observation and signal tuning as
+   real twice-daily history accumulates.
 8. The initial shared-core Cloud SQL plan has no SLA and is intentionally non-HA.
-9. Production restore, rollback, and incident drills cannot be completed until real resources exist.
+9. The isolated Cloud SQL restore drill remains open after an HTTP 403 response
+   before target-instance creation; rollback procedures and backup/PITR controls
+   are documented, but a restored instance still needs private validation.
 10. Historical price correlation, additional symbols, and additional social sources are outside V1 scope.
 
 ## 8. Approved cloud plan
@@ -176,19 +193,20 @@ The browser collection control is visible but locked. Production configuration r
 - Authentication: direct Cloud Run IAP, owner account only
 - Service: request billing, minimum 0, maximum 1
 - Database: Cloud SQL PostgreSQL 17, `db-f1-micro`, single-zone, non-HA
-- Recovery: daily backups, seven-day PITR, deletion protection, restore drill
+- Recovery: daily backups, seven-day PITR, deletion protection, successful on-demand backup; isolated restore drill deferred
 - Scheduling: weekdays 09:15 and 18:00 Eastern, two jobs, no retries
 - Budget: USD 20 monthly alerts at 50%, 80%, and 100%
 - Credits: USD 300 Google Cloud trial credit confirmed and attached
 - First release: manual Dashboard collection remains locked
 
-## 9. Remaining path to launch completion
+## 9. Post-V1 follow-up
 
-1. Commit and publish the email-enabled AI pipeline image.
-2. Update the existing Job with the pinned Gmail secret and non-secret mail settings.
-3. Run one bounded email smoke test and verify daily-summary delivery and deduplication.
-4. Create both Scheduler triggers only after the email smoke test succeeds.
-5. Verify scheduled operation, Dashboard data, restore, rollback, observability, and cost evidence.
+1. Complete and validate an isolated restore to a temporary Cloud SQL instance.
+2. Calibrate anomaly and notification thresholds with representative history.
+3. Expand human-reviewed sentiment and topic evaluation data.
+4. Decide whether raw Apify snapshots require durable cloud archival.
+5. Keep manual Dashboard collection locked until IAP identity propagation,
+   CSRF protection, distributed idempotency, and Job dispatch are complete.
 
 ---
 
@@ -202,7 +220,7 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 
 ## 2. 当前里程碑
 
-仓库已经完成正式上云前的整套工程准备和第一阶段生产部署：
+仓库已经完成 V1 工程与生产上线流程：
 
 - 使用 SQLite 的本地端到端应用可以运行。
 - Dashboard 和只读 API 可以读取完整历史。
@@ -214,8 +232,14 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 - 项目、成本控制、IAM、Secret、Artifact Registry 和 Cloud SQL 基础设施已在 `us-west1` 配置完成。
 - Dashboard 已在 Cloud Run 上线，并配置直接 IAP 和托管 Cloud SQL 连接。
 - 因未找到本地快照，历史 SQLite 迁移已跳过。
+- Pipeline v3 已使用不可变摘要部署，并完成一次五条消息的生产运行。
+- 每日摘要、异常 TEST、失败 TEST Gmail 通知和持久化去重已验证。
+- 两个不自动重试的工作日 Scheduler 已完成端到端验证。
+- Cloud Monitoring 已提供独立的 Job 错误邮件告警。
+- 每日备份、7 天 PITR、删除保护和成功的按需验收备份均已启用。
 
-项目目前是**部分完成生产部署**。下一步是构建并部署 AI 流水线 Cloud Run Job，手动验证一次有界运行，然后创建 Scheduler 触发器并完成最终上线验收。
+项目已经达到 **V1 运维验收**。唯一记录的例外是 Cloud SQL 独立恢复演练：
+2026-08-21 的尝试在创建实例前收到 HTTP 403，因此明确暂缓。
 
 ## 3. 里程碑时间线
 
@@ -256,6 +280,8 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 | [#33](https://github.com/AndyChen227/StockPulse---V2/pull/33) | 文档整理 | 按产品、架构、分析、运维、参考和决策领域整理文档 |
 | [#34](https://github.com/AndyChen227/StockPulse---V2/pull/34) | Dashboard 重构 | 交付 TSLA 遥测风格的生产 Dashboard 视觉系统 |
 | [`48bfb15`](https://github.com/AndyChen227/StockPulse---V2/commit/48bfb15) | 生产部署记录 | 记录已上线 Dashboard、Google Cloud 基础设施、跳过的 SQLite 迁移和待完成的 Job/Scheduler |
+| [`762d487`](https://github.com/AndyChen227/StockPulse---V2/commit/762d487) | V1 生产验收 | 记录 Pipeline v3、Gmail 与 Scheduler 验证、兼容 Dashboard 版本、不可变制品、备份证据和临时 readiness 事故 |
+| [`e3986e9`](https://github.com/AndyChen227/StockPulse---V2/commit/e3986e9) | 运维收尾 | 记录独立 Cloud Monitoring 失败告警和明确暂缓的独立恢复演练 |
 
 ## 4. 当前端到端能力
 
@@ -277,11 +303,15 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 
 每次变更检查五个方面：Python 3.11、Python 3.12、Dashboard 服务容器、固定模型流水线 Job 容器，以及 PostgreSQL 集成行为。
 
-当前本地结果为 121 项测试及 37 项子测试通过；另有 8 项 PostgreSQL 集成测试按设计在本地跳过、由 CI 执行。
+2026-08-21 的本地基线共运行 144 项测试：136 项通过，8 项 PostgreSQL
+集成测试按设计在本地跳过，并由 CI 使用 PostgreSQL 17 执行。
 
-### 已部分执行的云端流程
+### 已投入生产的云端流程
 
-生产项目及其配套资源已经存在，Dashboard 镜像已发布并部署，Cloud SQL 已成为线上服务数据库。Secret 值仍保留在 Git 之外。因为没有可用的本地源快照，本次没有执行 SQLite 生产导入。
+生产项目及配套资源已经上线。Dashboard 与 Pipeline v3 均由不可变镜像摘要固定，
+Cloud SQL 是线上事实来源，Gmail 通知和两个 Scheduler 已验证，独立 Cloud Monitoring
+策略覆盖 Cloud Run Job 错误。Secret 值仍保留在 Git 之外。因为没有可用的本地源快照，
+本次没有执行 SQLite 生产导入。
 
 ## 5. 主要工程决策
 
@@ -311,9 +341,10 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 4. 当前记录配置的 Apify 成本上限，但尚未回收实际结算成本。
 5. 原始 JSON 快照目前是本地文件，云端长期归档尚未定义。
 6. 浏览器采集仍需要 IAP 身份验证、CSRF、防重复执行和 Cloud Run Jobs 调度器。
-7. 邮件/外部提醒尚未实现；当前异常结果记录后供 Dashboard 查看。
+7. 通知投递已经实现，后续需要随每日两次真实历史积累观察并调整信号。
 8. 首版共享核心 Cloud SQL 没有 SLA，并且有意选择非高可用。
-9. 真实资源存在前无法完成生产恢复、回滚和事故演练。
+9. Cloud SQL 独立恢复演练在创建目标实例前收到 HTTP 403，仍需完成私下恢复验证；
+   回滚流程和备份/PITR 控制已经记录。
 10. 股价相关性、更多股票和更多社交来源不属于 V1。
 
 ## 8. 已批准的云端方案
@@ -322,16 +353,16 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 - 认证：Cloud Run 直接使用 IAP，仅允许所有者账号
 - 服务：按请求计费，最小实例 0、最大实例 1
 - 数据库：Cloud SQL PostgreSQL 17、`db-f1-micro`、单区、非高可用
-- 恢复：每日备份、7 天时间点恢复、删除保护和恢复演练
+- 恢复：每日备份、7 天时间点恢复、删除保护、成功的按需备份；独立恢复演练暂缓
 - 时间：工作日美东 09:15 与 18:00，两个任务、不重试
 - 预算：每月 20 美元，在 50%、80%、100% 提醒
 - 赠金：已确认并关联 300 美元 Google Cloud 试用额度
 - 首版：Dashboard 手动采集继续锁定
 
-## 9. 完成上线的剩余步骤
+## 9. V1 后续工作
 
-1. 从 `containers/job.Dockerfile` 构建并发布 AI 流水线镜像。
-2. 使用专用身份和限定范围的 Secret，部署暂不定时的 Cloud Run Job。
-3. 手动执行一次有界 Job，检查数据库、运行历史、日志、成本限制、超时、内存和幂等性证据。
-4. 只有手动 Job 成功后才创建两个 Scheduler 触发器。
-5. 验证计划运行、Dashboard 数据、恢复、回滚、可观测性和成本证据。
+1. 完成并验证恢复到独立临时 Cloud SQL 实例的演练。
+2. 使用有代表性的历史校准异常和通知阈值。
+3. 扩大人工复核的情绪与话题评估数据。
+4. 决定 Apify 原始快照是否需要云端长期归档。
+5. 在 IAP 身份传递、CSRF、分布式幂等和 Job 调度完成前，继续锁定 Dashboard 手动采集。

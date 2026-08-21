@@ -9,7 +9,7 @@
 [![CI](https://github.com/AndyChen227/StockPulse---V2/actions/workflows/tests.yml/badge.svg)](https://github.com/AndyChen227/StockPulse---V2/actions)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Dashboard%20API-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Cloud](https://img.shields.io/badge/Google%20Cloud-Dashboard%20live-4285F4?logo=googlecloud&logoColor=white)](docs/operations/google-cloud-runbook.md)
+[![Cloud](https://img.shields.io/badge/Google%20Cloud-V1%20live-4285F4?logo=googlecloud&logoColor=white)](docs/operations/google-cloud-runbook.md)
 [![License](https://img.shields.io/badge/License-MIT-2EA44F)](LICENSE)
 
 [English](#english) · [简体中文](#简体中文)
@@ -22,7 +22,7 @@
 
 # English
 
-> **Current state — 2026-08-19:** the production foundation is provisioned in GCP project `stockpulse-production`, and the IAP-protected Dashboard is live on Cloud Run with Cloud SQL PostgreSQL. Historical SQLite migration was skipped because no local snapshot was found. **Next: build and deploy the AI pipeline Cloud Run Job, manually validate one run, then enable Scheduler and complete final verification.**
+> **Current state — 2026-08-21:** V1 is live in GCP project `stockpulse-production`. The IAP-protected Dashboard, Cloud SQL PostgreSQL 17, Pipeline v3 Cloud Run Job, Gmail notifications, two no-retry weekday Scheduler triggers, external Job-failure alert, and backup controls have been production-validated. Historical SQLite migration was skipped because no local snapshot existed. The isolated Cloud SQL restore drill is explicitly deferred after an HTTP 403 response before instance creation.
 
 ## What StockPulse does
 
@@ -50,7 +50,7 @@ StockPulse is an informational monitoring tool. It does **not** predict prices, 
 | Production database | Cloud SQL for PostgreSQL 17 deployed and connected to the live Dashboard |
 | Web product | Responsive FastAPI Dashboard with overview, trends, messages, and run history |
 | Cloud target | Private Cloud Run service + Cloud Run Job + two Scheduler jobs + Cloud SQL |
-| Deployment status | Production foundation and IAP-protected Dashboard live; pipeline Job and Scheduler pending |
+| Deployment status | **V1 live:** Dashboard, Pipeline v3, Gmail notifications, both Scheduler triggers, monitoring alert, and backups validated |
 
 ## Dashboard
 
@@ -104,17 +104,19 @@ For local development, the same application uses SQLite. Cloud Run filesystems a
 - Offline-reviewed deployment renderer requiring immutable image digests and numeric secret versions
 - Two no-retry weekday Scheduler contracts at 09:15 and 18:00 Eastern
 - GitHub Actions validation on Python 3.11 and 3.12, both containers, and PostgreSQL
+- Production Pipeline v3 by immutable image digest, with a successful bounded five-message end-to-end run
+- Daily-summary, anomaly-test, and failure-test Gmail delivery with durable duplicate suppression
+- Both weekday Scheduler triggers validated end to end with no automatic retries
+- External Cloud Monitoring email alert for Cloud Run Job errors
+- Daily Cloud SQL backups, seven-day PITR, deletion protection, and a successful on-demand acceptance backup
 
 The complete milestone-by-milestone record is in [Project History](docs/product/project-history.md).
 
 ## What is deliberately not complete
 
-- The AI pipeline image has not yet been built and deployed as a Cloud Run Job
-- One bounded manual pipeline run must pass before Scheduler is enabled
-- Scheduler, final backup/restore verification, observability checks, and the rollback exercise remain pending
 - Historical SQLite migration was intentionally skipped because no local database snapshot was found
 - Browser-triggered collection remains disabled
-- Email or external anomaly notification delivery is not implemented
+- The isolated restore-to-new-instance drill is deferred; the 2026-08-21 attempt received HTTP 403 before creating a resource
 - The first 36-example sentiment benchmark is provisional and needs a larger human-reviewed set
 - Topic and anomaly thresholds need calibration against a representative production history
 - Durable cloud archival of raw Apify JSON snapshots is not yet designed
@@ -168,11 +170,11 @@ The default collection contract is intentionally small: at most 5 items, a 60-se
 ## Test and validation
 
 ```powershell
-python -m pytest
+python -m unittest discover -s tests -v
 python -m compileall -q src tests
 ```
 
-At the current milestone, the local run reports **121 tests and 37 subtests passed**, with **8 PostgreSQL integration tests intentionally deferred to CI**. GitHub Actions validates Python 3.11, Python 3.12, the service image, the AI Job image, and PostgreSQL behavior.
+The 2026-08-21 local V1 baseline ran **144 tests: 136 passed and 8 PostgreSQL integration tests were skipped locally as designed**. GitHub Actions supplies PostgreSQL 17 for those integration cases and validates Python 3.11, Python 3.12, the service image, and the AI Job image.
 
 ## Approved first cloud release
 
@@ -184,7 +186,7 @@ The deployed first-release configuration and remaining boundaries are:
 | Access | Direct Cloud Run IAP; owner Google account only |
 | Service | Scale to zero; maximum one instance initially |
 | Database | PostgreSQL 17, `db-f1-micro`, single-zone, non-HA |
-| Backups | Daily backup, 7-day PITR, deletion protection, restore drill |
+| Backups | Daily backup, 7-day PITR, deletion protection, successful on-demand backup; isolated restore drill deferred |
 | Schedule | Weekdays 09:15 and 18:00 `America/New_York`; no retries |
 | Budget | USD 20 monthly alert budget at 50%, 80%, and 100% |
 | Credits | USD 300 Google Cloud trial credit confirmed and attached |
@@ -239,7 +241,7 @@ MIT licensed. StockPulse is for engineering and informational research only and 
 
 # 简体中文
 
-> **当前状态（2026-08-19）：** GCP 项目 `stockpulse-production` 的生产基础设施已配置完成，受 IAP 保护的 Dashboard 已在 Cloud Run 上线并连接 Cloud SQL PostgreSQL。由于没有找到本地 SQLite 快照，历史迁移已跳过。**下一步：构建并部署 AI 流水线 Cloud Run Job，手动验证一次运行，然后启用 Scheduler 并完成最终验证。**
+> **当前状态（2026-08-21）：** V1 已在 GCP 项目 `stockpulse-production` 正式上线。受 IAP 保护的 Dashboard、Cloud SQL PostgreSQL 17、Pipeline v3 Cloud Run Job、Gmail 通知、两个不自动重试的工作日 Scheduler、外部 Job 失败告警和备份控制均已通过生产验证。由于不存在本地 SQLite 快照，历史迁移已跳过。Cloud SQL 独立恢复演练在创建实例前收到 HTTP 403，因此被明确暂缓。
 
 ## StockPulse 是什么
 
@@ -267,7 +269,7 @@ StockPulse 只提供信息监测，不预测股价、不执行交易，也不构
 | 生产数据库 | Cloud SQL for PostgreSQL 17 已部署并连接线上 Dashboard |
 | Web 产品 | 响应式 FastAPI Dashboard，包含概览、趋势、消息和运行历史 |
 | 云端目标 | 私有 Cloud Run 服务 + Cloud Run Job + 两个 Scheduler 任务 + Cloud SQL |
-| 部署状态 | 生产基础设施和受 IAP 保护的 Dashboard 已上线；流水线 Job 和 Scheduler 待完成 |
+| 部署状态 | **V1 已上线：** Dashboard、Pipeline v3、Gmail 通知、两个 Scheduler、监控告警和备份均已验证 |
 
 ## Dashboard
 
@@ -321,17 +323,19 @@ flowchart LR
 - 离线部署渲染器，强制不可变镜像摘要和数字化 Secret 版本
 - 两个不自动重试的工作日计划：美东 09:15 与 18:00
 - Python 3.11、3.12、两个容器和 PostgreSQL 的 GitHub Actions 验证
+- 使用不可变镜像摘要部署的生产 Pipeline v3，以及一次成功的五条消息有界端到端运行
+- 每日摘要、异常 TEST、失败 TEST 三类 Gmail 通知和持久化去重
+- 两个不自动重试的工作日 Scheduler 已完成端到端验证
+- 针对 Cloud Run Job 错误的独立 Cloud Monitoring 邮件告警
+- Cloud SQL 每日备份、7 天 PITR、删除保护和成功的按需验收备份
 
 完整的逐项里程碑记录，请阅读[项目历程](docs/product/project-history.md)。
 
 ## 明确尚未完成的工作
 
-- AI 流水线镜像尚未构建并部署为 Cloud Run Job
-- 启用 Scheduler 前，必须先成功完成一次有明确成本上限的手动流水线运行
-- Scheduler、最终备份恢复验证、可观测性检查和回滚演练仍待完成
 - 由于没有找到本地 SQLite 数据库快照，历史迁移已明确跳过
 - 浏览器触发采集仍处于禁用状态
-- 邮件或外部异常通知尚未实现
+- 独立恢复到新实例的演练暂缓；2026-08-21 的尝试在创建资源前收到 HTTP 403
 - 当前 36 条情绪基准仍是临时基线，需要更大的人工复核数据集
 - 话题和异常阈值仍需基于有代表性的生产历史进行校准
 - Apify 原始 JSON 的云端持久归档方案尚未设计
@@ -385,11 +389,11 @@ stockpulse --runs
 ## 测试与验证
 
 ```powershell
-python -m pytest
+python -m unittest discover -s tests -v
 python -m compileall -q src tests
 ```
 
-在当前里程碑中，本地运行结果为 **121 项测试及 37 项子测试通过**，另有 **8 项 PostgreSQL 集成测试按设计只在 CI 中运行**。GitHub Actions 会验证 Python 3.11、Python 3.12、服务镜像、AI Job 镜像和 PostgreSQL 行为。
+2026-08-21 的本地 V1 基线共运行 **144 项测试：136 项通过，8 项 PostgreSQL 集成测试按设计在本地跳过**。GitHub Actions 会为这些集成测试提供 PostgreSQL 17，并验证 Python 3.11、Python 3.12、服务镜像和 AI Job 镜像。
 
 ## 已批准的首个云端版本方案
 
@@ -401,7 +405,7 @@ python -m compileall -q src tests
 | 访问 | Cloud Run 直接使用 IAP，仅允许所有者 Google 账号 |
 | 服务 | 可缩容到零，初期最多一个实例 |
 | 数据库 | PostgreSQL 17、`db-f1-micro`、单区、非高可用 |
-| 备份 | 每日备份、7 天时间点恢复、删除保护和恢复演练 |
+| 备份 | 每日备份、7 天时间点恢复、删除保护、成功的按需备份；独立恢复演练暂缓 |
 | 计划 | 工作日 `America/New_York` 09:15 与 18:00，不自动重试 |
 | 预算 | 每月 20 美元提醒预算，阈值 50%、80%、100% |
 | 赠金 | 已确认并关联 300 美元 Google Cloud 试用额度 |

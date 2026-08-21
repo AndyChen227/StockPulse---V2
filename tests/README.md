@@ -10,6 +10,19 @@ categories, and every relative Markdown link. `test_repository_layout.py`
 还会保护整理后的根目录、真正的产品 README、分类配置与容器路径、
 文档分类，以及所有相对 Markdown 链接。
 
-Run the local suite from the repository root with `python -m pytest`.
+Run the local suite from the repository root with
+`python -m unittest discover -s tests -v`.
 
-请在仓库根目录运行 `python -m pytest` 执行本地测试。
+请在仓库根目录运行 `python -m unittest discover -s tests -v` 执行本地测试。
+
+## Verified V1 baseline / V1 验证基线
+
+On 2026-08-21, `python -m unittest discover -s tests -v` ran 144 tests:
+136 passed and 8 PostgreSQL integration tests were skipped locally as designed.
+`python -m compileall -q src tests` also completed successfully. CI supplies
+PostgreSQL 17 for the skipped integration cases and additionally builds and
+smoke-tests both production containers.
+
+2026-08-21 的本地基线共运行 144 项测试：136 项通过，8 项 PostgreSQL
+集成测试按设计在本地跳过；`src` 与 `tests` 的字节码编译检查也成功完成。
+CI 会为这 8 项集成测试提供 PostgreSQL 17，并额外构建和冒烟测试两个生产镜像。

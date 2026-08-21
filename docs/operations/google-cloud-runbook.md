@@ -11,7 +11,7 @@ never be recorded here.
 
 ## 0. Deployment progress
 
-Completed on 2026-08-19:
+Rollout completed across 2026-08-19 through 2026-08-21:
 
 - created GCP project `stockpulse-production` under the `uw.edu` organization
 - attached billing with the USD 300 trial credit and configured a USD 20 budget
@@ -40,10 +40,17 @@ Completed on 2026-08-19:
   sentiment analysis, PostgreSQL writes, run history, and successful exit
 - created `stockpulse-gmail-app-password` version 1 and granted only the
   pipeline service account Secret Accessor permission
+- verified daily-summary, anomaly-test, and failure-test Gmail delivery
+- created and end-to-end validated both no-retry weekday Scheduler triggers
+- deployed the PostgreSQL-schema-compatible Dashboard image and routed traffic
+  to its accepted revision
+- created an independent Cloud Monitoring email policy for Cloud Run Job errors
+- verified automated backup/PITR settings and created a successful on-demand
+  production-acceptance backup
 
-**Next step:** publish and deploy the email-enabled Job image, verify one real
-daily-summary email, then configure Scheduler and complete final launch
-verification.
+**Current follow-up:** V1 is operationally accepted. Complete the isolated
+restore-to-new-instance drill when the Cloud SQL authorization issue is
+resolved; the failed 2026-08-21 attempt created no instance or ongoing cost.
 
 ## 1. Recommended first-release architecture
 
@@ -238,7 +245,8 @@ First release policy:
   container; this launch had no source snapshot
 - logical PostgreSQL export after launch verification and on a documented
   schedule
-- restore drill before declaring launch complete
+- isolated restore drill before closing the recovery gate; V1 was accepted
+  with this exercise explicitly deferred after the documented HTTP 403 attempt
 
 Cloud SQL backups disappear with a deleted instance in some configurations;
 portable exports provide an additional recovery path. Point-in-time recovery
@@ -270,24 +278,28 @@ Reference: https://docs.cloud.google.com/sql/docs/postgres/best-practices
     memory use, idempotency, and paid collection limits.
 13. [x] Deploy and validate Gmail notification delivery, then create the two
     weekday Scheduler triggers after the email smoke test passes.
-14. [ ] Complete final access, data, backup/restore, observability, and rollback
-    verification.
-15. [ ] Enable the guarded Dashboard action only after IAP identity and CSRF
+14. [x] Complete final access, data, backup configuration, observability, and
+    application/Job rollback-procedure verification.
+15. [ ] Complete and privately validate an isolated restore to a temporary
+    Cloud SQL instance; explicitly deferred after the 2026-08-21 HTTP 403.
+16. [ ] Enable the guarded Dashboard action only after IAP identity and CSRF
     tests; it remains locked for the first release.
 
 ## 7. Launch verification
 
-- unauthenticated Dashboard access is rejected
-- the approved account can sign in and read all views
-- liveness and PostgreSQL readiness behave independently
-- every migrated source key is verified
-- daily metrics, topics, anomalies, messages, and run history match the source
-- one job completes within the timeout and memory limit
-- duplicate job execution does not duplicate messages or versioned results
-- paid collection limits remain 5 messages and $0.05 until explicitly changed
-- secrets never appear in logs or service configuration output
-- budget alerts have confirmed recipients
-- backup exists and a restore drill has been completed
+- [x] unauthenticated Dashboard access is rejected
+- [x] the approved account can sign in and read all views
+- [x] liveness and PostgreSQL readiness behave independently
+- [x] historical migration was resolved as not applicable because no source
+  snapshot existed; no placeholder source keys were manufactured
+- [x] daily metrics, topics, anomalies, messages, and run history were verified
+- [x] one bounded Job completed within the configured timeout and memory limit
+- [x] duplicate suppression protects messages, versioned results, and emails
+- [x] paid collection limits remain 5 messages and $0.05 until explicitly changed
+- [x] secrets do not appear in Git or inspected service/log output
+- [x] budget alerts and the independent Job-failure notification have recipients
+- [x] automated backup, PITR, deletion protection, and an on-demand backup exist
+- [ ] an isolated restore has been completed and privately validated (deferred)
 
 ## 8. Rollback
 
@@ -316,13 +328,13 @@ Pause Scheduler and disable manual dispatch first. Scale-to-zero handles idle
 Cloud Run service compute, but Cloud SQL continues to incur cost until stopped
 or deleted. Export required data before any destructive cleanup.
 
-## 9. Remaining launch gates
+## 9. Post-V1 operational follow-up
 
-The production foundation, Dashboard, and pinned-model Job are deployed, and
-one lowest-cost manual execution has passed. Before enabling Scheduler, deploy
-the email-enabled image, verify a real Gmail delivery without exposing its App
-Password, and confirm the notification deduplication migration. Then create the
-two Scheduler triggers and complete the launch-verification checklist.
+The production foundation, Dashboard, Pipeline v3, Gmail delivery, both
+Scheduler triggers, monitoring alert, and backup controls are live and
+validated. The isolated restore drill remains the only explicitly deferred
+recovery gate. Complete it against a separate temporary instance, validate the
+restored schema/data privately, and remove the temporary resource.
 
 Manual Dashboard execution remains disabled in the first release; enabling it
 later requires a Cloud Run Jobs dispatcher, distributed action idempotency,
@@ -397,7 +409,7 @@ Recovery baseline:
 - successful on-demand backup ID: `1787294067917`
 - backup description: `post-v3-production-acceptance-2026-08-21`
 - a restore drill to a separate temporary instance remains required before
-  launch gate 14 can be marked complete
+  recovery gate 15 can be marked complete
 
 ## 12. Operational follow-up — 2026-08-21
 
@@ -423,5 +435,5 @@ Restore drill status:
   restore-drill cost was created
 - automated backups, seven-day point-in-time recovery, and the successful
   on-demand backup remain active
-- the isolated restore drill is explicitly deferred; launch gate 14 remains
+- the isolated restore drill is explicitly deferred; recovery gate 15 remains
   open until a restore to a separate instance is completed and validated

@@ -4,11 +4,10 @@ These files prepare the first Google Cloud release without creating or changing
 any cloud resource. They follow the official Cloud Run service and Job YAML
 schemas and the Cloud Scheduler Jobs API trigger pattern.
 
-> Production status — 2026-08-20: the Dashboard and bounded pipeline Job are
-> deployed with Cloud SQL; the first manual Job execution succeeded. Gmail
-> notification delivery and the two Scheduler triggers are the remaining
-> rollout work. These templates remain the reviewed contract for reproducible
-> updates, audit, and rollback.
+> Production status — 2026-08-21: the Dashboard, Pipeline v3, Gmail
+> notifications, and both no-retry weekday Scheduler triggers are live and
+> production-validated with Cloud SQL. These templates remain the reviewed
+> contract for reproducible updates, audit, and rollback.
 
 ## Safety gate
 
@@ -31,8 +30,8 @@ the ignored `build/deployment` directory:
 - `job.yaml`: single-task daily pipeline, no automatic retries
 - `create-scheduler-premarket.ps1`: weekdays at 9:15 AM Eastern
 - `create-scheduler-afterhours.ps1`: weekdays at 6:00 PM Eastern
-- both Scheduler commands remain separate and must not be run until the
-  unscheduled Job has passed manual validation
+- both Scheduler commands remain separate; their original safety gate was
+  satisfied by the bounded manual Job and email smoke tests before deployment
 - `manifest.json`: image digests and checksums for audit and rollback
 
 The renderer rejects unapproved configuration, regions outside the reviewed
@@ -78,4 +77,6 @@ gcloud run jobs execute stockpulse-daily-pipeline `
 
 Both messages start with `[TEST]` and state that no production incident
 occurred. Each execution sends exactly one message through the configured SMTP
-transport and exits without an Apify request or database write.
+transport and exits without an Apify request or database write. Both smoke
+tests, plus the normal daily-summary path, were verified in production before
+Scheduler enablement.

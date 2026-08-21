@@ -46,14 +46,18 @@ Then open `http://localhost:8080`. API documentation remains available at
 An empty local database is supported and displays empty states rather than
 invented sample data. Collection is still a separate, explicit command.
 
-## Remaining work before and after cloud launch
+## Production state and post-V1 work
 
 - The Dashboard is live on Cloud Run with direct IAP and Cloud SQL PostgreSQL.
 - Historical migration was skipped because no local SQLite snapshot was found;
-  visible production history will begin after successful pipeline runs.
+  visible production history now comes from successful Pipeline v3 runs.
+- The compatible production image is pinned by digest, and the active revision
+  passed live access and error-log verification during acceptance.
 - Review the interface with representative production history and refine chart
   and table details after an observation period
 - Add a focused run-detail view for error and retry information
-- Complete monitoring, restore, and rollback checks
+- Continue observing the external Cloud Monitoring Job-failure alert. Backup,
+  PITR, and rollback procedures are documented; the isolated restore drill is
+  explicitly deferred after an HTTP 403 response before instance creation.
 - Add verified IAP identity, CSRF protection, cloud Job dispatch, and distributed
   idempotency before unlocking bounded, confirmed collection actions

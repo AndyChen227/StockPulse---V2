@@ -2,6 +2,11 @@
 
 > English first · 中文在后
 
+> V1 documentation baseline — 2026-08-21: the production Dashboard, Pipeline
+> v3, Gmail notifications, weekday Scheduler triggers, external Job-failure
+> alert, and backup controls are live. The isolated Cloud SQL restore drill is
+> the one explicitly deferred recovery exercise.
+
 The documentation is grouped by the question a reader is trying to answer. Start with the product folder for context, then use architecture, analysis, operations, reference, or decisions for deeper detail.
 
 ## English directory map
@@ -41,6 +46,10 @@ The documentation is grouped by the question a reader is trying to answer. Start
 - Do not rewrite an accepted decision record; supersede it with a new numbered decision.
 
 ---
+
+> V1 文档基线（2026-08-21）：生产 Dashboard、Pipeline v3、Gmail 通知、
+> 两个工作日 Scheduler、外部 Job 失败告警和备份控制均已上线。Cloud SQL
+> 独立恢复演练是唯一明确暂缓的恢复验证。
 
 ## 中文目录地图
 
