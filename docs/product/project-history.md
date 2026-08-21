@@ -1,5 +1,7 @@
 # StockPulse Project History / StockPulse 项目历程
 
+[English](#english) · [简体中文](#简体中文)
+
 > Snapshot: 2026-08-21
 >
 > Repository: [AndyChen227/StockPulse---V2](https://github.com/AndyChen227/StockPulse---V2)
@@ -116,9 +118,9 @@ Each change is checked across five surfaces:
 4. Pinned-model pipeline Job image build and model-load smoke test
 5. PostgreSQL integration behavior
 
-The 2026-08-21 local baseline ran 144 tests: 136 passed and 8 PostgreSQL
-integration tests were intentionally skipped locally and are executed with
-PostgreSQL 17 in CI.
+After the bilingual-documentation regression check was added, the 2026-08-21
+local baseline ran 145 tests: 137 passed and 8 PostgreSQL integration tests were
+intentionally skipped locally and are executed with PostgreSQL 17 in CI.
 
 ### Cloud path in production
 
@@ -210,11 +212,14 @@ The browser collection control is visible but locked. Production configuration r
 
 ---
 
-# 中文
+# 简体中文
 
 ## 1. 项目为什么存在
 
-StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以进入云端部署阶段的监测产品。它的目标是：以明确上限采集 Stocktwits 讨论，可靠保存历史，使用可复现的方式分析情绪和话题，检测异常变化，并在一个成熟的 Dashboard 中展示可理解的证据。
+StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为正在生产环境运行的
+云端监测产品。它的目标是：以明确上限采集 Stocktwits 讨论，可靠保存历史，
+使用可复现的方式分析情绪和话题，检测异常变化，并在成熟的 Dashboard 中展示
+可理解的证据。
 
 产品范围有意保持克制：一个股票代码、一个讨论来源、受控的采集频率、不交易、不预测股价。这样在扩大范围前，成本、评估范围和故障行为都可以被充分理解。
 
@@ -303,8 +308,8 @@ StockPulse 最初是一个小型 TSLA 情绪实验，现在已经发展为可以
 
 每次变更检查五个方面：Python 3.11、Python 3.12、Dashboard 服务容器、固定模型流水线 Job 容器，以及 PostgreSQL 集成行为。
 
-2026-08-21 的本地基线共运行 144 项测试：136 项通过，8 项 PostgreSQL
-集成测试按设计在本地跳过，并由 CI 使用 PostgreSQL 17 执行。
+增加双语文档回归检查后，2026-08-21 的本地基线共运行 145 项测试：137 项通过，
+8 项 PostgreSQL 集成测试按设计在本地跳过，并由 CI 使用 PostgreSQL 17 执行。
 
 ### 已投入生产的云端流程
 
@@ -315,11 +320,31 @@ Cloud SQL 是线上事实来源，Gmail 通知和两个 Scheduler 已验证，�
 
 ## 5. 主要工程决策
 
-- **成本是产品要求：** 首版仅 TSLA、默认最多 5 条、Actor 超时 60 秒、每次记录上限 0.05 美元、付费采集不自动重试、服务缩容到零、初期最多一个实例、小型单区数据库和每月 20 美元预算提醒。
-- **结果必须可复现：** 情绪、话题和异常均保留版本；模型 revision 与置信度阈值进入分析版本。
-- **历史本身就是产品：** 运行状态、时间、限制、计数、错误、重试关系和 Apify ID 都会持久化。
-- **Web 与批处理分离：** 轻量 Web 服务不加载 AI 模型；独立 Job 镜像执行完整流水线，并使用更少、更明确的 Secret 权限。
-- **破坏性或付费行为默认关闭：** 浏览器采集按钮保持锁定；生产配置拒绝不完整设置、可变镜像、无版本 Secret、项目不匹配和未批准渲染。
+### 成本是产品要求
+
+首版仅 TSLA、默认最多 5 条、Actor 超时 60 秒、每次记录上限 0.05 美元、
+付费采集不自动重试、服务缩容到零、初期最多一个实例、使用小型单区数据库，
+并设置每月 20 美元预算提醒。
+
+### 结果必须可复现
+
+情绪、话题和异常均保留版本；模型 revision、置信度阈值和检测参数都进入分析
+版本，避免相同名称在不同时间代表不同逻辑。
+
+### 历史本身就是产品
+
+运行状态、时间、限制、计数、错误、重试关系和 Apify ID 都会持久化。历史不仅
+用于图表，也用于故障诊断、重复预防和异常重放。
+
+### Web 与批处理分离
+
+轻量 Web 服务不加载 AI 模型；独立 Job 镜像执行完整流水线，并使用更少、更
+明确的 Secret 权限。读取 Dashboard 与付费采集因而保持不同风险边界。
+
+### 破坏性或付费行为默认关闭
+
+浏览器采集按钮保持锁定；生产配置拒绝不完整设置、可变镜像、无版本 Secret、
+项目不匹配和未批准渲染。涉及费用、数据或基础设施的行为都需要显式入口。
 
 ## 6. 验证证据
 

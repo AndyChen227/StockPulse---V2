@@ -4,6 +4,8 @@
 
 ### Explainable TSLA investor-sentiment monitoring
 
+#### A small, auditable signal pipeline—not a trading bot
+
 **Collect · Analyze · Compare · Explain**
 
 [![CI](https://github.com/AndyChen227/StockPulse---V2/actions/workflows/tests.yml/badge.svg)](https://github.com/AndyChen227/StockPulse---V2/actions)
@@ -17,8 +19,6 @@
 </div>
 
 ---
-
-<a id="english"></a>
 
 # English
 
@@ -37,6 +37,33 @@ It answers four practical questions:
 
 StockPulse is an informational monitoring tool. It does **not** predict prices, execute trades, or provide financial advice.
 
+## StockPulse in 60 seconds
+
+Imagine an analyst who checks a small, fixed sample of TSLA investor posts twice
+each weekday, labels their direction, groups the reasons people are talking,
+compares today with recent history, and saves the evidence behind every result.
+StockPulse automates that routine while keeping paid collection, AI versions,
+and cloud operations bounded and auditable.
+
+| Step | Plain-English question | What the system does | Durable evidence |
+|---:|---|---|---|
+| 1️⃣ Collect | “What was just posted?” | Requests at most five TSLA messages through a cost-capped Apify Actor. | External run ID, limits, timestamps, raw local snapshot |
+| 2️⃣ Validate | “Can this record be trusted structurally?” | Normalizes UTC time, validates fields, and deduplicates by Stocktwits `messageId`. | Canonical message row and run counters |
+| 3️⃣ Analyze | “Is the post Bullish, Neutral, or Bearish—and about what?” | Runs a pinned sentiment model and a versioned, explainable topic taxonomy. | Label, confidence, matched terms, model/topic versions |
+| 4️⃣ Compare | “Is today different from recent history?” | Builds daily metrics and evaluates a replayable 28-day anomaly baseline. | Versioned metric and anomaly records |
+| 5️⃣ Explain | “Why did the signal move?” | Shows trends, topics, representative source messages, and run history. | Read-only Dashboard backed by PostgreSQL |
+| 6️⃣ Notify | “Does the owner need attention?” | Sends deduplicated summaries or anomaly/failure alerts; infrastructure failures have a separate Cloud Monitoring path. | Notification fingerprint and cloud incident trail |
+
+### What the labels mean
+
+| Symbol | Meaning |
+|---|---|
+| ✅ | Implemented and production-validated in V1 |
+| 🔒 | Intentionally locked because enabling it would add security or cost risk |
+| 🧪 | Working, but still needs a larger evidence set or calibration |
+| ⏳ | Explicit post-V1 follow-up; not silently presented as complete |
+| 💸 | May spend external credits and therefore requires a hard limit and explicit trigger |
+
 ## Product at a glance
 
 | Area | Current implementation |
@@ -49,7 +76,7 @@ StockPulse is an informational monitoring tool. It does **not** predict prices, 
 | Local database | SQLite |
 | Production database | Cloud SQL for PostgreSQL 17 deployed and connected to the live Dashboard |
 | Web product | Responsive FastAPI Dashboard with overview, trends, messages, and run history |
-| Cloud target | Private Cloud Run service + Cloud Run Job + two Scheduler jobs + Cloud SQL |
+| Cloud runtime | Private Cloud Run service + Cloud Run Job + two Scheduler jobs + Cloud SQL |
 | Deployment status | **V1 live:** Dashboard, Pipeline v3, Gmail notifications, both Scheduler triggers, monitoring alert, and backups validated |
 
 ## Dashboard
@@ -71,18 +98,25 @@ Refreshing or filtering the Dashboard is read-only and cannot spend Apify credit
 
 ```mermaid
 flowchart LR
-    A["Stocktwits / TSLA"] --> B["Apify collection"]
-    B --> C["Cloud Run pipeline Job"]
-    C --> D["Validate + deduplicate"]
-    D --> E["Pinned sentiment + topics"]
-    E --> F["Metrics + anomaly evaluation"]
-    F --> G["Cloud SQL PostgreSQL"]
-    G --> H["Cloud Run Dashboard + API"]
-    H --> I["Owner through IAP"]
-    J["Cloud Scheduler<br/>09:15 + 18:00 ET weekdays"] --> C
+    A["💬 Stocktwits<br/>TSLA posts"] --> B["💸 Apify Actor<br/>max 5 · max $0.05"]
+    J["⏰ Cloud Scheduler<br/>09:15 + 18:00 ET weekdays"] --> C
+    B --> C["⚙️ Cloud Run Job<br/>Pipeline v3"]
+    C --> D["🧹 Validate<br/>normalize · deduplicate"]
+    D --> E["🧠 Analyze<br/>sentiment · topics"]
+    E --> F["📈 Compare<br/>metrics · anomalies"]
+    F --> G[("🗄️ Cloud SQL<br/>PostgreSQL 17")]
+    G --> H["🖥️ Cloud Run<br/>Dashboard + read API"]
+    H --> I["🔐 Owner<br/>direct IAP"]
+    F --> K["✉️ Gmail<br/>summary · anomaly · failure"]
+    L["🚨 Cloud Monitoring<br/>infrastructure errors"] -.-> K
 ```
 
 For local development, the same application uses SQLite. Cloud Run filesystems are disposable, so SQLite is intentionally not the production source of truth.
+
+The two notification paths are deliberately independent: application email can
+describe pipeline results after the container starts, while Cloud Monitoring can
+still report readiness or startup failures that occur before application code
+runs.
 
 ## What is complete
 
@@ -174,7 +208,10 @@ python -m unittest discover -s tests -v
 python -m compileall -q src tests
 ```
 
-The 2026-08-21 local V1 baseline ran **144 tests: 136 passed and 8 PostgreSQL integration tests were skipped locally as designed**. GitHub Actions supplies PostgreSQL 17 for those integration cases and validates Python 3.11, Python 3.12, the service image, and the AI Job image.
+The bilingual-documentation audit raised the 2026-08-21 local V1 baseline to
+**145 tests: 137 passed and 8 PostgreSQL integration tests were skipped locally
+as designed**. GitHub Actions supplies PostgreSQL 17 for those integration cases
+and validates Python 3.11, Python 3.12, the service image, and the AI Job image.
 
 ## Approved first cloud release
 
@@ -237,8 +274,6 @@ MIT licensed. StockPulse is for engineering and informational research only and 
 
 ---
 
-<a id="简体中文"></a>
-
 # 简体中文
 
 > **当前状态（2026-08-21）：** V1 已在 GCP 项目 `stockpulse-production` 正式上线。受 IAP 保护的 Dashboard、Cloud SQL PostgreSQL 17、Pipeline v3 Cloud Run Job、Gmail 通知、两个不自动重试的工作日 Scheduler、外部 Job 失败告警和备份控制均已通过生产验证。由于不存在本地 SQLite 快照，历史迁移已跳过。Cloud SQL 独立恢复演练在创建实例前收到 HTTP 403，因此被明确暂缓。
@@ -256,6 +291,32 @@ StockPulse 是一个注重成本控制的 **Tesla（TSLA）Stocktwits 投资者�
 
 StockPulse 只提供信息监测，不预测股价、不执行交易，也不构成投资建议。
 
+## 60 秒看懂 StockPulse
+
+可以把 StockPulse 想成一位每天工作两次的研究助理：它只读取一小批有明确
+成本上限的 TSLA 投资者帖子，判断讨论方向、归纳讨论原因、与近期历史比较，
+并把每个结论背后的原始证据保存下来。StockPulse 将这套流程自动化，同时让
+付费采集、AI 版本和云端运行都保持可控、可追踪、可复查。
+
+| 步骤 | 通俗问题 | 系统做什么 | 留下什么证据 |
+|---:|---|---|---|
+| 1️⃣ 采集 | “刚刚发布了什么？” | 通过有成本上限的 Apify Actor 请求最多五条 TSLA 消息。 | 外部运行 ID、限制、时间戳、本地原始快照 |
+| 2️⃣ 校验 | “这条记录在结构上可靠吗？” | 统一 UTC 时间、校验字段，并按 Stocktwits `messageId` 去重。 | 标准消息记录与运行计数 |
+| 3️⃣ 分析 | “它偏多、中性还是偏空？在讨论什么？” | 运行固定版本情绪模型和可解释、版本化的话题体系。 | 标签、置信度、命中词、模型与话题版本 |
+| 4️⃣ 比较 | “今天与近期历史相比是否特别？” | 生成每日指标，并使用可重放的 28 天异常基线。 | 版本化指标与异常记录 |
+| 5️⃣ 解释 | “信号为什么变化？” | 展示趋势、话题、代表原文和完整运行历史。 | 由 PostgreSQL 支撑的只读 Dashboard |
+| 6️⃣ 通知 | “所有者是否需要关注？” | 发送去重后的摘要、异常或失败邮件；基础设施失败另由 Cloud Monitoring 告警。 | 通知指纹与云端事件记录 |
+
+### 状态图例
+
+| 符号 | 含义 |
+|---|---|
+| ✅ | V1 已实现并通过生产验证 |
+| 🔒 | 因安全或成本风险而有意锁定 |
+| 🧪 | 功能可以工作，但仍需更大样本或进一步校准 |
+| ⏳ | 明确列出的 V1 后续事项，不会假装已经完成 |
+| 💸 | 可能消耗外部额度，因此必须显式触发并设置硬上限 |
+
 ## 产品概览
 
 | 领域 | 当前实现 |
@@ -268,7 +329,7 @@ StockPulse 只提供信息监测，不预测股价、不执行交易，也不构
 | 本地数据库 | SQLite |
 | 生产数据库 | Cloud SQL for PostgreSQL 17 已部署并连接线上 Dashboard |
 | Web 产品 | 响应式 FastAPI Dashboard，包含概览、趋势、消息和运行历史 |
-| 云端目标 | 私有 Cloud Run 服务 + Cloud Run Job + 两个 Scheduler 任务 + Cloud SQL |
+| 云端运行环境 | 私有 Cloud Run 服务 + Cloud Run Job + 两个 Scheduler 任务 + Cloud SQL |
 | 部署状态 | **V1 已上线：** Dashboard、Pipeline v3、Gmail 通知、两个 Scheduler、监控告警和备份均已验证 |
 
 ## Dashboard
@@ -290,18 +351,23 @@ Dashboard 由 FastAPI 应用直接提供，不需要额外的前端服务器，�
 
 ```mermaid
 flowchart LR
-    A["Stocktwits / TSLA"] --> B["Apify 数据采集"]
-    B --> C["Cloud Run 流水线 Job"]
-    C --> D["校验与去重"]
-    D --> E["固定版本情绪与话题分析"]
-    E --> F["指标与异常评估"]
-    F --> G["Cloud SQL PostgreSQL"]
-    G --> H["Cloud Run Dashboard 与 API"]
-    H --> I["所有者通过 IAP 访问"]
-    J["Cloud Scheduler<br/>工作日美东 09:15 与 18:00"] --> C
+    A["💬 Stocktwits<br/>TSLA 帖子"] --> B["💸 Apify Actor<br/>最多 5 条 · 最高 $0.05"]
+    J["⏰ Cloud Scheduler<br/>工作日美东 09:15 与 18:00"] --> C
+    B --> C["⚙️ Cloud Run Job<br/>Pipeline v3"]
+    C --> D["🧹 校验<br/>标准化 · 去重"]
+    D --> E["🧠 分析<br/>情绪 · 话题"]
+    E --> F["📈 比较<br/>指标 · 异常"]
+    F --> G[("🗄️ Cloud SQL<br/>PostgreSQL 17")]
+    G --> H["🖥️ Cloud Run<br/>Dashboard 与只读 API"]
+    H --> I["🔐 所有者<br/>直接 IAP"]
+    F --> K["✉️ Gmail<br/>摘要 · 异常 · 失败"]
+    L["🚨 Cloud Monitoring<br/>基础设施错误"] -.-> K
 ```
 
 本地开发使用同一套应用和 SQLite。Cloud Run 的文件系统并不持久，因此生产环境不会把 SQLite 作为历史数据的最终来源。
+
+两条通知路径是有意分开的：应用邮件负责容器启动后的流水线结果；Cloud
+Monitoring 则能覆盖应用代码尚未运行时发生的资源就绪或容器启动失败。
 
 ## 已完成的工作
 
@@ -393,7 +459,10 @@ python -m unittest discover -s tests -v
 python -m compileall -q src tests
 ```
 
-2026-08-21 的本地 V1 基线共运行 **144 项测试：136 项通过，8 项 PostgreSQL 集成测试按设计在本地跳过**。GitHub Actions 会为这些集成测试提供 PostgreSQL 17，并验证 Python 3.11、Python 3.12、服务镜像和 AI Job 镜像。
+完成双语文档审计后，2026-08-21 的本地 V1 基线增加到 **145 项测试：137 项
+通过，8 项 PostgreSQL 集成测试按设计在本地跳过**。GitHub Actions 会为这些
+集成测试提供 PostgreSQL 17，并验证 Python 3.11、Python 3.12、服务镜像和
+AI Job 镜像。
 
 ## 已批准的首个云端版本方案
 

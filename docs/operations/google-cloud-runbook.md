@@ -1,4 +1,10 @@
-# Google Cloud launch runbook
+# Google Cloud Launch Runbook / Google Cloud 上线运行手册
+
+[English](#english) · [简体中文](#简体中文)
+
+---
+
+# English
 
 > Status: production launch accepted; Dashboard, Pipeline v3, Gmail notifications, and Scheduler live
 > Last reviewed: 2026-08-21
@@ -176,11 +182,11 @@ regions unless a documented product requirement justifies it.
 
 ## 3. Cost plan and guardrails
 
-Current official examples show `db-f1-micro` shared-core compute at $0.0105 per
-hour in the displayed default pricing context, roughly $7.67 for 730 hours,
-before storage, backups, network, taxes, and region differences. Shared-core
-instances have no Cloud SQL SLA. This number is a planning reference, not a
-quote.
+Exact prices vary by region, edition, storage, backup usage, networking, and
+time. Use the authenticated official Pricing Calculator for every cost review;
+do not treat a number copied into this repository as a quote. The selected
+shared-core, non-HA instance is a cost-oriented V1 choice and has no Cloud SQL
+SLA.
 
 Expected first-release cost shape:
 
@@ -189,7 +195,7 @@ Expected first-release cost shape:
 | Cloud SQL | Main recurring cost; runs continuously |
 | Cloud Run service | Likely very low at scale-to-zero usage |
 | Cloud Run job | Twice-weekday CPU/RAM usage; AI model load dominates |
-| Cloud Scheduler | Two jobs; current billing-account free allowance covers up to three jobs |
+| Cloud Scheduler | Two jobs; verify the then-current official allowance and price |
 | Artifact Registry / build | Small storage/build cost possible |
 | Secret Manager / logging / backups | Low but non-zero usage possible |
 | Apify | Separate external cost, still capped by application configuration |
@@ -437,3 +443,376 @@ Restore drill status:
   on-demand backup remain active
 - the isolated restore drill is explicitly deferred; recovery gate 15 remains
   open until a restore to a separate instance is completed and validated
+
+---
+
+# 简体中文
+
+> 状态：生产上线已验收；Dashboard、Pipeline v3、Gmail 通知与 Scheduler 均已上线
+>
+> 最近复核：2026-08-21
+>
+> 当前云端状态：生产 Dashboard、Pipeline v3 Job、Gmail 通知和两个工作日
+> Scheduler 运行在 `stockpulse-production`
+
+本手册是 StockPulse 首个云端版本的事实来源，记录已部署状态、剩余工作、架构、
+成本边界、权限、验证、备份与回滚。绝不能在这里记录 Secret 值或数据库凭证。
+
+## 0. 部署进度
+
+2026-08-19 至 2026-08-21 已完成：
+
+- 在 `uw.edu` 组织下创建 GCP 项目 `stockpulse-production`；
+- 关联带 300 美元试用额度的 Billing，并设置 20 美元月度预算提醒；
+- 启用所需 Google Cloud API；
+- 创建专用服务账号 `stockpulse-service`、`stockpulse-pipeline` 和
+  `stockpulse-scheduler`；
+- 在 `us-west1` 创建 Artifact Registry 仓库 `stockpulse`；
+- 配置 Cloud SQL for PostgreSQL 17 Enterprise、`db-f1-micro`、单区、10 GB
+  SSD、备份、PITR 和删除保护；
+- 创建应用数据库 `stockpulse` 及最小权限角色/用户；
+- 创建 `stockpulse-database-url` 与 `stockpulse-apify-token` Secret，只给需要
+  它们的服务账号访问权限；仓库不保存 Secret 值；
+- 构建 Dashboard 镜像并部署到 Cloud Run；
+- 为 Dashboard 配置托管 Cloud SQL 连接、生产运行环境和直接 IAP；
+- 验证 Dashboard 可通过预期受保护路径访问；
+- 因没有找到本地数据库快照而跳过 SQLite 历史迁移；
+- 从固定 AI Job 镜像构建并部署 `stockpulse-daily-pipeline`；
+- 完成一次有界手动 Job，验证五条消息、情绪分析、PostgreSQL 写入、运行历史和
+  成功退出；
+- 创建 `stockpulse-gmail-app-password` 版本 1，只给流水线服务账号 Secret
+  Accessor 权限；
+- 验证每日摘要、异常 TEST 和失败 TEST Gmail 投递；
+- 创建并端到端验证两个不自动重试的工作日 Scheduler；
+- 部署兼容 PostgreSQL 模式的 Dashboard 镜像，并把流量切到验收 Revision；
+- 为 Cloud Run Job 错误创建独立 Cloud Monitoring 邮件策略；
+- 验证自动备份/PITR，并创建一次成功的生产验收按需备份。
+
+**当前后续：** V1 已通过运维验收。Cloud SQL 授权问题解决后，完成独立恢复到
+新实例的演练。2026-08-21 失败尝试没有创建实例，也没有持续费用。
+
+## 1. 首个版本架构
+
+```text
+获准 Google 账号
+        |
+        v
+Cloud Run 直接 IAP
+        |
+        v
+Cloud Run 服务：Dashboard + 只读 API + 受保护操作 API
+        |                         |
+        |                         v
+        |                  Cloud Run Jobs API
+        |                         |
+        v                         v
+Cloud SQL PostgreSQL <---- Cloud Run 每日流水线 Job
+                                  ^
+                                  |
+                           Cloud Scheduler
+```
+
+支持资源包括一个 Artifact Registry 仓库、Secret Manager、Cloud Logging 和
+Cloud Billing 预算。所有区域资源保持在一个已批准区域。
+
+### 浏览器认证
+
+直接在 Cloud Run 上使用 IAP，只向所有者 Google 账号授权。直接 Cloud Run
+IAP 可以保护 `run.app` URL，不需要外部负载均衡器。服务不得同时允许公开匿名
+调用。
+
+现有操作 Bearer Secret 属于纵深防御/服务契约，不是良好的浏览器登录方案。
+启用操作按钮前，必须以已验证 IAP 身份和 CSRF 防护替换浏览器共享 Secret。
+绝不能把 `STOCKPULSE_ACTION_API_TOKEN` 放进下载的 JavaScript 或浏览器存储。
+
+参考：
+
+- https://docs.cloud.google.com/run/docs/authenticating/end-users
+- https://docs.cloud.google.com/run/docs/securing/identity-aware-proxy-cloud-run
+
+### Web 服务
+
+- 使用按请求计费的 Cloud Run 服务；
+- 最小实例数 0；
+- 首个版本最大实例数 1；
+- 并发保持平台默认，除非负载测试支持调整；
+- CPU 1；内存从 512 MiB 起并实测；
+- 应用数据库连接池 1–4；
+- 只通过托管 `run.app` HTTPS 端点访问；
+- 存活：`/api/v1/health`；就绪：`/api/v1/ready`。
+
+最大实例数是初始数据库与成本护栏，不是扩展目标。最小实例为零时，Cloud Run
+可缩容到零并按使用量付费；可写容器文件系统可随时丢弃。
+
+参考：
+
+- https://docs.cloud.google.com/run/docs/overview/what-is-cloud-run
+- https://cloud.google.com/run/pricing
+
+### 每日流水线 Job
+
+- 独立 Cloud Run Job 镜像，包含固定 AI 模型运行环境；
+- 一个任务，并行度 1；
+- 付费采集步骤最大重试次数 0；
+- 初始超时 15 分钟，只有实测冷启动推理后才调整；
+- 内存根据真实容器峰值选择；
+- 两个工作日 Scheduler：美东上午 9:15 和下午 6:00；
+- 未来 Dashboard 手动触发也必须通过 Jobs API 使用相同固定上限。
+
+Job 执行一个幂等流水线：采集、校验、存储、分析缺少当前版本的记录、提取话题、
+计算每日指标和评估异常。编排命令与固定模型镜像已实现并通过 CI 与生产验证。
+
+参考：
+
+- https://cloud.google.com/run/docs/create-jobs
+- https://docs.cloud.google.com/run/docs/configuring/task-timeout
+
+### 数据库
+
+- Cloud SQL for PostgreSQL 17；
+- 首个版本单区、非 HA；
+- 能通过迁移和查询冒烟测试的最小共享核机器；
+- 最小允许存储，不使用只读副本；
+- 与服务和 Job 同区域；
+- 启用删除保护；
+- 私有应用数据库/用户，绝不使用默认管理员用户；
+- 通过托管 Cloud SQL Unix Socket 集成连接 Cloud Run；
+- 有界连接池；初始公网托管代理路径不使用 Serverless VPC Access Connector。
+
+已批准的逻辑数据存储是 PostgreSQL。创建前必须从登录后的 Pricing Calculator
+取得准确 edition、机器 SKU、存储类型与区域价格。
+
+参考：
+
+- https://docs.cloud.google.com/sql/docs/postgres/connect-run
+- https://cloud.google.com/sql/pricing
+
+## 2. 区域决策
+
+配置前只选择一个区域：
+
+| 候选 | 优势 | 权衡 |
+|---|---|---|
+| `us-west1`（Oregon） | 靠近美国西海岸的成本导向默认值 | 距 Los Angeles 用户略远 |
+| `us-west2`（Los Angeles） | 用户到 Dashboard 延迟最低 | 需要核对 Cloud SQL 与构建 SKU 是否更贵 |
+
+最终选择 `us-west1`，因为这是低流量每日分析产品，数据库成本比少量交互延迟
+更重要。除非有记录的产品需求，否则不要跨区域拆分 Cloud Run、Cloud SQL、
+Artifact Registry 或 Scheduler。
+
+## 3. 成本方案与护栏
+
+具体价格随区域和时间变化，必须以登录后的官方 Pricing Calculator 为准。
+首个版本的成本结构是：
+
+| 资源 | 预期行为 |
+|---|---|
+| Cloud SQL | 主要持续成本；一直运行 |
+| Cloud Run 服务 | 可缩容到零，低流量下通常很低 |
+| Cloud Run Job | 工作日两次 CPU/内存；AI 模型加载占主导 |
+| Cloud Scheduler | 两个 Job；是否免费以当前官方额度为准 |
+| Artifact Registry / Build | 可能产生少量存储与构建费用 |
+| Secret Manager / Logging / Backups | 可能产生低但非零费用 |
+| Apify | 独立外部成本，仍由应用配置硬限制 |
+
+创建前：
+
+1. 为两个候选区域保存 Pricing Calculator 估算；
+2. 批准目标月度估算和可容忍最高月度成本；
+3. 持续负载前创建项目级 20 美元月度预算，阈值为 50%、80%、100%；
+4. 记住预算提醒不会停止资源，也不会限制支出；
+5. 未单独批准前，不购买承诺、不启用 HA 或副本，也不保留最小 Cloud Run 实例。
+
+参考：
+
+- https://docs.cloud.google.com/billing/docs/how-to/budgets
+- https://cloud.google.com/scheduler/pricing
+
+## 4. 身份与最小权限
+
+使用独立服务账号，不要以默认 Compute Engine 服务账号运行应用。
+
+| 身份 | 最小预期权限 |
+|---|---|
+| 人类所有者 | 配置期间项目管理；访问 IAP 保护应用 |
+| Dashboard 服务账号 | Cloud SQL Client、所需 Secret 版本、只执行 StockPulse Job 的权限、日志 |
+| Pipeline Job 服务账号 | Cloud SQL Client、Apify/数据库/Gmail Secret 版本、日志 |
+| Scheduler 服务账号 | 只执行 StockPulse Job 的权限 |
+| CI 部署身份（未来） | Artifact 上传与窄范围服务/Job 部署；不接触数据库凭证 |
+
+Secret：
+
+- `stockpulse-database-url`；
+- `stockpulse-apify-token`；
+- `stockpulse-gmail-app-password`；
+- 只有 IAP 集成后仍保留时才使用操作/确认 Secret。
+
+只把具体 Secret 版本授权给真正使用它的身份。绝不在 GitHub、镜像层、部署 YAML、
+命令历史、截图或本手册中保存值。
+
+## 5. 备份与恢复策略
+
+首个版本策略：
+
+- 每日自动备份；
+- 时间点恢复，初始保留 7 天事务日志；
+- 每次破坏性模式或数据迁移前创建按需备份；
+- 启用删除保护；
+- 未来如有获批 SQLite 来源，将其以只读方式保存在容器外；本次上线没有来源；
+- 上线验证后按文档化计划进行 PostgreSQL 逻辑导出；
+- 关闭恢复门槛前完成独立恢复演练；V1 对 2026-08-21 HTTP 403 尝试进行了
+  明确暂缓记录。
+
+某些配置下，删除实例也会删除 Cloud SQL 备份；可移植导出提供额外恢复路径。
+PITR 会创建新实例，而不是覆盖受损实例。
+
+参考：https://docs.cloud.google.com/sql/docs/postgres/best-practices
+
+## 6. 配置与部署顺序
+
+1. [x] 在 `uw.edu` 下创建 `stockpulse-production` 并关联试用额度 Billing；
+2. [x] 创建 20 美元预算与提醒；
+3. [x] 选择 `us-west1` 并记录命名规则；
+4. [x] 启用所需 API；
+5. [x] 创建专用服务账号和最小 IAM/Secret 授权；
+6. [x] 创建 `stockpulse` Artifact Registry 并发布 Dashboard 镜像；
+7. [x] 创建带删除保护与备份/PITR 的 Cloud SQL；
+8. [x] 创建应用数据库、最小权限用户和限定范围 Secret；
+9. [x] 部署连接 Cloud SQL 的 IAP Dashboard，并验证 UI；
+10. [x] 处理历史迁移：因无 SQLite 快照而跳过，不制造占位历史；
+11. [x] 构建 AI Job 镜像，无计划部署 Job，并手动验证一次有界运行；
+12. [x] 验证写入、运行记录、日志、超时、内存、幂等与付费限制；
+13. [x] 部署并验证 Gmail，再在冒烟测试通过后创建两个 Scheduler；
+14. [x] 完成最终访问、数据、备份配置、可观测性和应用/Job 回滚程序验证；
+15. [ ] 恢复到独立临时 Cloud SQL 实例并私下验证；因 2026-08-21 HTTP 403
+    明确暂缓；
+16. [ ] 通过 IAP 身份与 CSRF 测试后才启用 Dashboard 操作；首个版本保持锁定。
+
+## 7. 上线验证
+
+- [x] 匿名 Dashboard 访问被拒绝；
+- [x] 获准账号可以登录并读取全部视图；
+- [x] 存活与 PostgreSQL 就绪彼此独立；
+- [x] 历史迁移因无来源快照而判定不适用，没有制造占位主键；
+- [x] 每日指标、话题、异常、消息和运行历史已验证；
+- [x] 一个有界 Job 在配置的超时和内存内完成；
+- [x] 消息、版本化结果和邮件都受重复抑制保护；
+- [x] 付费采集上限保持 5 条和 0.05 美元；
+- [x] Secret 未出现在 Git 或已检查服务/日志输出中；
+- [x] 预算提醒与独立 Job 失败通知都有收件人；
+- [x] 自动备份、PITR、删除保护和按需备份均存在；
+- [ ] 已完成并私下验证独立恢复（暂缓）。
+
+## 8. 回滚
+
+### 应用回滚
+
+把流量路由回上一个已知正常 Cloud Run Revision。镜像按摘要引用，因此回滚不
+依赖可变标签。
+
+### Job 回滚
+
+暂停 Scheduler、停止手动调度，并重新部署上一个 Job 镜像与配置。不要盲目
+重试付费采集；先检查持久运行记录和外部 Apify 运行 ID。
+
+### 数据库回滚
+
+模式向后兼容时优先使用前向兼容应用回滚。破坏性变化前创建按需备份。发生数据
+丢失时，恢复到新的 Cloud SQL 实例，私下验证，再一起切换服务与 Job。未来如
+使用 SQLite 快照，在回滚窗口内保持只读。
+
+### 成本紧急情况
+
+先暂停 Scheduler 并禁用手动调度。Cloud Run 服务空闲时可缩容到零，但 Cloud
+SQL 会持续产生费用，直到停止或删除。任何破坏性清理前先导出所需数据。
+
+## 9. V1 后运维事项
+
+生产基础、Dashboard、Pipeline v3、Gmail、两个 Scheduler、监控告警与备份控制
+均已上线并验证。独立恢复演练是唯一明确暂缓的恢复门槛；应在独立临时实例上
+完成，私下验证模式和数据，然后删除临时资源。
+
+首个版本禁用 Dashboard 手动执行。未来启用需要 Cloud Run Jobs 调度器、
+分布式操作幂等、已验证 IAP 身份和 CSRF 防护。
+
+部署模板和按角色生产预检已经实现并测试。离线渲染不代表获得应用授权。
+
+## 10. 已记录的所有者决策
+
+2026-08-17 批准：
+
+- 区域：`us-west1`；
+- 直接 Cloud Run IAP，仅所有者 Google 账号；
+- Cloud SQL PostgreSQL 17、`db-f1-micro`、共享核、非 HA；
+- 每月 20 美元预算，阈值 50%、80%、100%；
+- 每日备份、7 天 PITR 和删除保护；
+- 工作日 `America/New_York` 上午 9:15 与下午 6:00 采集；
+- 两个 Scheduler，不自动重试；
+- 首个版本锁定 Dashboard 手动采集；
+- 使用已确认的 300 美元试用额度，同时保留全部成本控制。
+
+专用项目、Billing 关联和 300 美元试用额度已在登录后的控制台确认。20 美元
+预算提醒和其他成本控制保持启用。部署批准永远不授权披露 Secret。
+
+## 11. 生产验收记录 — 2026-08-21
+
+项目 `stockpulse-production` 已在 `us-west1` 完成生产验收。
+
+固定发布产物：
+
+- Pipeline v3 镜像：
+  `us-west1-docker.pkg.dev/stockpulse-production/stockpulse/job@sha256:77c9874838cae740e68f09748409dc4649e78c01d32adc5b2daacd16618bbab2`；
+- Dashboard 来源 Commit 与镜像标签：`781d6760ae59`；
+- Dashboard 镜像：
+  `us-west1-docker.pkg.dev/stockpulse-production/stockpulse/stockpulse-service@sha256:26639af9174f3633137d495e3c18daf5c0d325aad2cd409accbd3f8fef3f4f6e`；
+- 验收时活动 Dashboard Revision：`stockpulse-dashboard-00004-99r`。
+
+验收证据：
+
+- 执行 `stockpulse-daily-pipeline-fdkln` 成功完成；
+- 持久流水线运行 ID：`8046cb618a2a4166a7c12919f95c558e`；
+- 有界 Apify 运行在 0.05 美元最高费用内采集五条 TSLA 消息；
+- PostgreSQL 写入、情绪分析、Dashboard 读取、固定 URL、Gmail 与两个 Scheduler
+  已验证；
+- 活动 Dashboard Revision 在线访问后没有 Error 级日志；
+- Dashboard 操作在首个版本保持锁定。
+
+事故记录：
+
+- 执行 `stockpulse-daily-pipeline-4rc5h` 在容器启动前因
+  `Resource readiness deadline exceeded` 失败；
+- `ResourcesAvailable`、`Started`、`Completed` 都为 false，没有容器应用日志；
+- 一次受控重试成功，因此被分类为临时 Cloud Run 资源配置问题，而不是应用或
+  数据库故障；
+- 第一次 Dashboard v3 部署最初仍把流量留在旧 Revision；
+  `gcloud run services update-traffic stockpulse-dashboard --to-latest`
+  把流量移到兼容 Revision。
+
+恢复基线：
+
+- 每日自动备份时间为 `22:00 UTC`；
+- 保留 7 个备份和 7 天事务日志；
+- PITR 已启用；
+- 成功按需备份 ID：`1787294067917`；
+- 备份说明：`post-v3-production-acceptance-2026-08-21`；
+- 恢复门槛 15 关闭前，仍需恢复到独立临时实例。
+
+## 12. 运维后续 — 2026-08-21
+
+基础设施失败告警独立于应用邮件启用：
+
+- 告警策略：`StockPulse Pipeline execution failure`；
+- 策略 ID：`15668922176435779223`；
+- 通知渠道：`StockPulse Operations Email`；
+- 渠道 ID：`458967596138340345`；
+- 匹配 `us-west1` 中 `stockpulse-daily-pipeline` 的 Error 级 Cloud Run Job 日志；
+- 通知限速为每五分钟一次；24 小时没有新匹配事件后自动关闭事故。
+
+恢复演练状态：
+
+- 尝试从备份 `1787294067917` 恢复到
+  `stockpulse-restore-drill-20260821`；
+- Cloud SQL API 在创建目标实例前以 HTTP 403 拒绝请求；
+- 后续实例列表确认没有临时实例或持续演练费用；
+- 自动备份、7 天 PITR 与成功按需备份仍保持启用；
+- 独立恢复演练被明确暂缓；在恢复到独立实例并验证前，恢复门槛 15 保持开放。

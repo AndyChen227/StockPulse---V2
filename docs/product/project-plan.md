@@ -1,5 +1,7 @@
 # StockPulse Product and Delivery Plan / StockPulse 产品与交付计划
 
+[English](#english) · [简体中文](#简体中文)
+
 > Last updated: 2026-08-21
 >
 > Status: V1 operational launch accepted; isolated Cloud SQL restore drill explicitly deferred
@@ -127,7 +129,7 @@ Priority order after a stable observation period:
 
 ---
 
-# 中文
+# 简体中文
 
 ## 1. 产品结果
 

@@ -1,5 +1,7 @@
 # StockPulse Repository Guide / StockPulse 仓库指南
 
+[English](#english) · [简体中文](#简体中文)
+
 > Purpose: make every tracked area discoverable without changing runtime paths
 >
 > Rule: keep standard tool entry points at the repository root; organize understanding through stable folders, local READMEs, and this file map
@@ -154,15 +156,18 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 1. Put installable runtime code only under `src/stockpulse/`.
 2. Add tests beside the corresponding boundary in `tests/test_<area>.py`.
 3. Put user/operator explanations in `docs/`; keep low-level implementation detail in code and PRs.
-4. Put reproducible labeled inputs and machine-readable benchmark outputs in `evaluations/`.
-5. Put only reviewed, secret-free, offline deployment contracts in `deploy/`.
-6. Treat `data/` as disposable local runtime state; never commit databases, raw messages, or credentials.
-7. Keep secrets out of every tracked file.
-8. Do not rename or move root tooling files without updating and testing every reference.
+4. Keep every reader-facing Markdown document complete in both languages, with
+   English first and Simplified Chinese second; keep commands and identifiers
+   identical across both sections.
+5. Put reproducible labeled inputs and machine-readable benchmark outputs in `evaluations/`.
+6. Put only reviewed, secret-free, offline deployment contracts in `deploy/`.
+7. Treat `data/` as disposable local runtime state; never commit databases, raw messages, or credentials.
+8. Keep secrets out of every tracked file.
+9. Do not rename or move root tooling files without updating and testing every reference.
 
 ---
 
-# 中文
+# 简体中文
 
 ## 1. 我应该从哪里开始？
 
@@ -242,15 +247,75 @@ Tests mirror product boundaries, so the filename tells contributors which behavi
 
 ## 5. 测试文件地图
 
-测试文件名与产品边界一一对应：配置、采集、存储、仓库、PostgreSQL、迁移、情绪、评估、话题、异常、流水线、通知、操作、API、CLI、容器和部署。完整的逐文件保护范围见本页英文表格与 [`tests/README.md`](../../tests/README.md)。
+测试与产品边界一一对应，因此文件名可以直接告诉贡献者哪些行为受到保护。
 
-## 6. 修改位置规则
+| 文件 | 保护的行为 |
+|---|---|
+| `test_config.py` | 默认值、Secret、生产角色校验和安全诊断 |
+| `test_collector.py` | Apify 限制、记录、失败和付费操作边界 |
+| `test_storage.py` | SQLite 校验、去重、迁移和指标 |
+| `test_repository.py` | 共享 SQLite 仓库行为 |
+| `test_postgres.py` | 不需要服务器的 PostgreSQL 配置、连接池与迁移契约 |
+| `test_postgres_integration.py` | CI 中针对 PostgreSQL 17 的共享仓库行为 |
+| `test_migration.py` | SQLite 清单、导入顺序、幂等、关联和回滚 |
+| `test_sentiment.py` | 模型适配器、版本、置信度和重新分析 |
+| `test_evaluation.py` | 基准模式和指标计算 |
+| `test_topics.py` | 话题分配、历史和代表消息排序 |
+| `test_anomaly.py` | 基线、阈值、重放身份和话题变化信号 |
+| `test_pipeline.py` | 完整有界每日编排和失败记录 |
+| `test_notifications.py` | 每日摘要、异常/失败邮件、SMTP 和去重 |
+| `test_actions.py` | 确认、限制、幂等和禁用操作行为 |
+| `test_api.py` | API 响应、校验、筛选、分页、错误和 UI 服务 |
+| `test_main.py` | CLI 路由和互斥命令行为 |
+| `test_container_contract.py` | 服务与 Job Dockerfile 安全和运行契约 |
+| `test_deployment.py` | 离线渲染器、计划、Secret 和 Manifest 输出 |
+| `test_repository_layout.py` | 根目录、双语文档契约、文档分类和 Markdown 链接完整性 |
+
+## 6. 部署文件地图
+
+| 文件 | 职责 |
+|---|---|
+| `deploy/README.md` | 安全门槛和已审查部署边界 |
+| `deploy/config.example.json` | 已批准项目与资源标识符的无 Secret 结构 |
+| `deploy/render.py` | 完全离线的校验与渲染；从不调用 Google Cloud |
+| `deploy/service.yaml.tmpl` | 私有 Cloud Run Dashboard/API 服务模板 |
+| `deploy/job.yaml.tmpl` | 单任务、不自动重试的流水线 Job 模板 |
+| `containers/service.Dockerfile` | 轻量 Dashboard/API 服务镜像 |
+| `containers/job.Dockerfile` | 固定模型流水线 Job 镜像 |
+| `config/env.example` | 不含凭证的安全环境变量模板 |
+| `config/requirements/base.txt` | 锁定的轻量运行依赖 |
+| `config/requirements/ai.txt` | 基础依赖加锁定 AI 依赖 |
+| `config/requirements/postgres.txt` | 基础依赖加锁定 PostgreSQL 依赖 |
+| `.github/workflows/tests.yml` | 五项 CI：两个 Python 版本、服务镜像、Job 镜像和 PostgreSQL |
+
+## 7. 评估与文档文件地图
+
+| 文件或区域 | 职责 |
+|---|---|
+| `evaluations/finance_sentiment_v1.jsonl` | 经过复核的 V1 金融方向样例 |
+| `evaluations/results/twitter-roberta-v1.json` | 保存的固定模型基线输出 |
+| `evaluations/results/prosus-finbert-v1.json` | 候选模型对比输出 |
+| `docs/product/project-history.md` | 按 PR 记录实现历程 |
+| `docs/product/project-plan.md` | 当前交付状态、后续门槛与完成标准 |
+| `docs/architecture/api.md` | API 与错误契约 |
+| `docs/product/dashboard.md` | Dashboard 行为和操作安全边界 |
+| `docs/analysis/sentiment-evaluation.md` | 情绪基准解释 |
+| `docs/analysis/topic-analysis.md` | 话题体系和代表消息证据 |
+| `docs/analysis/anomaly-detection.md` | 基线、阈值和重放行为 |
+| `docs/architecture/postgresql.md` | 生产数据库与迁移设计 |
+| `docs/architecture/cloud-run.md` | 容器与运行时契约 |
+| `docs/operations/google-cloud-runbook.md` | 所有者批准的配置、成本、安全、备份、验证与回滚顺序 |
+| `docs/decisions/` | 长期架构决策记录 |
+
+## 8. 修改位置规则
 
 1. 可安装运行代码只放在 `src/stockpulse/`。
 2. 测试放在 `tests/test_<领域>.py`，并与对应产品边界匹配。
 3. 用户和运维说明放在 `docs/`；低层实现细节留在代码和 PR。
-4. 可复现标注输入和机器可读结果放在 `evaluations/`。
-5. `deploy/` 只保存经过审查、无 Secret、可离线验证的部署契约。
-6. `data/` 是可丢弃的本地运行状态；绝不提交数据库、原始消息或凭证。
-7. 所有受 Git 跟踪文件都禁止保存真实 Secret。
-8. 移动根目录工具文件前，必须更新并测试所有引用。
+4. 所有面向读者的 Markdown 文档都必须提供完整英文与简体中文，英文在前、
+   中文在后；两边的命令和标识符必须一致。
+5. 可复现标注输入和机器可读结果放在 `evaluations/`。
+6. `deploy/` 只保存经过审查、无 Secret、可离线验证的部署契约。
+7. `data/` 是可丢弃的本地运行状态；绝不提交数据库、原始消息或凭证。
+8. 所有受 Git 跟踪文件都禁止保存真实 Secret。
+9. 移动根目录工具文件前，必须更新并测试所有引用。

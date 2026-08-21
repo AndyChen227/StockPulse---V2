@@ -103,6 +103,37 @@ class RepositoryLayoutTests(unittest.TestCase):
 
         self.assertEqual(failures, [], "Broken Markdown links:\n" + "\n".join(failures))
 
+    def test_explanatory_markdown_is_complete_english_first_bilingual(self) -> None:
+        """Keep every reader-facing Markdown file English-first and bilingual."""
+
+        english_heading = re.compile(r"(?m)^#{1,2} English\r?$")
+        chinese_heading = re.compile(r"(?m)^#{1,2} 简体中文\r?$")
+
+        for markdown_file in sorted(PROJECT_ROOT.rglob("*.md")):
+            text = markdown_file.read_text(encoding="utf-8")
+            english = english_heading.search(text)
+            chinese = chinese_heading.search(text)
+
+            with self.subTest(path=markdown_file.relative_to(PROJECT_ROOT)):
+                self.assertIsNotNone(english, "Missing English section")
+                self.assertIsNotNone(chinese, "Missing Simplified Chinese section")
+                assert english is not None and chinese is not None
+                self.assertLess(
+                    english.start(),
+                    chinese.start(),
+                    "English must appear before Simplified Chinese",
+                )
+
+                english_body = text[english.end() : chinese.start()]
+                chinese_body = text[chinese.end() :]
+                self.assertRegex(english_body, r"[A-Za-z]{3}")
+                self.assertRegex(chinese_body, r"[\u4e00-\u9fff]")
+                self.assertEqual(
+                    len(re.findall(r"(?m)^#{2,4} ", english_body)),
+                    len(re.findall(r"(?m)^#{2,4} ", chinese_body)),
+                    "English and Chinese sections must have matching structure",
+                )
+
     def test_v1_documentation_baseline_has_no_prelaunch_markers(self) -> None:
         core_documents = {
             "README.md": "**Current state — 2026-08-21:** V1 is live",
