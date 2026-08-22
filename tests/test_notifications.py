@@ -38,7 +38,7 @@ class NotificationTests(unittest.TestCase):
     @patch("stockpulse.notifications.smtplib.SMTP")
     def test_smtp_uses_starttls_and_never_puts_password_in_message(self, smtp: MagicMock) -> None:
         sender = SMTPEmailSender(self.settings)
-        sender.send(subject="Test", body="Safe body")
+        sender.send(subject="Test", body="Safe body", html_body="<b>Safe HTML</b>")
 
         client = smtp.return_value.__enter__.return_value
         client.starttls.assert_called_once_with()
@@ -47,9 +47,12 @@ class NotificationTests(unittest.TestCase):
         )
         message = client.send_message.call_args.args[0]
         self.assertNotIn("application-secret", message.as_string())
+        self.assertTrue(message.is_multipart())
+        self.assertIn("Safe body", message.get_body(preferencelist=("plain",)).get_content())
+        self.assertIn("Safe HTML", message.get_body(preferencelist=("html",)).get_content())
 
     def test_daily_summary_is_short_and_contains_core_metrics(self) -> None:
-        subject, body = daily_summary_email(
+        subject, body, html = daily_summary_email(
             settings=self.settings,
             run_id="run-1",
             run_counts={"messages": 5, "inserted": 3, "duplicates": 2, "analyzed": 3},
@@ -61,10 +64,14 @@ class NotificationTests(unittest.TestCase):
             anomaly=None,
         )
 
-        self.assertIn("[StockPulse Daily]", subject)
+        self.assertIn("StockPulse Daily", subject)
         self.assertIn("Sentiment score: +0.60", body)
-        self.assertIn("Bullish / Neutral / Bearish: 3 / 2 / 0", body)
-        self.assertLess(len(body.splitlines()), 20)
+        self.assertIn("Bullish / Neutral / Bearish: 60% / 40% / 0%", body)
+        self.assertIn("What this means", body)
+        self.assertIn("Mildly Bullish", html)
+        self.assertIn("View Full Dashboard", html)
+        self.assertIn("role=\"presentation\"", html)
+        self.assertNotIn("<script", html.lower())
 
     def test_alert_templates_explain_signal_and_failure_stage(self) -> None:
         metrics = [
@@ -79,7 +86,7 @@ class NotificationTests(unittest.TestCase):
             "analyzed_count": 25, "sentiment_score": -0.5,
         }]
         result = evaluate_anomaly(metrics)
-        _, anomaly_body = anomaly_alert_email(
+        _, anomaly_body, anomaly_html = anomaly_alert_email(
             settings=self.settings, run_id="run-2", result=result
         )
         _, failure_body = failure_alert_email(
@@ -93,6 +100,11 @@ class NotificationTests(unittest.TestCase):
 
         self.assertIn("volume_spike", anomaly_body)
         self.assertIn("Evidence", anomaly_body)
+        self.assertIn("HIGH SEVERITY", anomaly_html)
+        self.assertIn("Why the system flagged this", anomaly_html)
+        self.assertIn("IN PLAIN ENGLISH", anomaly_html)
+        self.assertIn("PROFESSIONAL ANALYSIS", anomaly_html)
+        self.assertIn("Discussion activity", anomaly_html)
         self.assertIn("Failed stage: sentiment analysis", failure_body)
         self.assertIn("Error type: RuntimeError", failure_body)
 
@@ -141,9 +153,57 @@ class NotificationTests(unittest.TestCase):
 
                 subject = sender.send.call_args.kwargs["subject"]
                 body = sender.send.call_args.kwargs["body"]
-                self.assertTrue(subject.startswith("[TEST] [StockPulse"))
+                self.assertTrue(subject.startswith("[TEST]"))
                 self.assertTrue(body.startswith("TEST ONLY"))
                 self.assertIn(expected, body)
+                if kind == "anomaly":
+                    html = sender.send.call_args.kwargs["html_body"]
+                    self.assertIn("TEST ONLY", html)
+                else:
+                    self.assertIsNone(sender.send.call_args.kwargs["html_body"])
+
+    def test_daily_anomaly_states_have_distinct_status_copy(self) -> None:
+        base_metric = {
+            "stat_date": "2026-08-20", "sentiment_score": 0.0,
+            "analyzed_count": 10, "bullish_count": 2, "neutral_count": 6,
+            "bearish_count": 2, "average_confidence": 0.75,
+        }
+        counts = {"messages": 10, "inserted": 10, "duplicates": 0, "analyzed": 10}
+        insufficient = evaluate_anomaly([{**base_metric, "analysis_version": "v1"}])
+        history = [
+            {"stat_date": f"2026-08-{day:02d}", "analysis_version": "v1", "analyzed_count": 10, "sentiment_score": 0.0}
+            for day in range(1, 8)
+        ]
+        normal = evaluate_anomaly(history + [{**base_metric, "analysis_version": "v1"}])
+
+        _, insufficient_text, insufficient_html = daily_summary_email(
+            settings=self.settings, run_id="run-i", run_counts=counts,
+            metric=base_metric, anomaly=insufficient,
+        )
+        _, normal_text, normal_html = daily_summary_email(
+            settings=self.settings, run_id="run-n", run_counts=counts,
+            metric=base_metric, anomaly=normal,
+        )
+        self.assertIn("Building historical baseline", insufficient_text)
+        self.assertIn("#f59e0b", insufficient_html)
+        self.assertIn("No unusual movement detected", normal_text)
+        self.assertIn("#22c55e", normal_html)
+
+    def test_medium_alert_uses_orange_severity_style(self) -> None:
+        history = [
+            {"stat_date": f"2026-08-{day:02d}", "analysis_version": "v1", "analyzed_count": 10, "sentiment_score": 0.0}
+            for day in range(1, 8)
+        ]
+        result = evaluate_anomaly(history + [{
+            "stat_date": "2026-08-08", "analysis_version": "v1",
+            "analyzed_count": 10, "sentiment_score": 0.5,
+        }])
+        _, text, html = anomaly_alert_email(
+            settings=self.settings, run_id="run-medium", result=result
+        )
+        self.assertIn("Severity: medium", text)
+        self.assertIn("MEDIUM SEVERITY", html)
+        self.assertIn("#f97316", html)
 
     def test_smoke_test_transport_failure_is_secret_safe(self) -> None:
         sender = MagicMock()

@@ -184,7 +184,7 @@ def _run_daily_pipeline_unlocked(
         )
         if sender is not None and anomaly_result is not None:
             if anomaly_result.status == "anomaly":
-                subject, body = anomaly_alert_email(
+                subject, body, html_body = anomaly_alert_email(
                     settings=settings,
                     run_id=run_id,
                     result=anomaly_result,
@@ -197,9 +197,10 @@ def _run_daily_pipeline_unlocked(
                     run_id=run_id,
                     subject=subject,
                     body=body,
+                    html_body=html_body,
                 )
             if should_send_daily_summary(settings, clock()):
-                subject, body = daily_summary_email(
+                subject, body, html_body = daily_summary_email(
                     settings=settings,
                     run_id=run_id,
                     run_counts=_run_counts(batch, inserted, duplicates, analyzed),
@@ -216,6 +217,7 @@ def _run_daily_pipeline_unlocked(
                     run_id=run_id,
                     subject=subject,
                     body=body,
+                    html_body=html_body,
                 )
         return run_id
     except Exception as error:
@@ -277,6 +279,7 @@ def _deliver_once(
     run_id: str,
     subject: str,
     body: str,
+    html_body: str | None = None,
 ) -> bool:
     """Send once per durable key; leave a failed send eligible for retry."""
 
@@ -284,7 +287,7 @@ def _deliver_once(
         if not repository.claim_notification(dedupe_key, kind, run_id=run_id):
             return False
         try:
-            sender.send(subject=subject, body=body)
+            sender.send(subject=subject, body=body, html_body=html_body)
         except Exception as error:
             repository.finish_notification(
                 dedupe_key,
