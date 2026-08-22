@@ -66,6 +66,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(stylesheet.status_code, 200)
         self.assertIn("text/css", stylesheet.headers["content-type"])
         self.assertIn("--green", stylesheet.text)
+        self.assertIn("[hidden] { display: none !important; }", stylesheet.text)
         self.assertEqual(script.status_code, 200)
         self.assertIn("javascript", script.headers["content-type"])
         self.assertIn("/api/v1/overview", script.text)
