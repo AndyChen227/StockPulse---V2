@@ -154,7 +154,8 @@ class DailyPipelineTests(unittest.TestCase):
             run_id="pipeline-run-email",
         )
         sender.send.assert_called_once()
-        self.assertIn("[StockPulse Daily]", sender.send.call_args.kwargs["subject"])
+        self.assertIn("StockPulse Daily", sender.send.call_args.kwargs["subject"])
+        self.assertIn("<html>", sender.send.call_args.kwargs["html_body"])
         repository.finish_notification.assert_called_once_with(
             "daily:TSLA:2026-08-20", delivered=True
         )
